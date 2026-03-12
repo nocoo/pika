@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   generateApiKey,
   handleCliAuth,
@@ -179,15 +179,18 @@ describe("handleCliAuth", () => {
 // ── resolveUser ────────────────────────────────────────────────
 
 describe("resolveUser", () => {
-  const originalEnv = { ...process.env };
-
   beforeEach(() => {
-    process.env = { ...originalEnv };
+    vi.stubEnv("E2E_SKIP_AUTH", undefined as unknown as string);
+    vi.stubEnv("NODE_ENV", "test");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("returns E2E test user when E2E_SKIP_AUTH is true in development", async () => {
-    process.env.E2E_SKIP_AUTH = "true";
-    process.env.NODE_ENV = "development";
+    vi.stubEnv("E2E_SKIP_AUTH", "true");
+    vi.stubEnv("NODE_ENV", "development");
 
     const request = new Request("http://localhost:7040/api/sessions");
     const result = await resolveUser(request, {
@@ -202,8 +205,8 @@ describe("resolveUser", () => {
   });
 
   it("does NOT bypass in production even with E2E_SKIP_AUTH", async () => {
-    process.env.E2E_SKIP_AUTH = "true";
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("E2E_SKIP_AUTH", "true");
+    vi.stubEnv("NODE_ENV", "production");
 
     const request = new Request("http://localhost:7040/api/sessions");
     const result = await resolveUser(request, {
