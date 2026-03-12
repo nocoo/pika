@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import Database from "better-sqlite3";
+import { Database } from "bun:sqlite";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -9,13 +9,13 @@ const MIGRATION_PATH = resolve(
 );
 
 describe("001-init migration", () => {
-  let db: Database.Database;
+  let db: Database;
 
   beforeEach(() => {
     db = new Database(":memory:");
     // Enable WAL mode and foreign keys like D1
-    db.pragma("journal_mode = WAL");
-    db.pragma("foreign_keys = ON");
+    db.run("PRAGMA journal_mode = WAL");
+    db.run("PRAGMA foreign_keys = ON");
   });
 
   afterEach(() => {
