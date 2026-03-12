@@ -13,7 +13,9 @@
     "prepare": "husky"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@vitest/coverage-v8": "^3.1.1",
+    "better-sqlite3": "^12.6.2",
     "husky": "^9.1.7",
     "typescript": "^5.8.2",
     "vitest": "^3.1.1"
