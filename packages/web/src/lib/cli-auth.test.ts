@@ -1,4 +1,31 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
+// ── Env helpers (bun test has no vi.stubEnv) ───────────────────
+
+const savedEnv: Record<string, string | undefined> = {};
+
+function setEnv(key: string, value: string | undefined) {
+  if (!(key in savedEnv)) savedEnv[key] = process.env[key];
+  if (value === undefined) {
+    delete process.env[key];
+  } else {
+    // @ts-expect-error NODE_ENV is readonly in vitest types but writable at runtime
+    process.env[key] = value;
+  }
+}
+
+function restoreEnv() {
+  for (const [key, value] of Object.entries(savedEnv)) {
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      // @ts-expect-error NODE_ENV is readonly in vitest types but writable at runtime
+      process.env[key] = value;
+    }
+  }
+  // Clear saved entries
+  for (const key of Object.keys(savedEnv)) delete savedEnv[key];
+}
 import {
   generateApiKey,
   handleCliAuth,
@@ -180,17 +207,17 @@ describe("handleCliAuth", () => {
 
 describe("resolveUser", () => {
   beforeEach(() => {
-    vi.stubEnv("E2E_SKIP_AUTH", undefined as unknown as string);
-    vi.stubEnv("NODE_ENV", "test");
+    setEnv("E2E_SKIP_AUTH", undefined);
+    setEnv("NODE_ENV", "test");
   });
 
   afterEach(() => {
-    vi.unstubAllEnvs();
+    restoreEnv();
   });
 
   it("returns E2E test user when E2E_SKIP_AUTH is true in development", async () => {
-    vi.stubEnv("E2E_SKIP_AUTH", "true");
-    vi.stubEnv("NODE_ENV", "development");
+    setEnv("E2E_SKIP_AUTH", "true");
+    setEnv("NODE_ENV", "development");
 
     const request = new Request("http://localhost:7040/api/sessions");
     const result = await resolveUser(request, {
@@ -205,8 +232,8 @@ describe("resolveUser", () => {
   });
 
   it("does NOT bypass in production even with E2E_SKIP_AUTH", async () => {
-    vi.stubEnv("E2E_SKIP_AUTH", "true");
-    vi.stubEnv("NODE_ENV", "production");
+    setEnv("E2E_SKIP_AUTH", "true");
+    setEnv("NODE_ENV", "production");
 
     const request = new Request("http://localhost:7040/api/sessions");
     const result = await resolveUser(request, {
