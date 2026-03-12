@@ -8,6 +8,15 @@ export type {
   RawSessionArchive,
   ParseResult,
   ParseError,
+  FileCursorBase,
+  ClaudeCursor,
+  CodexCursor,
+  GeminiCursor,
+  OpenCodeCursor,
+  OpenCodeSqliteCursor,
+  VscodeCopilotCursor,
+  FileCursor,
+  CursorState,
   SessionSnapshot,
 } from "./types.js";
 

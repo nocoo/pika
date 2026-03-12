@@ -86,6 +86,82 @@ export interface ParseError {
   sessionKey?: string;
 }
 
+// ── File cursor types ──────────────────────────────────────────
+
+/** Base fields for all per-file cursors (change detection triple-check) */
+export interface FileCursorBase {
+  /** File inode for detecting file rotation/replacement */
+  inode: number;
+  /** File mtime in ms (for fast-skip change detection) */
+  mtimeMs: number;
+  /** File size in bytes (for fast-skip change detection) */
+  size: number;
+  /** ISO 8601 timestamp of last cursor update */
+  updatedAt: string;
+}
+
+/** Claude Code: byte-offset into JSONL file */
+export interface ClaudeCursor extends FileCursorBase {
+  offset: number;
+}
+
+/** Codex CLI: byte-offset + cumulative token totals for diffing */
+export interface CodexCursor extends FileCursorBase {
+  offset: number;
+  lastTotalTokens: number;
+  lastModel: string | null;
+}
+
+/** Gemini CLI: array index into messages[] + cumulative totals */
+export interface GeminiCursor extends FileCursorBase {
+  messageIndex: number;
+  lastTotalTokens: number;
+  lastModel: string | null;
+}
+
+/** OpenCode JSON: dir-level mtime + per-file cursors */
+export interface OpenCodeCursor extends FileCursorBase {
+  /** Nothing beyond FileCursorBase needed per file */
+}
+
+/** OpenCode SQLite: watermark-based cursor */
+export interface OpenCodeSqliteCursor {
+  /** Database file inode for detecting replacement */
+  inode: number;
+  /** Last processed message timestamp for watermark queries */
+  lastTimeCreated: string;
+  /** ISO 8601 timestamp of last cursor update */
+  updatedAt: string;
+}
+
+/** VSCode Copilot: byte-offset + CRDT reconstruction state */
+export interface VscodeCopilotCursor extends FileCursorBase {
+  offset: number;
+  /** Set of processed request IDs for dedup */
+  processedRequestIds: string[];
+}
+
+/** Union of all per-file cursor types */
+export type FileCursor =
+  | ClaudeCursor
+  | CodexCursor
+  | GeminiCursor
+  | OpenCodeCursor
+  | VscodeCopilotCursor;
+
+/** Top-level cursor store persisted to ~/.config/pika/cursors.json */
+export interface CursorState {
+  version: 1;
+  /** Per-file cursors, keyed by absolute file path */
+  files: Record<string, FileCursor>;
+  /** Directory-level mtimeMs cache for fast skip (OpenCode JSON optimization) */
+  dirMtimes?: Record<string, number>;
+  /** OpenCode SQLite database cursor */
+  openCodeSqlite?: OpenCodeSqliteCursor;
+  /** ISO 8601 timestamp of last cursor update */
+  updatedAt: string | null;
+}
+
 // ── Session snapshot (upload payload) ──────────────────────────
 
 export interface SessionSnapshot {
