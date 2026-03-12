@@ -109,7 +109,10 @@ ON CONFLICT (user_id, session_key) DO UPDATE SET
   schema_version = excluded.schema_version,
   ingested_at = datetime('now'),
   updated_at = datetime('now')
-WHERE excluded.snapshot_at >= sessions.snapshot_at`;
+WHERE excluded.content_hash != sessions.content_hash
+   OR excluded.raw_hash != sessions.raw_hash
+   OR excluded.parser_revision > sessions.parser_revision
+   OR excluded.schema_version > sessions.schema_version`;
 
 // ── Handler ────────────────────────────────────────────────────
 
