@@ -1,5 +1,10 @@
 import { defineCommand } from "citty";
 import consola from "consola";
+import { join } from "node:path";
+import { homedir } from "node:os";
+import { CONFIG_DIR, LOGIN_TIMEOUT_MS } from "@pika/core";
+import { ConfigManager } from "../config/manager.js";
+import { performLogin } from "./login-flow.js";
 
 export default defineCommand({
   meta: {
@@ -18,7 +23,31 @@ export default defineCommand({
       description: "Use local dev server",
     },
   },
-  run({ args }) {
-    consola.info("Login command — not yet implemented");
+  async run({ args }) {
+    const configDir = join(homedir(), ".config", CONFIG_DIR);
+    const config = new ConfigManager(configDir, args.dev);
+
+    if (config.isLoggedIn() && !args.force) {
+      consola.info("Already logged in. Use --force to re-authenticate.");
+      return;
+    }
+
+    consola.start("Opening browser for authentication...");
+
+    const result = await performLogin({
+      openBrowser: async (url: string) => {
+        const { exec } = await import("node:child_process");
+        exec(`open "${url}"`);
+      },
+      config,
+      apiUrl: config.getApiUrl(),
+      timeoutMs: LOGIN_TIMEOUT_MS,
+    });
+
+    if (result.success) {
+      consola.success(`Logged in as ${result.email || "unknown"}`);
+    } else {
+      consola.error(result.error || "Login failed");
+    }
   },
 });
