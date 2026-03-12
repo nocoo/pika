@@ -1,0 +1,13 @@
+{
+  "name": "@pika/worker",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pika/core": "workspace:*"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@nocoo/pika",
+  "version": "0.0.0",
+  "type": "module",
+  "bin": {
+    "pika": "src/bin.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pika/core": "workspace:*"
+  }
+}
