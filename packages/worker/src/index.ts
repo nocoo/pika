@@ -79,6 +79,18 @@ export function validateIngestRequest(
 
 // ── SQL ────────────────────────────────────────────────────────
 
+/**
+ * Happy-path upsert: INSERT or UPDATE when versions are acceptable.
+ *
+ * The WHERE clause has two layers of protection:
+ * 1. Version floor: incoming parser_revision and schema_version must be
+ *    >= the existing row's values (prevents downgrade)
+ * 2. Content gate: update only if content actually changed OR version is
+ *    strictly newer (prevents redundant writes)
+ *
+ * The application layer pre-checks versions and returns 409 for older
+ * revisions before this SQL is ever executed.
+ */
 const SESSION_UPSERT_SQL = `INSERT INTO sessions
   (id, user_id, session_key, source, started_at, last_message_at,
    duration_seconds, snapshot_at, user_messages, assistant_messages,
@@ -109,10 +121,78 @@ ON CONFLICT (user_id, session_key) DO UPDATE SET
   schema_version = excluded.schema_version,
   ingested_at = datetime('now'),
   updated_at = datetime('now')
-WHERE excluded.content_hash != sessions.content_hash
-   OR excluded.raw_hash != sessions.raw_hash
-   OR excluded.parser_revision > sessions.parser_revision
-   OR excluded.schema_version > sessions.schema_version`;
+WHERE excluded.parser_revision >= sessions.parser_revision
+  AND excluded.schema_version >= sessions.schema_version
+  AND (
+    excluded.content_hash != sessions.content_hash
+    OR excluded.raw_hash != sessions.raw_hash
+    OR excluded.parser_revision > sessions.parser_revision
+    OR excluded.schema_version > sessions.schema_version
+  )`;
+
+/**
+ * Pre-check SQL: fetch existing version info for sessions that already exist.
+ * Used by the application layer to detect and reject stale version uploads
+ * with 409 before the upsert is attempted.
+ */
+const SESSION_VERSION_CHECK_SQL = `SELECT session_key, parser_revision, schema_version
+  FROM sessions WHERE user_id = ? AND session_key = ?`;
+
+// ── Version check ──────────────────────────────────────────────
+
+export interface VersionConflict {
+  sessionKey: string;
+  existingParserRevision: number;
+  existingSchemaVersion: number;
+  incomingParserRevision: number;
+  incomingSchemaVersion: number;
+}
+
+/**
+ * Pre-check versions for all sessions in the batch. Returns a list of
+ * conflicts where the incoming version is strictly older than the existing row.
+ */
+export async function checkVersionConflicts(
+  userId: string,
+  sessions: SessionSnapshot[],
+  db: D1Database,
+): Promise<VersionConflict[]> {
+  const conflicts: VersionConflict[] = [];
+
+  // Build batch of version check queries
+  const stmts = sessions.map((s) =>
+    db.prepare(SESSION_VERSION_CHECK_SQL).bind(userId, s.sessionKey),
+  );
+
+  const results = await db.batch<{
+    session_key: string;
+    parser_revision: number;
+    schema_version: number;
+  }>(stmts);
+
+  for (let i = 0; i < sessions.length; i++) {
+    const rows = results[i]?.results;
+    if (!rows || rows.length === 0) continue; // New session, no conflict
+
+    const existing = rows[0];
+    const incoming = sessions[i];
+
+    if (
+      incoming.parserRevision < existing.parser_revision ||
+      incoming.schemaVersion < existing.schema_version
+    ) {
+      conflicts.push({
+        sessionKey: incoming.sessionKey,
+        existingParserRevision: existing.parser_revision,
+        existingSchemaVersion: existing.schema_version,
+        incomingParserRevision: incoming.parserRevision,
+        incomingSchemaVersion: incoming.schemaVersion,
+      });
+    }
+  }
+
+  return conflicts;
+}
 
 // ── Handler ────────────────────────────────────────────────────
 
@@ -128,6 +208,18 @@ export async function handleSessionIngest(
   const { userId, sessions } = payload;
 
   try {
+    // Pre-check: reject sessions with older parser_revision or schema_version
+    const conflicts = await checkVersionConflicts(userId, sessions, env.DB);
+    if (conflicts.length > 0) {
+      return Response.json(
+        {
+          error: "Version conflict: incoming version is older than existing data",
+          conflicts,
+        },
+        { status: 409 },
+      );
+    }
+
     const stmts = sessions.map((s) =>
       env.DB.prepare(SESSION_UPSERT_SQL).bind(
         crypto.randomUUID(),
