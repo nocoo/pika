@@ -121,6 +121,32 @@ describe("login flow", () => {
     expect(result.error).toContain("timeout");
   });
 
+  it("calls log callback with URL when browser open fails", async () => {
+    const logFn = vi.fn();
+    const deps: LoginDeps = {
+      openBrowser: vi.fn().mockRejectedValue(new Error("no browser")),
+      log: logFn,
+      config,
+      apiUrl: "http://localhost:9999",
+      timeoutMs: 5000,
+    };
+
+    const loginPromise = performLogin(deps);
+    await new Promise((r) => setTimeout(r, 200));
+
+    // log should have been called with the manual URL
+    expect(logFn).toHaveBeenCalledTimes(1);
+    expect(logFn.mock.calls[0][0]).toContain("Could not open browser");
+    expect(logFn.mock.calls[0][0]).toContain("/api/auth/cli?callback=");
+
+    // Complete the flow so the test doesn't hang
+    const callbackUrl = (deps.openBrowser as any).mock.calls[0][0] as string;
+    const url = new URL(callbackUrl);
+    const cliCallback = url.searchParams.get("callback")!;
+    await fetch(`${cliCallback}?api_key=pk_${"f".repeat(32)}&email=t@t.com`);
+    await loginPromise;
+  });
+
   it("handles non-callback paths with 404", async () => {
     const deps: LoginDeps = {
       openBrowser: vi.fn().mockResolvedValue(undefined),

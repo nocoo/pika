@@ -3,6 +3,7 @@ import type { ConfigManager } from "../config/manager.js";
 
 export interface LoginDeps {
   openBrowser: (url: string) => Promise<void>;
+  log?: (msg: string) => void;
   config: ConfigManager;
   apiUrl: string;
   timeoutMs: number;
@@ -16,7 +17,7 @@ export interface LoginResult {
 
 export function performLogin(deps: LoginDeps): Promise<LoginResult> {
   return new Promise((resolve) => {
-    const { openBrowser, config, apiUrl, timeoutMs } = deps;
+    const { openBrowser, log, config, apiUrl, timeoutMs } = deps;
 
     const server = http.createServer((req, res) => {
       const url = new URL(req.url!, `http://localhost`);
@@ -63,7 +64,10 @@ export function performLogin(deps: LoginDeps): Promise<LoginResult> {
       const loginUrl = `${apiUrl}/api/auth/cli?callback=${encodeURIComponent(callbackUrl)}`;
 
       openBrowser(loginUrl).catch(() => {
-        // Browser open failure is non-fatal (user can open manually)
+        // Browser failed — print URL so user can open manually
+        if (log) {
+          log(`Could not open browser. Open this URL manually:\n  ${loginUrl}`);
+        }
       });
     });
 

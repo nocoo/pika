@@ -1,10 +1,22 @@
 import { defineCommand } from "citty";
 import consola from "consola";
 import { join } from "node:path";
-import { homedir } from "node:os";
+import { homedir, platform } from "node:os";
 import { CONFIG_DIR, LOGIN_TIMEOUT_MS } from "@pika/core";
 import { ConfigManager } from "../config/manager.js";
 import { performLogin } from "./login-flow.js";
+
+/** Platform-aware browser open command */
+function getBrowserCommand(): string {
+  switch (platform()) {
+    case "darwin":
+      return "open";
+    case "win32":
+      return "start";
+    default:
+      return "xdg-open";
+  }
+}
 
 export default defineCommand({
   meta: {
@@ -37,8 +49,10 @@ export default defineCommand({
     const result = await performLogin({
       openBrowser: async (url: string) => {
         const { exec } = await import("node:child_process");
-        exec(`open "${url}"`);
+        const cmd = getBrowserCommand();
+        exec(`${cmd} "${url}"`);
       },
+      log: (msg: string) => consola.info(msg),
       config,
       apiUrl: config.getApiUrl(),
       timeoutMs: LOGIN_TIMEOUT_MS,
