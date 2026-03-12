@@ -6,6 +6,7 @@ dist/
 .next/
 .vercel/
 .wrangler/
+*.tsbuildinfo
 
 # Environment
 .env
