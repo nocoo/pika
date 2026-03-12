@@ -85,10 +85,11 @@ Full conversation display:
 
 ### Search (`/search`)
 
-Full-text search across message chunks with:
+Full-text search across message chunks and tool context (tool names, file paths, commands):
 - Search input with instant feedback
-- Results grouped by session, showing matching chunk snippets
+- Results grouped by session, showing matching chunk snippets and/or tool context
 - FTS5 `snippet()` for keyword highlighting in results
+- Searches both message content and tool metadata (e.g., "Bash npm install", "Read src/index.ts")
 - Filters: source, project, time range
 - Click result -> jump to the specific message within a session replay
 
@@ -97,7 +98,8 @@ Full-text search across message chunks with:
 **Query implementation**:
 ```sql
 SELECT mc.session_id, mc.message_id, mc.ordinal, mc.chunk_index,
-       snippet(chunks_fts, 0, '<mark>', '</mark>', '...', 64) as snippet,
+       snippet(chunks_fts, 0, '<mark>', '</mark>', '...', 64) as content_snippet,
+       snippet(chunks_fts, 1, '<mark>', '</mark>', '...', 64) as tool_snippet,
        s.session_key, s.source, s.project_name, s.title, s.started_at
 FROM chunks_fts f
 JOIN message_chunks mc ON mc.rowid = f.rowid

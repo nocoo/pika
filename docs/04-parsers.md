@@ -7,6 +7,7 @@ Pika parsers extract **full conversation content** from local coding agent sessi
 Each source has:
 - A **parser**: reads raw files, emits `CanonicalSession` + `RawSessionArchive` objects
 - A **driver**: handles discovery, incremental cursors, and coordinates parsing
+- **Error handling**: parse failures are logged to `~/.config/pika/parse-errors.jsonl` (never silently dropped). See [03-cli.md](./03-cli.md#parse-error-queue) for details.
 
 ## Canonical Data Model
 
@@ -18,7 +19,7 @@ type Source = "claude-code" | "codex" | "gemini-cli" | "opencode" | "vscode-copi
 interface CanonicalSession {
   sessionKey: string;           // "claude:{id}", "codex:{id}", etc.
   source: Source;
-  parserVersion: string;        // e.g., "1.0.0"
+  parserRevision: number;       // monotonic integer, e.g., 1, 2, 3
   schemaVersion: number;        // e.g., 1
   startedAt: string;            // ISO 8601
   lastMessageAt: string;
@@ -56,7 +57,7 @@ Each parser also produces a `RawSessionArchive` that preserves the original sour
 interface RawSessionArchive {
   sessionKey: string;
   source: Source;
-  parserVersion: string;        // parser that collected this raw data
+  parserRevision: number;       // parser revision that collected this raw data
   collectedAt: string;          // ISO 8601
   sourceFiles: RawSourceFile[]; // one or more source files
 }
@@ -75,7 +76,7 @@ Each parser emits **two outputs** per session:
 1. **Canonical output** (`CanonicalSession`): Normalized conversation for display, search, and replay. All source-specific formats are mapped into a uniform structure.
 2. **Raw output** (`RawSessionArchive`): Original source payloads preserved verbatim. Enables future re-parsing when parser logic improves, and serves as an audit trail.
 
-This dual-layer approach means parser bugs can be fixed and sessions re-parsed from raw archives without asking users to re-upload. The raw archive is immutable once written; only the canonical layer is overwritten on re-ingest.
+This dual-layer approach means parser bugs can be fixed and sessions re-parsed from raw archives without asking users to re-upload. Raw archives use content-addressed R2 paths (`raw/{raw_hash}.json.gz`), so each unique raw payload is truly immutable — re-ingest writes a new key rather than overwriting. The canonical layer is overwritten on re-ingest to reflect the latest parser output.
 
 ## Source Parsers
 

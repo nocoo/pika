@@ -86,21 +86,24 @@ pika sync
   │     ├── Read from meta-queue.jsonl (byte-offset tracking)
   │     ├── Batch: 50 records per POST
   │     ├── POST /api/ingest/sessions
-  │     ├── Payload includes: content_hash, parser_version, schema_version
+  │     ├── Payload includes: content_hash, raw_hash, parser_revision, schema_version
   │     ├── Auth: Authorization: Bearer pk_...
   │     └── Retry: 5xx → 2 retries (1s, 2s backoff); 429 → Retry-After
   │
   ├── 5. Upload Content (versioned idempotent)
   │     ├── For each pending session directory
   │     ├── Compute content_hash: SHA-256 of uncompressed canonical JSON
+  │     ├── Compute raw_hash: SHA-256 of uncompressed raw JSON
   │     ├── PUT /api/ingest/content/{session_key}/canonical
-  │     │   Headers: Content-Encoding: gzip, X-Content-Hash, X-Parser-Version, X-Schema-Version
+  │     │   Headers: Content-Encoding: gzip, X-Content-Hash, X-Parser-Revision, X-Schema-Version
   │     ├── PUT /api/ingest/content/{session_key}/raw
-  │     │   Headers: Content-Encoding: gzip
+  │     │   Headers: Content-Encoding: gzip, X-Raw-Hash
+  │     │   R2 key: {user_id}/{session_key}/raw/{raw_hash}.json.gz (content-addressed, immutable)
   │     └── Server decides:
-  │           same hash → no-op,
-  │           different hash + newer version → overwrite,
-  │           older version → 409 reject
+  │           both hashes match → no-op,
+  │           content differs + newer revision → overwrite canonical + append raw,
+  │           only raw differs → append raw archive only,
+  │           older revision → 409 reject
   │
   └── 6. Update Cursors
         └── Save cursor state AFTER successful upload
@@ -119,6 +122,7 @@ All stored under `~/.config/pika/`:
 | `meta-queue.state.json` | Metadata upload byte offset |
 | `content-queue/` | Pending gzip content files (canonical.json.gz + raw.json.gz per session) |
 | `content-queue.state.json` | Content upload tracking |
+| `parse-errors.jsonl` | Parse error log (file path, line, error message, timestamp) |
 
 ### Config Format
 
@@ -159,6 +163,32 @@ interface UploadEngineOptions {
 | Not logged in | `consola.error("Not logged in. Run: pika login")` |
 | No sources found | `consola.info("No AI tool sessions found")` |
 | Network error | Retry with backoff, then fail gracefully |
-| Corrupted JSONL line | Skip silently, continue parsing |
+| Corrupted JSONL line / parse error | Log to `~/.config/pika/parse-errors.jsonl`, `consola.warn` at sync end |
 | API auth failure (401) | `consola.error("API key invalid. Run: pika login --force")` |
 | Partial upload failure | Cursor NOT advanced; retry on next sync |
+
+### Parse Error Queue
+
+Parse errors are **never silently dropped**. For an archival product, silent data loss is unacceptable — users must know when sessions are incomplete.
+
+```
+~/.config/pika/parse-errors.jsonl
+```
+
+Each line is a JSON object:
+```typescript
+interface ParseError {
+  timestamp: string;          // ISO 8601
+  source: Source;             // which parser
+  filePath: string;           // source file that failed
+  line?: number;              // line number (for JSONL parsers)
+  error: string;              // error message
+  sessionKey?: string;        // if known at time of failure
+}
+```
+
+**Visibility**:
+- `pika sync` prints `consola.warn("N parse errors in this run")` at the end if any errors occurred
+- `pika status` shows total error count and the last 5 errors
+- Errors do NOT block the sync pipeline — other sessions continue to parse and upload normally
+- Error file is rotated when it exceeds 1MB (old errors archived to `parse-errors.1.jsonl`)

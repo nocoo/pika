@@ -10,7 +10,7 @@ Pika uses a **three-tier storage** strategy:
 ### Design Principles
 
 1. **No irreversible truncation**: D1 never stores truncated-then-discarded content. All searchable text is chunked, never clipped.
-2. **Idempotent versioned overwrites**: Same session can be re-uploaded safely. content_hash deduplicates; parser_version enables re-parse without data loss.
+2. **Idempotent versioned overwrites**: Same session can be re-uploaded safely. content_hash deduplicates; parser_revision enables re-parse without data loss.
 3. **Canonical + Raw dual layer**: Canonical (normalized) data powers the UI; raw source payloads are archived for future re-parsing, distillation, or audit.
 4. **Schema supports future derived artifacts**: summary, embeddings, memory candidates can attach to sessions without schema migration.
 
@@ -79,12 +79,13 @@ CREATE TABLE sessions (
   -- Content references (R2 keys)
   content_key TEXT,                     -- R2 key for canonical conversation
   content_size INTEGER,                 -- compressed size in bytes
-  raw_key TEXT,                         -- R2 key for raw source payload
+  raw_key TEXT,                         -- R2 key for current raw archive (versioned path)
   raw_size INTEGER,                     -- compressed raw size in bytes
 
   -- Versioning & idempotency
   content_hash TEXT,                    -- SHA-256 of uncompressed canonical JSON
-  parser_version TEXT NOT NULL DEFAULT '1.0.0',  -- parser that produced this data
+  raw_hash TEXT,                        -- SHA-256 of uncompressed raw JSON (independent of content_hash)
+  parser_revision INTEGER NOT NULL DEFAULT 1,    -- monotonic integer, bumped on parser bug fixes
   schema_version INTEGER NOT NULL DEFAULT 1,     -- canonical schema version
   ingested_at TEXT,                     -- when server accepted this upload
 
@@ -151,12 +152,15 @@ CREATE TABLE message_chunks (
   chunk_index INTEGER NOT NULL,         -- 0-based chunk position within message
 
   content TEXT NOT NULL,                -- chunk text (~2000 chars max, split at natural boundaries)
+  tool_context TEXT,                    -- "ToolName: summary" (only on chunk_index=0 for tool messages)
 
   created_at TEXT DEFAULT (datetime('now')),
 
   UNIQUE(message_id, chunk_index)
 );
 ```
+
+**`tool_context` column**: For tool-role messages, chunk_index=0 carries `"{tool_name}: {tool_input_summary}"` (e.g., `"Bash: npm install"`, `"Read: src/index.ts"`). This makes tool calls, file paths, and commands searchable via FTS5 alongside message content. Non-tool messages have `tool_context = NULL`.
 
 ### Tags Table
 
@@ -250,6 +254,7 @@ CREATE INDEX idx_session_tags_tag ON session_tags(tag_id);
 ```sql
 CREATE VIRTUAL TABLE chunks_fts USING fts5(
   content,
+  tool_context,
   content='message_chunks',
   content_rowid='rowid',
   tokenize='unicode61 remove_diacritics 2'
@@ -257,20 +262,20 @@ CREATE VIRTUAL TABLE chunks_fts USING fts5(
 
 -- Auto-sync triggers
 CREATE TRIGGER chunks_fts_ai AFTER INSERT ON message_chunks BEGIN
-  INSERT INTO chunks_fts(rowid, content)
-  VALUES (new.rowid, new.content);
+  INSERT INTO chunks_fts(rowid, content, tool_context)
+  VALUES (new.rowid, new.content, new.tool_context);
 END;
 
 CREATE TRIGGER chunks_fts_ad AFTER DELETE ON message_chunks BEGIN
-  INSERT INTO chunks_fts(chunks_fts, rowid, content)
-  VALUES ('delete', old.rowid, old.content);
+  INSERT INTO chunks_fts(chunks_fts, rowid, content, tool_context)
+  VALUES ('delete', old.rowid, old.content, old.tool_context);
 END;
 
 CREATE TRIGGER chunks_fts_au AFTER UPDATE ON message_chunks BEGIN
-  INSERT INTO chunks_fts(chunks_fts, rowid, content)
-  VALUES ('delete', old.rowid, old.content);
-  INSERT INTO chunks_fts(rowid, content)
-  VALUES (new.rowid, new.content);
+  INSERT INTO chunks_fts(chunks_fts, rowid, content, tool_context)
+  VALUES ('delete', old.rowid, old.content, old.tool_context);
+  INSERT INTO chunks_fts(rowid, content, tool_context)
+  VALUES (new.rowid, new.content, new.tool_context);
 END;
 ```
 
@@ -286,13 +291,16 @@ END;
 | Session replay (messages) | `idx_messages_session` | Sequential by ordinal |
 | Full-text search | `chunks_fts` MATCH + join | FTS5 inverted index |
 | Tag filter | Join via `session_tags` | Small join table |
-| Idempotency check | `UNIQUE(user_id, session_key)` + `content_hash` | O(1) lookup |
+| Idempotency check | `UNIQUE(user_id, session_key)` + `content_hash` + `raw_hash` | O(1) lookup |
 
 ### FTS Search Query (Chunked)
 
+Searches across both message content and tool context (tool names, file paths, commands):
+
 ```sql
 SELECT mc.session_id, mc.message_id, mc.ordinal, mc.chunk_index,
-       snippet(chunks_fts, 0, '<mark>', '</mark>', '...', 64) as snippet,
+       snippet(chunks_fts, 0, '<mark>', '</mark>', '...', 64) as content_snippet,
+       snippet(chunks_fts, 1, '<mark>', '</mark>', '...', 64) as tool_snippet,
        s.session_key, s.source, s.project_name, s.title, s.started_at
 FROM chunks_fts f
 JOIN message_chunks mc ON mc.rowid = f.rowid
@@ -306,6 +314,8 @@ ORDER BY rank
 LIMIT 50
 ```
 
+The MATCH query searches across both FTS5 columns (`content` and `tool_context`). Searching for "Bash npm install" will match both the tool_context (`"Bash: npm install"`) and any message content mentioning it. Column-specific search is also possible: `tool_context:"Read src/index.ts"`.
+
 ## Ingest Idempotency Protocol
 
 ### Write Semantics
@@ -314,39 +324,60 @@ Same `user_id + session_key` can be uploaded repeatedly. The server decides what
 
 ```
 1. Look up existing session by (user_id, session_key)
-2. If not found → INSERT (new session)
+2. If not found → INSERT (new session, write canonical + raw to R2)
 3. If found:
-   a. Compare content_hash
-      - Same hash → no-op (return 200, skip D1/R2 writes)
-      - Different hash:
-        i.  Check parser_version + schema_version
-        ii. If new version >= existing → OVERWRITE
-            - Delete old message_chunks + messages (cascade)
-            - Insert new messages + chunks
-            - Update R2 canonical content
-            - Archive raw payload to R2 (always, even on overwrite)
-            - Update session metadata + content_hash + ingested_at
-        iii.If new version < existing → REJECT (return 409)
+   a. Compare content_hash AND raw_hash
+      - Both hashes match → no-op (return 200, skip all writes)
+   b. If content_hash differs OR parser_revision > existing:
+      i.  Check parser_revision + schema_version
+      ii. If new parser_revision > existing OR new schema_version > existing → OVERWRITE
+          - Delete old message_chunks + messages (cascade)
+          - Insert new messages + chunks
+          - Overwrite R2 canonical content
+          - Write raw to new R2 key: raw/{raw_hash}.json.gz (never overwrites old raw)
+          - Update session metadata + content_hash + raw_hash + raw_key + ingested_at
+      iii.If new parser_revision <= existing AND new schema_version <= existing
+          AND content_hash differs → REJECT (return 409 Conflict)
+   c. If only raw_hash differs (content_hash same, parser_revision same):
+      - Write new raw archive to R2: raw/{raw_hash}.json.gz
+      - Update raw_key + raw_hash + raw_size on session
+      - Return 200 (raw-only update, no canonical rewrite)
 ```
+
+### Why parser_revision is an integer (not semver)
+
+Semver strings (`"1.0.0"`) cannot be reliably compared with SQL `>=` — lexicographic ordering means `"9.0.0" > "10.0.0"`. A monotonic integer (`parser_revision`) avoids this entirely: `parser_revision = 2` is always newer than `parser_revision = 1`.
 
 ### Worker Upsert SQL
 
 ```sql
-INSERT INTO sessions (id, user_id, session_key, source, ..., content_hash, parser_version, schema_version, ingested_at)
-VALUES (?, ?, ?, ?, ..., ?, ?, ?, datetime('now'))
+INSERT INTO sessions (id, user_id, session_key, source, ..., content_hash, raw_hash, parser_revision, schema_version, ingested_at)
+VALUES (?, ?, ?, ?, ..., ?, ?, ?, ?, datetime('now'))
 ON CONFLICT (user_id, session_key) DO UPDATE SET
   source = excluded.source,
   started_at = excluded.started_at,
   last_message_at = excluded.last_message_at,
   -- ... all metadata fields ...
   content_hash = excluded.content_hash,
-  parser_version = excluded.parser_version,
+  raw_hash = excluded.raw_hash,
+  raw_key = excluded.raw_key,
+  parser_revision = excluded.parser_revision,
   schema_version = excluded.schema_version,
   ingested_at = datetime('now'),
   updated_at = datetime('now')
 WHERE excluded.content_hash != sessions.content_hash
-  AND excluded.schema_version >= sessions.schema_version;
+   OR excluded.raw_hash != sessions.raw_hash
+   OR excluded.parser_revision > sessions.parser_revision
+   OR excluded.schema_version > sessions.schema_version;
 ```
+
+Note: The WHERE clause uses `OR` — any of these conditions triggers an update:
+- Different canonical content
+- Different raw content
+- Newer parser revision (even if content_hash is unchanged — parser may produce identical canonical output but we still want to record the newer revision)
+- Newer schema version
+
+The application layer (Worker JS) handles the full decision tree (including 409 rejection for older revisions). The SQL above is the "happy path" upsert; the Worker pre-checks versions before executing it.
 
 ## R2 Storage Layout
 
@@ -354,9 +385,14 @@ WHERE excluded.content_hash != sessions.content_hash
 Bucket: pika-sessions
 +-- {user_id}/
     +-- {session_key}/
-        +-- canonical.json.gz     # Normalized conversation (for replay)
-        +-- raw.json.gz           # Original source payload (immutable archive)
+        +-- canonical.json.gz                 # Normalized conversation (overwritten on re-ingest)
+        +-- raw/
+            +-- {raw_hash}.json.gz            # Immutable raw archive (one per unique raw payload)
 ```
+
+**Canonical** is a single file, overwritten when a newer parser_revision produces different output. This is the "current best" representation.
+
+**Raw** uses content-addressed paths (`raw/{hash}.json.gz`). Each unique raw payload gets its own key, making raw truly immutable — re-ingest with different raw content creates a new file without destroying the old one. The `sessions.raw_key` column always points to the latest raw archive; older versions remain in R2 but are not actively referenced (available for audit/recovery).
 
 ### Canonical Object Format (`canonical.json.gz`)
 
@@ -364,7 +400,7 @@ Bucket: pika-sessions
 interface CanonicalSession {
   sessionKey: string;
   source: Source;
-  parserVersion: string;        // e.g., "1.0.0"
+  parserRevision: number;       // monotonic integer, e.g., 1, 2, 3
   schemaVersion: number;        // e.g., 1
   messages: CanonicalMessage[];
 }
@@ -391,7 +427,7 @@ interface CanonicalMessage {
 interface RawSessionArchive {
   sessionKey: string;
   source: Source;
-  parserVersion: string;        // parser that collected this raw data
+  parserRevision: number;       // parser revision that collected this raw data
   collectedAt: string;          // ISO 8601
   sourceFiles: RawSourceFile[]; // one or more source files
 }

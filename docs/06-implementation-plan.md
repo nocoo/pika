@@ -68,9 +68,9 @@ E2E tests bypass authentication via:
 | # | Commit | Description | Tests |
 |---|--------|-------------|-------|
 | 1.1 | `chore: initialize bun workspace monorepo` | Root `package.json` with workspaces, `tsconfig.json`, `vitest.config.ts`, `.gitignore`, Husky hooks | L2: tsc passes |
-| 1.2 | `feat: add core package with shared types` | `packages/core/src/types.ts` (Source, CanonicalSession, CanonicalMessage, RawSessionArchive, SessionSnapshot), `constants.ts` (PARSER_VERSION, SCHEMA_VERSION), `validation.ts`, `index.ts` | L1: type validation tests |
-| 1.3 | `feat: add d1 migration 001-init` | `scripts/migrations/001-init.sql` — users, accounts, sessions (with content_hash, parser_version, schema_version), messages, message_chunks, chunks_fts, indexes | L1: SQL syntax validation test |
-| 1.4 | `feat: add worker package with ingest routes` | `packages/worker/` — wrangler.toml, session metadata ingest route with idempotent upsert logic (content_hash check, version comparison), shared secret auth | L1: request validation tests |
+| 1.2 | `feat: add core package with shared types` | `packages/core/src/types.ts` (Source, CanonicalSession, CanonicalMessage, RawSessionArchive, ParseError, SessionSnapshot), `constants.ts` (PARSER_REVISION, SCHEMA_VERSION), `validation.ts`, `index.ts` | L1: type validation tests |
+| 1.3 | `feat: add d1 migration 001-init` | `scripts/migrations/001-init.sql` — users, accounts, sessions (with content_hash, raw_hash, parser_revision, schema_version), messages, message_chunks (with tool_context), chunks_fts (content + tool_context), indexes | L1: SQL syntax validation test |
+| 1.4 | `feat: add worker package with ingest routes` | `packages/worker/` — wrangler.toml, session metadata ingest route with idempotent upsert logic (content_hash + raw_hash check, parser_revision comparison as integer), shared secret auth | L1: request validation tests |
 | 1.5 | `feat: add cli package skeleton` | `packages/cli/` — bin.ts, cli.ts (citty), command stubs, config manager | L1: config manager tests |
 | 1.6 | `feat: implement cli login command` | Login flow: local HTTP server, browser open, callback handler, save API key | L1: login flow unit tests (mocked HTTP) |
 | 1.7 | `feat: add web package with nextauth` | `packages/web/` — Next.js 16, NextAuth v5 config, Google OAuth, D1 adapter, login page | L2: tsc passes |
@@ -83,8 +83,8 @@ E2E tests bypass authentication via:
 - [ ] `bun test` passes with 90%+ coverage
 - [ ] `pika login` opens browser and completes OAuth flow
 - [ ] D1 migration applies cleanly via `wrangler d1 migrations apply`
-- [ ] D1 migration includes message_chunks + chunks_fts tables
-- [ ] Sessions table has content_hash, parser_version, schema_version fields
+- [ ] D1 migration includes message_chunks (with tool_context) + chunks_fts (content + tool_context) tables
+- [ ] Sessions table has content_hash, raw_hash, parser_revision, schema_version fields
 
 ---
 
@@ -109,19 +109,20 @@ E2E tests bypass authentication via:
 | 2.11 | `feat: add vscode copilot parser` | CRDT reconstruction, request metadata correlation | L1: fixture-based tests |
 | 2.12 | `feat: add vscode copilot session driver` | Discovery + CRDT cursor state | L1: tests |
 | 2.13 | `feat: add driver registry` | Auto-detect available sources, construct driver set | L1: registry tests with mocked fs |
-| 2.14 | `feat: add upload engine` | Batch metadata upload with retry + backoff, content_hash computation (SHA-256 of uncompressed canonical JSON) | L1: upload engine tests (mocked HTTP) |
-| 2.15 | `feat: add content upload (dual R2)` | Gzip compress, dual upload to R2: `canonical.json.gz` (normalized) + `raw.json.gz` (original) via API or presigned URL | L1: compression + upload tests |
-| 2.16 | `feat: add sync command` | Orchestrate: discover -> parse -> split -> collect raw payload alongside canonical output -> upload | L1: integration test with fixtures |
-| 2.16b | `feat: add message chunking utility` | Split message content at natural boundaries (~2000 chars), paragraph/sentence/line aware chunking | L1: chunking boundary tests (long messages, edge cases) |
-| 2.17 | `feat: add worker session ingest + R2 storage` | Worker: content_hash comparison for idempotency (same hash = no-op), parser_version/schema_version comparison (newer overwrites, older rejects), chunked message content insertion into message_chunks + chunks_fts, dual R2 put (canonical.json.gz + raw.json.gz) | L1: worker handler tests |
+| 2.14 | `feat: add upload engine` | Batch metadata upload with retry + backoff, content_hash + raw_hash computation (SHA-256 of uncompressed JSON) | L1: upload engine tests (mocked HTTP) |
+| 2.15 | `feat: add content upload (dual R2)` | Gzip compress, dual upload to R2: `canonical.json.gz` (overwrite) + `raw/{raw_hash}.json.gz` (content-addressed, immutable) via API or presigned URL | L1: compression + upload tests |
+| 2.16 | `feat: add sync command` | Orchestrate: discover -> parse -> split -> collect raw payload alongside canonical output -> upload. Parse errors logged to error queue (non-blocking) | L1: integration test with fixtures |
+| 2.16b | `feat: add message chunking utility` | Split message content at natural boundaries (~2000 chars), paragraph/sentence/line aware chunking. Populate tool_context on chunk_index=0 for tool messages | L1: chunking boundary tests (long messages, edge cases) |
+| 2.17 | `feat: add worker session ingest + R2 storage` | Worker: content_hash + raw_hash comparison for idempotency (both match = no-op), parser_revision/schema_version comparison as integers (newer overwrites, older rejects), chunked message content insertion into message_chunks (with tool_context) + chunks_fts, dual R2 put (canonical.json.gz overwrite + raw/{raw_hash}.json.gz append) | L1: worker handler tests |
 
 ### Verification Gate
 
 - [ ] `pika sync` parses sessions from all 5 sources
 - [ ] Incremental sync only processes changed files
 - [ ] Metadata appears in D1, content in R2
-- [ ] Both canonical.json.gz and raw.json.gz appear in R2 for each session
-- [ ] Re-upload of same content (identical content_hash) is a no-op (idempotency)
+- [ ] Both canonical.json.gz and raw/{hash}.json.gz appear in R2 for each session
+- [ ] Re-upload of same content (identical content_hash + raw_hash) is a no-op (idempotency)
+- [ ] Parse errors are logged to parse-errors.jsonl (not silently dropped)
 - [ ] 90%+ test coverage maintained
 
 ---
@@ -138,7 +139,7 @@ E2E tests bypass authentication via:
 | 3.2 | `feat: add r2 client for web` | `lib/r2.ts` — presigned URL generation | L1: URL generation tests |
 | 3.3 | `feat: add sessions api route` | `GET /api/sessions` — list with filters, pagination | L1: query builder tests; L3: endpoint test |
 | 3.4 | `feat: add session detail api route` | `GET /api/sessions/{id}` — metadata + presigned content URL | L3: endpoint test |
-| 3.5 | `feat: add search api route` | `GET /api/search` — chunks_fts MATCH query with message_chunks join, snippet extraction | L1: query builder; L3: endpoint test |
+| 3.5 | `feat: add search api route` | `GET /api/search` — chunks_fts MATCH query with message_chunks join (searches content + tool_context), snippet extraction | L1: query builder; L3: endpoint test |
 | 3.6 | `feat: add stats api route` | `GET /api/stats` — aggregate queries | L3: endpoint test |
 | 3.7 | `feat: add ingest api routes` | `POST /api/ingest/sessions`, `PUT /api/ingest/content` — proxy to worker | L3: endpoint tests |
 | 3.8 | `feat: add dashboard layout` | Sidebar navigation, header, auth guard | L4: can navigate between pages |
@@ -173,7 +174,7 @@ E2E tests bypass authentication via:
 | 4.5 | `feat: add notifier hooks (init command)` | Install hooks into AI tools for auto-sync | L1: hook install tests |
 | 4.6 | `feat: add notify command with coordinator` | Lock-based sync coordination, follow-up detection | L1: coordinator tests |
 | 4.7 | `feat: add r2 presigned url direct upload` | CLI uploads content directly to R2, bypassing API | L1: presigned flow tests |
-| 4.8 | `feat: add status command` | Show sync status, last sync time, session counts | L1: status display tests |
+| 4.8 | `feat: add status command` | Show sync status, last sync time, session counts, parse error summary | L1: status display tests |
 
 ---
 
