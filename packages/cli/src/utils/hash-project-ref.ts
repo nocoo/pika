@@ -1,0 +1,26 @@
+/**
+ * Privacy-safe project reference hashing.
+ *
+ * All project references are SHA-256 hashed before upload to ensure
+ * pika never transmits plaintext project names, paths, or other
+ * identifying information. The hash is truncated to 16 hex chars
+ * (64 bits) — enough for uniqueness, short enough for display.
+ */
+
+import { createHash } from "node:crypto";
+
+/** Length of the hex prefix used for project_ref hashes */
+export const PROJECT_REF_HASH_LENGTH = 16;
+
+/**
+ * Hash a project reference string.
+ *
+ * Returns a 16-char hex prefix of SHA-256(input), or null if input is null/empty.
+ */
+export function hashProjectRef(raw: string | null): string | null {
+  if (!raw) return null;
+  return createHash("sha256")
+    .update(raw)
+    .digest("hex")
+    .slice(0, PROJECT_REF_HASH_LENGTH);
+}
