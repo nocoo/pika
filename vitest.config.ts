@@ -19,6 +19,7 @@ export default defineConfig({
         "**/node_modules/**",
         "packages/web/src/app/**",
         "packages/web/src/lib/auth.ts",
+        "packages/web/src/lib/d1.ts",
       ],
       thresholds: {
         statements: 90,

@@ -9,8 +9,7 @@ function setEnv(key: string, value: string | undefined) {
   if (value === undefined) {
     delete process.env[key];
   } else {
-    // @ts-expect-error NODE_ENV is readonly in vitest types but writable at runtime
-    process.env[key] = value;
+    (process.env as Record<string, string>)[key] = value;
   }
 }
 
@@ -19,8 +18,7 @@ function restoreEnv() {
     if (value === undefined) {
       delete process.env[key];
     } else {
-      // @ts-expect-error NODE_ENV is readonly in vitest types but writable at runtime
-      process.env[key] = value;
+      (process.env as Record<string, string>)[key] = value;
     }
   }
   // Clear saved entries
