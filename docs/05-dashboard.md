@@ -203,4 +203,4 @@ class D1Client {
 - **Dockerfile**: Multi-stage (Bun build -> Node.js 22-slim runtime)
 - **Platform**: Railway (Docker builder)
 - **Output**: `next.config.ts` with `output: "standalone"`
-- **Environment variables**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_SECRET`, `CF_ACCOUNT_ID`, `CF_D1_DATABASE_ID`, `CF_API_TOKEN`, `CF_R2_*`, `WORKER_SECRET`, `WORKER_URL`
+- **Environment variables**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_SECRET`, `CF_ACCOUNT_ID`, `CF_D1_DATABASE_ID`, `CF_D1_API_TOKEN`, `CF_R2_*`, `WORKER_SECRET`, `WORKER_URL`
