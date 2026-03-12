@@ -71,7 +71,7 @@ Each session card shows: source icon, title/first message preview, project name,
 
 Full conversation display:
 1. **Load metadata** from D1 (instant)
-2. **Load full content** from R2 (async, shows loading state)
+2. **Load full content** from R2 `canonical.json.gz` (async, shows loading state)
 3. **Render messages** sequentially with:
    - Role-based styling (user = right, assistant = left, tool = indented)
    - Code blocks with syntax highlighting
@@ -85,25 +85,25 @@ Full conversation display:
 
 ### Search (`/search`)
 
-Full-text search with:
+Full-text search across message chunks with:
 - Search input with instant feedback
-- Results grouped by session, showing matching message snippets
-- FTS5 `highlight()` for keyword highlighting in results
+- Results grouped by session, showing matching chunk snippets
+- FTS5 `snippet()` for keyword highlighting in results
 - Filters: source, project, time range
-- Click result -> jump to exact message in session replay
+- Click result -> jump to the specific message within a session replay
 
 **Data source**: `GET /api/search?q=...&source=...&from=...&to=...`
 
 **Query implementation**:
 ```sql
-SELECT m.id, m.session_id, m.role, m.ordinal,
-       snippet(messages_fts, 0, '<mark>', '</mark>', '...', 64) as snippet,
+SELECT mc.session_id, mc.message_id, mc.ordinal, mc.chunk_index,
+       snippet(chunks_fts, 0, '<mark>', '</mark>', '...', 64) as snippet,
        s.session_key, s.source, s.project_name, s.title, s.started_at
-FROM messages_fts f
-JOIN messages m ON m.rowid = f.rowid
-JOIN sessions s ON m.session_id = s.id
-WHERE messages_fts MATCH ?
-  AND s.user_id = ?
+FROM chunks_fts f
+JOIN message_chunks mc ON mc.rowid = f.rowid
+JOIN sessions s ON mc.session_id = s.id
+WHERE chunks_fts MATCH ?
+  AND mc.user_id = ?
   AND s.source IN (?)              -- optional filter
   AND s.last_message_at >= ?       -- optional filter
   AND s.last_message_at <= ?       -- optional filter
@@ -125,7 +125,8 @@ LIMIT 50
 | Route | Method | Auth | Description |
 |-------|--------|------|-------------|
 | `/api/ingest/sessions` | POST | Bearer `pk_...` | Batch session metadata upsert |
-| `/api/ingest/content/{key}` | PUT | Bearer `pk_...` | Upload gzip content to R2 |
+| `/api/ingest/content/{key}/canonical` | PUT | Bearer `pk_...` | Upload canonical conversation (gzip) to R2 |
+| `/api/ingest/content/{key}/raw` | PUT | Bearer `pk_...` | Upload raw source payload (gzip) to R2 |
 
 Both routes validate the Bearer token against `users.api_key`, then proxy to the CF Worker with `WORKER_SECRET`.
 

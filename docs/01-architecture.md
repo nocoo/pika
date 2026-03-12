@@ -16,8 +16,8 @@ Pika is a SaaS for replaying and searching coding agent sessions. Users install 
 | Web | Next.js 16 (App Router) on Railway | SSR, mature ecosystem, Docker deploy |
 | UI | Tailwind v4 + shadcn/ui + Radix | Shared dashboard theme with pew |
 | Auth | NextAuth v5 (Google OAuth, JWT) | Battle-tested, D1 adapter |
-| Database | Cloudflare D1 (SQLite) | Metadata + FTS5 index |
-| Object Store | Cloudflare R2 | Full conversation content (gzip) |
+| Database | Cloudflare D1 (SQLite) | Metadata + chunked FTS5 index |
+| Object Store | Cloudflare R2 | Canonical + raw conversation content (gzip) |
 | Ingest Worker | Cloudflare Workers | D1 batch writes + R2 puts |
 | Testing | Vitest (90% coverage) | Fast, native ESM |
 
@@ -59,7 +59,7 @@ User's Machine                          Cloud
 ~/Library/.../Code/User/...     ─┘    parsers)
                                         │
 ~/.config/pika/                         │ metadata batch (JSON, 50/batch)
-  config.json  (API key)                │ content upload (gzip, per-session)
+  config.json  (API key)                │ content upload (canonical + raw gzip, per-session)
   cursors.json (sync state)             │
                                         ▼
                                ┌─────────────────┐
@@ -80,11 +80,12 @@ User's Machine                          Cloud
                                         │
                                         │ R2 PUT
                                         ▼
-                               ┌─────────────────┐
-                               │  R2 Bucket       │
-                               │  (pika-sessions) │
-                               │  full.json.gz    │
-                               └─────────────────┘
+                               ┌────────────────────────┐
+                               │  R2 Bucket            │
+                               │  (pika-sessions)      │
+                               │  canonical.json.gz    │
+                               │  raw.json.gz          │
+                               └────────────────────────┘
 ```
 
 ## Authentication Architecture
@@ -111,10 +112,13 @@ User's Machine                          Cloud
 ## Key Design Decisions
 
 ### Why dual storage (D1 + R2)?
-D1 has a 1MB per-row limit and 5MB per-query result limit. A single coding session can contain 1-5MB of conversation content. Storing full content in D1 would hit limits quickly. Solution: D1 stores metadata + truncated message content (for FTS), R2 stores full gzip-compressed conversations (for replay).
+D1 has a 1MB per-row limit and 5MB per-query result limit. A single coding session can contain 1-5MB of conversation content. Storing full content in D1 would hit limits quickly. Solution:
+- **D1**: Session metadata + message metadata + chunked content for FTS5 search (no truncation — content is split into ~2000-char chunks at natural boundaries, all independently searchable)
+- **R2 canonical**: Full normalized conversation (`canonical.json.gz`) for session replay
+- **R2 raw**: Original source payloads (`raw.json.gz`) preserved for future re-parsing, audit, distillation
 
 ### Why not pure Cloudflare (Pages + Workers)?
-Next.js on Railway gives us: SSR with full Node.js runtime, mature auth (NextAuth), easy Docker deployment, complex server-side data fetching. Pure CF Pages/Workers would require significant compromises on dashboard complexity.
+Next.js on Railway is the **MVP choice**: SSR with full Node.js runtime, mature auth (NextAuth), easy Docker deployment, complex server-side data fetching. Pure CF Pages/Workers would require significant compromises on dashboard complexity. This is not a permanent decision — if Cloudflare ecosystem matures (better Next.js support, auth patterns), the dashboard can converge to Cloudflare Workers.
 
 ### Why split ingest (metadata vs content)?
 Metadata is small (~1KB/session) and batched efficiently (50/batch via D1 batch API). Content is large (10KB-5MB) and needs individual upload to R2. Splitting avoids large payloads blocking metadata ingest.

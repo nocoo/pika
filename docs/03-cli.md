@@ -75,25 +75,32 @@ pika sync
   │     ├── Check cursor (inode + mtime + size)
   │     ├── Skip unchanged files
   │     ├── Resume from cursor position
-  │     └── Emit ParsedSession[] with full messages
+  │     └── Emit CanonicalSession[] + RawSessionArchive[]
   │
-  ├── 3. Split: for each ParsedSession
+  ├── 3. Split: for each session
   │     ├── SessionMetadata (~1KB) → meta-queue.jsonl
-  │     └── SessionContent (gzip) → content-queue/{session_key}.json.gz
+  │     ├── CanonicalContent (gzip) → content-queue/{session_key}/canonical.json.gz
+  │     └── RawContent (gzip) → content-queue/{session_key}/raw.json.gz
   │
   ├── 4. Upload Metadata
   │     ├── Read from meta-queue.jsonl (byte-offset tracking)
   │     ├── Batch: 50 records per POST
   │     ├── POST /api/ingest/sessions
+  │     ├── Payload includes: content_hash, parser_version, schema_version
   │     ├── Auth: Authorization: Bearer pk_...
   │     └── Retry: 5xx → 2 retries (1s, 2s backoff); 429 → Retry-After
   │
-  ├── 5. Upload Content
-  │     ├── For each pending content file
-  │     ├── PUT /api/ingest/content/{session_key}
-  │     │   (or R2 presigned URL direct upload)
-  │     ├── Content-Encoding: gzip
-  │     └── Skip if content_key already exists (idempotent)
+  ├── 5. Upload Content (versioned idempotent)
+  │     ├── For each pending session directory
+  │     ├── Compute content_hash: SHA-256 of uncompressed canonical JSON
+  │     ├── PUT /api/ingest/content/{session_key}/canonical
+  │     │   Headers: Content-Encoding: gzip, X-Content-Hash, X-Parser-Version, X-Schema-Version
+  │     ├── PUT /api/ingest/content/{session_key}/raw
+  │     │   Headers: Content-Encoding: gzip
+  │     └── Server decides:
+  │           same hash → no-op,
+  │           different hash + newer version → overwrite,
+  │           older version → 409 reject
   │
   └── 6. Update Cursors
         └── Save cursor state AFTER successful upload
@@ -110,7 +117,7 @@ All stored under `~/.config/pika/`:
 | `cursors.json` | Per-file byte offsets, dir mtimes, SQLite cursors |
 | `meta-queue.jsonl` | Pending session metadata uploads |
 | `meta-queue.state.json` | Metadata upload byte offset |
-| `content-queue/` | Pending gzip content files |
+| `content-queue/` | Pending gzip content files (canonical.json.gz + raw.json.gz per session) |
 | `content-queue.state.json` | Content upload tracking |
 
 ### Config Format

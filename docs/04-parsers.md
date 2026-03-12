@@ -5,19 +5,21 @@
 Pika parsers extract **full conversation content** from local coding agent session files. This is fundamentally different from pew's parsers which only extract token deltas.
 
 Each source has:
-- A **parser**: reads raw files, emits `ParsedSession` objects
+- A **parser**: reads raw files, emits `CanonicalSession` + `RawSessionArchive` objects
 - A **driver**: handles discovery, incremental cursors, and coordinates parsing
 
-## Parsed Data Model
+## Canonical Data Model
 
 Defined in `packages/core/src/types.ts`:
 
 ```typescript
 type Source = "claude-code" | "codex" | "gemini-cli" | "opencode" | "vscode-copilot";
 
-interface ParsedSession {
+interface CanonicalSession {
   sessionKey: string;           // "claude:{id}", "codex:{id}", etc.
   source: Source;
+  parserVersion: string;        // e.g., "1.0.0"
+  schemaVersion: number;        // e.g., 1
   startedAt: string;            // ISO 8601
   lastMessageAt: string;
   durationSeconds: number;
@@ -25,14 +27,14 @@ interface ParsedSession {
   projectName: string | null;   // human-readable (from local path)
   model: string | null;         // primary model (last seen)
   title: string | null;         // from source if available
-  messages: ParsedMessage[];
+  messages: CanonicalMessage[];
   totalInputTokens: number;
   totalOutputTokens: number;
   totalCachedTokens: number;
   snapshotAt: string;           // ISO 8601
 }
 
-interface ParsedMessage {
+interface CanonicalMessage {
   role: "user" | "assistant" | "tool" | "system";
   content: string;              // full content (not truncated)
   toolName?: string;            // "Read", "Edit", "Bash", etc.
@@ -45,6 +47,35 @@ interface ParsedMessage {
   timestamp: string;            // ISO 8601
 }
 ```
+
+## Raw Data Model
+
+Each parser also produces a `RawSessionArchive` that preserves the original source payloads verbatim:
+
+```typescript
+interface RawSessionArchive {
+  sessionKey: string;
+  source: Source;
+  parserVersion: string;        // parser that collected this raw data
+  collectedAt: string;          // ISO 8601
+  sourceFiles: RawSourceFile[]; // one or more source files
+}
+
+interface RawSourceFile {
+  path: string;                 // original file path (for audit)
+  format: "jsonl" | "json" | "sqlite-export";
+  content: string;              // raw file content (or JSON-serialized rows)
+}
+```
+
+## Dual-Layer Parser Output
+
+Each parser emits **two outputs** per session:
+
+1. **Canonical output** (`CanonicalSession`): Normalized conversation for display, search, and replay. All source-specific formats are mapped into a uniform structure.
+2. **Raw output** (`RawSessionArchive`): Original source payloads preserved verbatim. Enables future re-parsing when parser logic improves, and serves as an audit trail.
+
+This dual-layer approach means parser bugs can be fixed and sessions re-parsed from raw archives without asking users to re-upload. The raw archive is immutable once written; only the canonical layer is overwritten on re-ingest.
 
 ## Source Parsers
 
@@ -165,6 +196,12 @@ packages/cli/src/drivers/
 ### Driver Interface
 
 ```typescript
+// Parse result contains both canonical and raw layers
+interface ParseResult {
+  canonical: CanonicalSession;
+  raw: RawSessionArchive;
+}
+
 // File-based driver
 interface FileDriver {
   source: Source;

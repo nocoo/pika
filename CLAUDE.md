@@ -18,9 +18,9 @@
 - **CLI**: citty + consola
 - **Web**: Next.js 16 (App Router), Tailwind v4, shadcn/ui, Recharts
 - **Auth**: NextAuth v5 (Google OAuth, JWT)
-- **DB**: Cloudflare D1 (SQLite) — metadata + FTS5 index
-- **Storage**: Cloudflare R2 — full conversation content (gzip)
-- **Worker**: Cloudflare Workers — ingest to D1 + R2
+- **DB**: Cloudflare D1 (SQLite) — metadata + chunked FTS5 index (no truncation)
+- **Storage**: Cloudflare R2 — canonical + raw conversation content (gzip)
+- **Worker**: Cloudflare Workers — idempotent versioned ingest to D1 + R2
 - **Testing**: Vitest (90% coverage), Husky hooks
 
 ## Four-Layer Testing
