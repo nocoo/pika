@@ -21,10 +21,15 @@ export class D1CliAuthDb implements CliAuthDb {
   }
 
   async setApiKey(userId: string, apiKey: string): Promise<void> {
-    await this.db.execute(
+    const meta = await this.db.execute(
       "UPDATE users SET api_key = ?, updated_at = datetime('now') WHERE id = ?",
       [apiKey, userId],
     );
+    if (meta.changes === 0) {
+      throw new Error(
+        `setApiKey: user ${userId} not found in D1. OAuth sign-in may not have persisted the user row.`,
+      );
+    }
   }
 
   async getUserByApiKey(
