@@ -1,0 +1,15 @@
+name = "pika-ingest"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+[vars]
+ENVIRONMENT = "production"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pika-db"
+database_id = "placeholder-replace-me"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "pika-sessions"

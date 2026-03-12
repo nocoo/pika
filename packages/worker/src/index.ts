@@ -1,2 +1,2 @@
-// @pika/worker - Cloudflare Worker for D1/R2 writes
-export {};
+export { validateWorkerAuth, validateIngestRequest } from "./ingest.js";
+export type { IngestSessionPayload, ValidationResult } from "./ingest.js";
