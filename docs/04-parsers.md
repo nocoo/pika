@@ -108,17 +108,24 @@ This dual-layer approach means parser bugs can be fixed and sessions re-parsed f
 |-------|-------|
 | Base dir | `~/.codex/sessions` |
 | File pattern | `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` |
-| Format | JSONL rollout files |
-| Session key | `codex:{payload.id}` or `codex:{sha256(filePath)}` |
+| Format | JSONL rollout files (one session per file) |
+| Session key | `codex:{payload.id}` from session_meta, or `codex:{uuid-from-filename}` |
 | Project ref | SHA-256 hash of `session_meta.payload.cwd` |
 | Cursor | Byte-offset + last totals + last model |
 
-**Message extraction**:
-- `kind: "session_meta"` -> session metadata (cwd, model)
-- `kind: "turn_context"` -> `payload.input_items[]` contains messages
-- Input items have `role` and `content` fields
-- Tool calls embedded in assistant messages as `tool_call` type items
-- Token usage: cumulative `total_token_usage`, requires diffing
+**Message extraction** (top-level `type` field, NOT `kind`):
+- `type: "session_meta"` → session metadata (`payload.id`, `payload.cwd`, `payload.timestamp`)
+- `type: "turn_context"` → per-turn context (`payload.model`, `payload.cwd`)
+- `type: "event_msg"` → UI events (subtypes via `payload.type`):
+  - `user_message` → `payload.message` (user input text)
+  - `agent_message` → `payload.message` (final assistant output text)
+  - `agent_reasoning` → thinking (skipped for content)
+  - `token_count` → `payload.info.total_token_usage` (cumulative totals, last event wins)
+- `type: "response_item"` → API response items (subtypes via `payload.type`):
+  - `message` → role-based messages (`user`/`assistant`/`developer`); developer messages skipped
+  - `function_call` → `payload.name`, `payload.arguments`, `payload.call_id`
+  - `function_call_output` → `payload.call_id`, `payload.output`
+  - `reasoning` → encrypted thinking (skipped)
 
 ### Gemini CLI
 

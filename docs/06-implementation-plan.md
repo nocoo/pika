@@ -103,13 +103,13 @@ E2E tests bypass authentication via:
 
 ### Commit Plan
 
-| # | Commit | Description | Tests |
-|---|--------|-------------|-------|
-| 2.1 | `feat: add file change detection utility` | `file-changed.ts` — inode + mtime + size triple-check | L1: all edge cases (rotation, same-mtime write, etc.) |
-| 2.2 | `feat: add cursor store` | `cursor-store.ts` — persist/load cursors to `~/.config/pika/cursors.json` | L1: read/write/merge tests |
-| 2.3 | `feat: add claude code parser` | Parse JSONL, extract full messages, tool calls, token usage | L1: fixture-based tests (sample JSONL files) |
-| 2.4 | `feat: add claude session driver` | Discovery + byte-offset cursor + incremental parse | L1: incremental parse tests |
-| 2.5 | `feat: add codex cli parser` | Parse rollout JSONL, extract messages, cumulative diff | L1: fixture-based tests |
+| # | Commit | Description | Tests | Status |
+|---|--------|-------------|-------|--------|
+| 2.1 | `feat: add file change detection utility` | `file-changed.ts` — inode + mtime + size triple-check | L1: all edge cases (rotation, same-mtime write, etc.) | ✅ |
+| 2.2 | `feat: add cursor store` | `cursor-store.ts` — persist/load cursors to `~/.config/pika/cursors.json` | L1: read/write/merge tests | ✅ |
+| 2.3 | `feat: add claude code parser` | Parse JSONL, extract full messages, tool calls, token usage | L1: fixture-based tests (sample JSONL files) | ✅ |
+| 2.4 | `feat: add claude session driver` | Discovery + byte-offset cursor + incremental parse | L1: incremental parse tests | ✅ |
+| 2.5 | `feat: add codex cli parser` | Parse rollout JSONL, extract messages, cumulative diff | L1: fixture-based tests | ✅ |
 | 2.6 | `feat: add codex session driver` | Discovery + cursor | L1: tests |
 | 2.7 | `feat: add gemini cli parser` | Parse JSON sessions, extract messages, diff tokens | L1: fixture-based tests |
 | 2.8 | `feat: add gemini session driver` | Discovery + array-index cursor | L1: tests |
