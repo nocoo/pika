@@ -6,6 +6,11 @@
  * JWT-only mode never writes user rows, so handleCliAuth's setApiKey()
  * UPDATE hits 0 rows and the generated API key becomes unusable.
  *
+ * Accepts a lazy getter (`() => D1Client`) so the D1 client is not
+ * created at module load time. This prevents the entire web app from
+ * crashing when D1 env vars are missing (e.g. local dev, pages that
+ * import auth but don't trigger adapter methods).
+ *
  * Implements only the methods NextAuth needs for the Google OAuth + JWT flow:
  * - createUser, getUser, getUserByEmail, getUserByAccount, updateUser, linkAccount
  */
@@ -31,9 +36,10 @@ function rowToUser(row: UserRow): AdapterUser {
   };
 }
 
-export function D1AuthAdapter(client: D1Client): Adapter {
+export function D1AuthAdapter(getClient: () => D1Client): Adapter {
   return {
     async createUser(user) {
+      const client = getClient();
       const id = user.id ?? crypto.randomUUID();
       await client.execute(
         `INSERT INTO users (id, email, name, image, email_verified)
@@ -50,6 +56,7 @@ export function D1AuthAdapter(client: D1Client): Adapter {
     },
 
     async getUser(id) {
+      const client = getClient();
       const row = await client.firstOrNull<UserRow>(
         "SELECT id, email, name, image, email_verified FROM users WHERE id = ?",
         [id],
@@ -58,6 +65,7 @@ export function D1AuthAdapter(client: D1Client): Adapter {
     },
 
     async getUserByEmail(email) {
+      const client = getClient();
       const row = await client.firstOrNull<UserRow>(
         "SELECT id, email, name, image, email_verified FROM users WHERE email = ?",
         [email],
@@ -72,6 +80,7 @@ export function D1AuthAdapter(client: D1Client): Adapter {
       provider: string;
       providerAccountId: string;
     }) {
+      const client = getClient();
       const row = await client.firstOrNull<UserRow>(
         `SELECT u.id, u.email, u.name, u.image, u.email_verified
          FROM users u
@@ -83,6 +92,7 @@ export function D1AuthAdapter(client: D1Client): Adapter {
     },
 
     async updateUser(user) {
+      const client = getClient();
       const fields: string[] = [];
       const params: unknown[] = [];
 
@@ -130,6 +140,7 @@ export function D1AuthAdapter(client: D1Client): Adapter {
     },
 
     async linkAccount(account: AdapterAccount) {
+      const client = getClient();
       await client.execute(
         `INSERT INTO accounts (id, user_id, type, provider, provider_account_id,
          access_token, refresh_token, expires_at)

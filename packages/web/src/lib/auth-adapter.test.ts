@@ -20,7 +20,7 @@ describe("D1AuthAdapter", () => {
   describe("createUser", () => {
     it("inserts a user row and returns AdapterUser with id", async () => {
       const client = createMockD1Client();
-      const adapter = D1AuthAdapter(client);
+      const adapter = D1AuthAdapter(() => client);
 
       const result = await adapter.createUser!({
         email: "test@example.com",
@@ -41,7 +41,7 @@ describe("D1AuthAdapter", () => {
 
     it("preserves existing user.id when provided", async () => {
       const client = createMockD1Client();
-      const adapter = D1AuthAdapter(client);
+      const adapter = D1AuthAdapter(() => client);
 
       const result = await adapter.createUser!({
         id: "custom-id-123",
@@ -60,7 +60,7 @@ describe("D1AuthAdapter", () => {
 
     it("handles null optional fields", async () => {
       const client = createMockD1Client();
-      const adapter = D1AuthAdapter(client);
+      const adapter = D1AuthAdapter(() => client);
 
       const result = await adapter.createUser!({
         email: "minimal@e.com",
@@ -87,7 +87,7 @@ describe("D1AuthAdapter", () => {
           email_verified: "2026-01-01T00:00:00Z",
         }),
       });
-      const adapter = D1AuthAdapter(client);
+      const adapter = D1AuthAdapter(() => client);
 
       const result = await adapter.getUser!("u1");
 
@@ -102,7 +102,7 @@ describe("D1AuthAdapter", () => {
 
     it("returns null when user not found", async () => {
       const client = createMockD1Client();
-      const adapter = D1AuthAdapter(client);
+      const adapter = D1AuthAdapter(() => client);
 
       expect(await adapter.getUser!("nonexistent")).toBeNull();
     });
@@ -119,7 +119,7 @@ describe("D1AuthAdapter", () => {
           email_verified: null,
         }),
       });
-      const adapter = D1AuthAdapter(client);
+      const adapter = D1AuthAdapter(() => client);
 
       const result = await adapter.getUserByEmail!("u@e.com");
 
@@ -134,7 +134,7 @@ describe("D1AuthAdapter", () => {
 
     it("returns null when email not found", async () => {
       const client = createMockD1Client();
-      const adapter = D1AuthAdapter(client);
+      const adapter = D1AuthAdapter(() => client);
 
       expect(await adapter.getUserByEmail!("nobody@e.com")).toBeNull();
     });
@@ -151,7 +151,7 @@ describe("D1AuthAdapter", () => {
           email_verified: null,
         }),
       });
-      const adapter = D1AuthAdapter(client);
+      const adapter = D1AuthAdapter(() => client);
 
       const result = await adapter.getUserByAccount!({
         provider: "google",
@@ -173,7 +173,7 @@ describe("D1AuthAdapter", () => {
 
     it("returns null when no matching account", async () => {
       const client = createMockD1Client();
-      const adapter = D1AuthAdapter(client);
+      const adapter = D1AuthAdapter(() => client);
 
       expect(
         await adapter.getUserByAccount!({
@@ -195,7 +195,7 @@ describe("D1AuthAdapter", () => {
           email_verified: null,
         }),
       });
-      const adapter = D1AuthAdapter(client);
+      const adapter = D1AuthAdapter(() => client);
 
       const result = await adapter.updateUser!({
         id: "u1",
@@ -221,7 +221,7 @@ describe("D1AuthAdapter", () => {
           email_verified: null,
         }),
       });
-      const adapter = D1AuthAdapter(client);
+      const adapter = D1AuthAdapter(() => client);
 
       const result = await adapter.updateUser!({ id: "u1" } as any);
 
@@ -240,7 +240,7 @@ describe("D1AuthAdapter", () => {
           email_verified: "2026-03-01T00:00:00.000Z",
         }),
       });
-      const adapter = D1AuthAdapter(client);
+      const adapter = D1AuthAdapter(() => client);
 
       const result = await adapter.updateUser!({
         id: "u1",
@@ -258,7 +258,7 @@ describe("D1AuthAdapter", () => {
   describe("linkAccount", () => {
     it("inserts an account row with all fields", async () => {
       const client = createMockD1Client();
-      const adapter = D1AuthAdapter(client);
+      const adapter = D1AuthAdapter(() => client);
 
       const account: AdapterAccount = {
         userId: "u1",
@@ -289,7 +289,7 @@ describe("D1AuthAdapter", () => {
 
     it("handles null tokens gracefully", async () => {
       const client = createMockD1Client();
-      const adapter = D1AuthAdapter(client);
+      const adapter = D1AuthAdapter(() => client);
 
       const account: AdapterAccount = {
         userId: "u1",
