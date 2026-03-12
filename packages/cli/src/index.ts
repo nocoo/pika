@@ -1,2 +1,2 @@
-// @nocoo/pika CLI entry point
-export {};
+export { ConfigManager } from "./config/manager.js";
+export type { PikaConfig } from "./config/manager.js";

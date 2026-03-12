@@ -15,6 +15,7 @@ export default defineConfig({
         "**/cli.ts",
         "**/index.ts",
         "**/types.ts",
+        "**/commands/*.ts",
         "**/node_modules/**",
       ],
       thresholds: {
