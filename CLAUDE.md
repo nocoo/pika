@@ -8,7 +8,7 @@
 |---------|---------|
 | `packages/core` | Shared types, constants, validators |
 | `packages/cli` | CLI tool (`@nocoo/pika`) for parsing + uploading sessions |
-| `packages/web` | Next.js 16 dashboard (Railway) |
+| `packages/web` | Next.js 15 dashboard (Railway) |
 | `packages/worker` | Cloudflare Worker for D1/R2 writes |
 
 ## Tech Stack
@@ -16,12 +16,13 @@
 - **Runtime**: Bun
 - **Language**: TypeScript (strict)
 - **CLI**: citty + consola
-- **Web**: Next.js 16 (App Router), Tailwind v4, shadcn/ui, Recharts
+- **Web**: Next.js 15 (App Router), Tailwind v4, shadcn/ui, Recharts
 - **Auth**: NextAuth v5 (Google OAuth, JWT)
 - **DB**: Cloudflare D1 (SQLite) — metadata + chunked FTS5 index (no truncation)
 - **Storage**: Cloudflare R2 — canonical (mutable) + raw (content-addressed, immutable) conversation content (gzip)
 - **Worker**: Cloudflare Workers — idempotent versioned ingest to D1 + R2
 - **Testing**: Vitest (90% coverage), Husky hooks
+- **Test runner note**: `bun test` uses Bun's native test runner; `bunx vitest run` uses Vitest under Node. Migration tests (bun:sqlite) only run under `bun test`.
 
 ## Four-Layer Testing
 
@@ -38,9 +39,10 @@
 
 ```bash
 bun install                    # install dependencies
-bun test                       # run unit tests
+bun test                       # run unit tests (bun native runner, includes bun:sqlite tests)
+bunx vitest run --coverage     # run tests with coverage report (vitest/node, excludes migration tests)
 bun run build                  # build all packages
-bun run lint                   # type-check all packages
+bun run lint                   # type-check all packages (root + web tsconfig)
 ```
 
 ## Supported Sources
@@ -57,4 +59,8 @@ See `docs/README.md` for the numbered document index.
 
 ## Retrospective
 
-_(Record learnings and mistakes here as the project evolves)_
+- **better-sqlite3 → bun:sqlite**: Bun 1.3.9 dropped `better-sqlite3` support. Migration tests now use `bun:sqlite` (Bun built-in). API is nearly identical (`prepare/all/run/exec/close`), but pragmas use `db.run("PRAGMA ...")` instead of `db.pragma("...")`. These tests are excluded from vitest (Node can't resolve `bun:sqlite`) and only run via `bun test`.
+- **Dual test runners**: `bun test` (Bun native) and `bunx vitest run` (Node/Vite) have different module resolution. Bun-specific imports (`bun:sqlite`) must be excluded from vitest config. Always verify both runners pass.
+- **git add -A atomicity trap**: When uncommitted files from multiple logical changes exist, `git add -A` stages everything. Always stage selectively (`git add <paths>`) to maintain atomic commits.
+- **Web package tsconfig independence**: Next.js tsconfig is incompatible with TypeScript project references (`composite: true`). Root lint script runs both: `tsc --noEmit && tsc --noEmit -p packages/web/tsconfig.json`.
+- **Extracting testable logic from Next.js routes**: Route handlers in App Router are hard to unit test directly. Extract pure business logic into separate `.ts` files (e.g., `cli-auth.ts`) that accept deps as params, then import in the route handler. This keeps coverage high without needing a full Next.js test environment.
