@@ -931,7 +931,7 @@ describe("worker fetch handler", () => {
   it("routes POST /ingest/sessions correctly", async () => {
     const env = mockEnv();
     const req = makeRequest("http://worker/ingest/sessions", {
-      headers: { Authorization: "Bearer test-secret" },
+      headers: { Authorization: "Bearer test-secret", "X-User-Id": "user-123" },
       body: validPayload,
     });
     const res = await workerFetch(req, env);
@@ -940,12 +940,25 @@ describe("worker fetch handler", () => {
     expect(body.ingested).toBe(1);
   });
 
+  it("returns 400 for POST /ingest/sessions without X-User-Id", async () => {
+    const env = mockEnv();
+    const req = makeRequest("http://worker/ingest/sessions", {
+      headers: { Authorization: "Bearer test-secret" },
+      body: validPayload,
+    });
+    const res = await workerFetch(req, env);
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("X-User-Id");
+  });
+
   it("returns 400 for invalid JSON on sessions route", async () => {
     const env = mockEnv();
     const req = new Request("http://worker/ingest/sessions", {
       method: "POST",
       headers: {
         Authorization: "Bearer test-secret",
+        "X-User-Id": "user-123",
         "Content-Type": "text/plain",
       },
       body: "not json",

@@ -74,7 +74,7 @@ export default defineCommand({
         upload: doUpload,
         apiUrl: config.getApiUrl(),
         apiKey: config.getToken() ?? "",
-        userId: config.getDeviceId(),
+        userId: "cli", // server overrides with authenticated userId from X-User-Id header
         },
     );
 

@@ -653,13 +653,22 @@ export default {
 
     // 2. POST /ingest/sessions — metadata upsert
     if (request.method === "POST" && url.pathname === "/ingest/sessions") {
+      const userId = request.headers.get("X-User-Id");
+      if (!userId) {
+        return Response.json({ error: "Missing X-User-Id header" }, { status: 400 });
+      }
+
       let body: unknown;
       try {
         body = await request.json();
       } catch {
         return Response.json({ error: "Invalid JSON body" }, { status: 400 });
       }
-      return handleSessionIngest(body as IngestSessionPayload, env);
+
+      // Override body userId with authenticated header value (CLI may send deviceId)
+      const payload = body as IngestSessionPayload;
+      payload.userId = userId;
+      return handleSessionIngest(payload, env);
     }
 
     // 3. PUT /ingest/content/:sessionKey/:type — content upload
