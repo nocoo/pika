@@ -166,21 +166,37 @@ This dual-layer approach means parser bugs can be fixed and sessions re-parsed f
 
 | Field | Value |
 |-------|-------|
-| Message dir | `~/.local/share/opencode/storage/message` |
+| Session dir | `~/.local/share/opencode/storage/session/{projectID}/ses_*.json` |
+| Message dir | `~/.local/share/opencode/storage/message/ses_*/msg_*.json` |
+| Part dir | `~/.local/share/opencode/storage/part/msg_*/prt_*.json` |
 | DB path | `~/.local/share/opencode/opencode.db` |
-| File pattern | `ses_*/msg_*.json` (per-message JSON files) |
 | Session key | `opencode:{sessionID}` |
-| Project ref | SHA-256 hash of `session.project_id` (SQLite only) |
+| Project ref | SHA-256 hash of `session.projectID` |
+| Project name | `session.directory` (full path) |
 | Cursor | Dir mtime optimization + file-level triple-check |
 
-**Dual parsing strategy** (same as pew):
-1. **JSON files**: One file per message in session directories (`ses_xxx/`)
+**Three-layer data model:**
+- **Session JSON**: Metadata only (`id`, `projectID`, `directory`, `title`, `time.created/updated`)
+- **Message JSON**: Metadata only (`id`, `sessionID`, `role`, `time`, `modelID`, `tokens`)
+  - Tokens per assistant message: `{input, output, reasoning, cache: {read, write}}`
+- **Part JSON**: Actual content, discriminated by `type` field:
+  - `"text"`: Text content (`text` field). `synthetic: true` → system prompt (skipped)
+  - `"tool"`: Tool invocation. `state.status`: `"completed"` or `"running"`.
+    Input: `state.input`, Output: `state.output` or `state.metadata.output`
+  - `"reasoning"`: Chain-of-thought (skipped)
+  - `"step-start"` / `"step-finish"`: Step boundaries (skipped)
+  - `"patch"`: File patches (skipped)
+  - `"file"`: Embedded files/images (skipped)
+  - `"compaction"`: Context compaction markers (skipped)
+
+**Dual parsing strategy:**
+1. **JSON files**: Three-dir reads (session + message + part per message)
    - Dir-level mtime check to skip unchanged session dirs
-   - `data.content`, `data.role` fields
-2. **SQLite DB**: `session` + `message` tables
+   - Messages sorted by `time.created`
+2. **SQLite DB**: `session` + `message` + `part` tables
+   - `message.data` and `part.data` are JSON blobs
    - Watermark-based cursor (`lastTimeCreated`)
-   - `data` field is a JSON blob in `message` table
-   - Cross-source dedup to avoid double-counting
+   - Cross-source dedup via `SyncContext.messageKeys`
 
 ### VSCode Copilot
 
