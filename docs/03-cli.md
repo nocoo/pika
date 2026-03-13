@@ -31,9 +31,10 @@ packages/cli/src/
 │   ├── login.ts                # Browser OAuth flow
 │   ├── status.ts               # Display sync status
 │   ├── init.ts                 # Install hooks
-│   ├── uninstall.ts            # Remove hooks
-│   ├── upload-engine.ts        # Generic batch upload with retry
-│   └── content-upload.ts       # R2 content upload (gzip)
+│   └── uninstall.ts            # Remove hooks
+├── upload/
+│   ├── engine.ts               # Generic batch upload with retry
+│   └── content.ts              # R2 content upload (gzip)
 ├── parsers/                    # Per-source session parsers (see 04-parsers.md)
 ├── drivers/                    # Discovery + incremental cursor (see 04-parsers.md)
 │   ├── registry.ts             # Constructs active drivers from detected sources
