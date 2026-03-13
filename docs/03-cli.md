@@ -15,8 +15,6 @@ The `pika` CLI parses local coding agent session files, extracts full conversati
 | `pika sync` | Parse local sessions and upload | `--upload` (default: true), `--dev` |
 | `pika login` | Connect CLI to dashboard via browser OAuth | `--force`, `--dev` |
 | `pika status` | Show sync status and session stats | -- |
-| `pika init` | Install notifier hooks for AI tools | `--dry-run`, `--source=<name>` |
-| `pika uninstall` | Remove notifier hooks | `--dry-run`, `--source=<name>` |
 
 **Supported sources**: `claude-code`, `codex`, `gemini-cli`, `opencode`, `vscode-copilot`
 
@@ -29,9 +27,7 @@ packages/cli/src/
 ├── commands/
 │   ├── sync.ts                 # Orchestrates parse + upload
 │   ├── login.ts                # Browser OAuth flow
-│   ├── status.ts               # Display sync status
-│   ├── init.ts                 # Install hooks
-│   └── uninstall.ts            # Remove hooks
+│   └── status.ts               # Display sync status
 ├── upload/
 │   ├── engine.ts               # Generic batch upload with retry
 │   └── content.ts              # R2 content upload (gzip)

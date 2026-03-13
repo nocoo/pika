@@ -10,7 +10,5 @@ export const main = defineCommand({
     sync: () => import("./commands/sync.js").then((m) => m.default),
     login: () => import("./commands/login.js").then((m) => m.default),
     status: () => import("./commands/status.js").then((m) => m.default),
-    init: () => import("./commands/init.js").then((m) => m.default),
-    uninstall: () => import("./commands/uninstall.js").then((m) => m.default),
   },
 });
