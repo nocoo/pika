@@ -39,6 +39,11 @@ describe("ROUTE_LABELS", () => {
     expect(ROUTE_LABELS.sessions).toBe("Sessions");
     expect(ROUTE_LABELS.search).toBe("Search");
   });
+
+  it("contains settings and tags", () => {
+    expect(ROUTE_LABELS.settings).toBe("Settings");
+    expect(ROUTE_LABELS.tags).toBe("Tags");
+  });
 });
 
 // ── breadcrumbsFromPathname ────────────────────────────────────
@@ -85,6 +90,16 @@ describe("breadcrumbsFromPathname", () => {
       { label: "Home", href: "/dashboard" },
       { label: "Dashboard", href: "/dashboard" },
       { label: "Search" },
+    ]);
+  });
+
+  it("handles /dashboard/settings/tags", () => {
+    const result = breadcrumbsFromPathname("/dashboard/settings/tags");
+    expect(result).toEqual([
+      { label: "Home", href: "/dashboard" },
+      { label: "Dashboard", href: "/dashboard" },
+      { label: "Settings", href: "/dashboard/settings" },
+      { label: "Tags" },
     ]);
   });
 });

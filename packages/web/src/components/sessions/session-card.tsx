@@ -10,6 +10,12 @@ import type { Source } from "@pika/core";
 
 // ── Types ──────────────────────────────────────────────────────
 
+export interface SessionCardTag {
+  id: string;
+  name: string;
+  color: string | null;
+}
+
 export interface SessionCardData {
   id: string;
   session_key: string;
@@ -27,6 +33,7 @@ export interface SessionCardData {
   model: string | null;
   title: string | null;
   is_starred: number;
+  tags?: SessionCardTag[];
 }
 
 interface SessionCardProps {
@@ -69,6 +76,22 @@ export function SessionCard({ session, className }: SessionCardProps) {
       <h3 className="text-sm font-medium text-foreground truncate">
         {session.title ?? "Untitled session"}
       </h3>
+
+      {/* Tag badges */}
+      {session.tags && session.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {session.tags.map((tag) => (
+            <Badge
+              key={tag.id}
+              variant="outline"
+              className="text-[10px] px-1.5 py-0"
+              style={tag.color ? { borderColor: tag.color, color: tag.color } : undefined}
+            >
+              {tag.name}
+            </Badge>
+          ))}
+        </div>
+      )}
 
       {/* Project + model */}
       <div className="flex items-center gap-2 text-xs text-muted-foreground">

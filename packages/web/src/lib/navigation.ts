@@ -42,6 +42,13 @@ export const NAV_GROUPS: NavGroupDef[] = [
       { href: "/dashboard/search", label: "Search", icon: "Search" },
     ],
   },
+  {
+    label: "Settings",
+    defaultOpen: false,
+    items: [
+      { href: "/dashboard/settings/tags", label: "Tags", icon: "Tags" },
+    ],
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -52,6 +59,8 @@ export const ROUTE_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
   sessions: "Sessions",
   search: "Search",
+  settings: "Settings",
+  tags: "Tags",
 };
 
 export function breadcrumbsFromPathname(pathname: string) {

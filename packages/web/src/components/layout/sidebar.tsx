@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   MessagesSquare,
   Search,
+  Tags,
   PanelLeft,
   LogOut,
   ChevronUp,
@@ -33,6 +34,7 @@ const ICON_MAP: Record<string, ElementType> = {
   LayoutDashboard,
   MessagesSquare,
   Search,
+  Tags,
 };
 
 interface NavItem {
