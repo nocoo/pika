@@ -183,7 +183,7 @@ E2E tests bypass authentication via:
 | 4.5 | ~~`feat: add notifier hooks (init command)`~~ | ~~Install hooks into AI tools for auto-sync~~ | ~~L1: hook install tests~~ | cancelled |
 | 4.6 | ~~`feat: add notify command with coordinator`~~ | ~~Lock-based sync coordination, follow-up detection~~ | ~~L1: coordinator tests~~ | cancelled |
 | 4.7 | `feat: add r2 presigned url direct upload` | CLI uploads content directly to R2, bypassing API | L1: presigned flow tests | ✅ |
-| 4.8 | `feat: add status command` | Show sync status, last sync time, session counts, parse error summary | L1: status display tests |
+| 4.8 | `feat: add status command` | Show sync status, last sync time, session counts, parse error summary | L1: status display tests | ✅ |
 
 ---
 
