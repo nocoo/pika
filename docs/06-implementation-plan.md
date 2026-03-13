@@ -142,16 +142,16 @@ E2E tests bypass authentication via:
 
 ### Commit Plan
 
-| # | Commit | Description | Tests |
-|---|--------|-------------|-------|
-| 3.1 | `feat: add d1 client for web` | `lib/d1.ts` — REST API client singleton | L1: client tests (mocked fetch) |
-| 3.2 | `feat: add r2 client for web` | `lib/r2.ts` — presigned URL generation | L1: URL generation tests |
-| 3.3 | `feat: add sessions api route` | `GET /api/sessions` — list with filters, pagination | L1: query builder tests; L3: endpoint test |
-| 3.4 | `feat: add session detail api route` | `GET /api/sessions/{id}` — metadata + presigned content URL | L3: endpoint test |
-| 3.5 | `feat: add search api route` | `GET /api/search` — chunks_fts MATCH query with message_chunks join (searches content + tool_context), snippet extraction | L1: query builder; L3: endpoint test |
-| 3.6 | `feat: add stats api route` | `GET /api/stats` — aggregate queries | L3: endpoint test |
-| 3.7 | `feat: add ingest api routes` | `POST /api/ingest/sessions`, `PUT /api/ingest/content` — proxy to worker | L3: endpoint tests |
-| 3.8 | `feat: add dashboard layout` | Sidebar navigation, header, auth guard | L4: can navigate between pages |
+| # | Commit | Description | Tests | Status |
+|---|--------|-------------|-------|--------|
+| 3.1 | `feat: add d1 client for web` | `lib/d1.ts` — REST API client singleton | L1: client tests (mocked fetch) | ✅ |
+| 3.2 | `feat: add r2 client for web` | `lib/r2.ts` — presigned URL generation | L1: URL generation tests | ✅ |
+| 3.3 | `feat: add sessions api route` | `GET /api/sessions` — list with filters, pagination | L1: query builder tests; L3: endpoint test | ✅ |
+| 3.4 | `feat: add session detail api route` | `GET /api/sessions/{id}` — metadata + presigned content URL | L3: endpoint test | ✅ |
+| 3.5 | `feat: add search api route` | `GET /api/search` — chunks_fts MATCH query with message_chunks join (searches content + tool_context), snippet extraction | L1: query builder; L3: endpoint test | ✅ |
+| 3.6 | `feat: add stats api route` | `GET /api/stats` — aggregate queries | L3: endpoint test | ✅ |
+| 3.7 | `feat: add ingest api routes` | `POST /api/ingest/sessions`, `PUT /api/ingest/content` — proxy to worker | L3: endpoint tests | ✅ |
+| 3.8 | `feat: add dashboard layout` | Sidebar navigation, header, auth guard, pew/basalt design system alignment | L4: can navigate between pages | ✅ |
 | 3.9 | `feat: add dashboard overview page` | Stats cards, activity heatmap, source chart, recent sessions | L4: page renders with data |
 | 3.10 | `feat: add session list page` | Paginated list, filter controls, sort options | L4: list renders, filters work |
 | 3.11 | `feat: add session replay page` | Full conversation display, message bubbles, tool calls | L4: replay renders conversation |
