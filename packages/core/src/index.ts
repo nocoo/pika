@@ -54,3 +54,14 @@ export {
   validateSessionSnapshot,
   validateParseError,
 } from "./validation.js";
+
+export type {
+  MessageChunk,
+} from "./chunking.js";
+
+export {
+  splitText,
+  buildToolContext,
+  chunkMessage,
+  chunkMessages,
+} from "./chunking.js";

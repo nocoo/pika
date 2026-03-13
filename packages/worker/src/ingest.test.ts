@@ -3,6 +3,10 @@ import {
   validateIngestRequest,
   validateWorkerAuth,
   handleSessionIngest,
+  handleCanonicalUpload,
+  handleRawUpload,
+  parseContentPath,
+  decompressBody,
   checkVersionConflicts,
   type IngestSessionPayload,
   type Env,
@@ -61,6 +65,10 @@ function makeRequest(
  */
 function mockD1(
   batchResults?: unknown[][],
+  opts?: {
+    firstResult?: unknown;
+    runResult?: unknown;
+  },
 ): D1Database {
   let callIndex = 0;
   const results = batchResults ?? [
@@ -68,9 +76,17 @@ function mockD1(
     [],                 // upsert: success
   ];
 
+  const mockFirst = vi.fn().mockResolvedValue(opts?.firstResult ?? null);
+  const mockRun = vi.fn().mockResolvedValue(opts?.runResult ?? { success: true });
+
   return {
     prepare: vi.fn().mockReturnValue({
-      bind: vi.fn().mockReturnValue({}),
+      bind: vi.fn().mockReturnValue({
+        first: mockFirst,
+        run: mockRun,
+      }),
+      first: mockFirst,
+      run: mockRun,
     }),
     batch: vi.fn().mockImplementation(() => {
       const result = results[callIndex] ?? [];
@@ -78,6 +94,43 @@ function mockD1(
       return Promise.resolve(result);
     }),
   } as unknown as D1Database;
+}
+
+function mockR2(): R2Bucket {
+  return {
+    put: vi.fn().mockResolvedValue(undefined),
+    get: vi.fn().mockResolvedValue(null),
+    delete: vi.fn().mockResolvedValue(undefined),
+    head: vi.fn().mockResolvedValue(null),
+    list: vi.fn().mockResolvedValue({ objects: [], truncated: false }),
+    createMultipartUpload: vi.fn(),
+    resumeMultipartUpload: vi.fn(),
+  } as unknown as R2Bucket;
+}
+
+// ── Gzip helper for tests ─────────────────────────────────────
+
+/** Compress a string to gzip using CompressionStream (available in test runtime) */
+async function gzipCompress(input: string): Promise<ArrayBuffer> {
+  const blob = new Blob([input]);
+  const cs = new CompressionStream("gzip");
+  const compressed = blob.stream().pipeThrough(cs);
+  const reader = compressed.getReader();
+  const chunks: Uint8Array[] = [];
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  const total = chunks.reduce((s, c) => s + c.length, 0);
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) {
+    result.set(c, offset);
+    offset += c.length;
+  }
+  return result.buffer;
 }
 
 // ── Auth validation ────────────────────────────────────────────
@@ -313,7 +366,7 @@ describe("handleSessionIngest", () => {
   function mockEnv(batchResults?: unknown[][]): Env {
     return {
       DB: mockD1(batchResults),
-      BUCKET: {} as unknown as R2Bucket,
+      BUCKET: mockR2(),
       WORKER_SECRET: "secret",
     };
   }
@@ -387,7 +440,7 @@ describe("handleSessionIngest", () => {
         .mockRejectedValueOnce(new Error("D1 write quota exceeded")), // upsert fails
     } as unknown as D1Database;
 
-    const env: Env = { DB: db, BUCKET: {} as unknown as R2Bucket, WORKER_SECRET: "secret" };
+    const env: Env = { DB: db, BUCKET: mockR2(), WORKER_SECRET: "secret" };
     const res = await handleSessionIngest(validPayload, env);
     expect(res.status).toBe(500);
     const body = await res.json() as { error: string };
@@ -395,44 +448,476 @@ describe("handleSessionIngest", () => {
   });
 });
 
+// ── parseContentPath ──────────────────────────────────────────
+
+describe("parseContentPath", () => {
+  it("parses canonical path", () => {
+    const result = parseContentPath("/ingest/content/claude%3Aabc-123/canonical");
+    expect(result).toEqual({ sessionKey: "claude:abc-123", type: "canonical" });
+  });
+
+  it("parses raw path", () => {
+    const result = parseContentPath("/ingest/content/codex%3Asession-1/raw");
+    expect(result).toEqual({ sessionKey: "codex:session-1", type: "raw" });
+  });
+
+  it("returns null for invalid path", () => {
+    expect(parseContentPath("/ingest/sessions")).toBeNull();
+    expect(parseContentPath("/ingest/content/")).toBeNull();
+    expect(parseContentPath("/ingest/content/key/invalid")).toBeNull();
+    expect(parseContentPath("/other/path")).toBeNull();
+  });
+
+  it("handles non-encoded session keys", () => {
+    const result = parseContentPath("/ingest/content/simple-key/canonical");
+    expect(result).toEqual({ sessionKey: "simple-key", type: "canonical" });
+  });
+});
+
+// ── decompressBody ────────────────────────────────────────────
+
+describe("decompressBody", () => {
+  it("decompresses gzip body to string", async () => {
+    const original = JSON.stringify({ hello: "world", messages: [] });
+    const compressed = await gzipCompress(original);
+    const stream = new Blob([compressed]).stream();
+    const result = await decompressBody(stream);
+    expect(result).toBe(original);
+  });
+
+  it("handles large payloads", async () => {
+    const original = "x".repeat(100_000);
+    const compressed = await gzipCompress(original);
+    const stream = new Blob([compressed]).stream();
+    const result = await decompressBody(stream);
+    expect(result).toBe(original);
+  });
+});
+
+// ── handleCanonicalUpload ─────────────────────────────────────
+
+describe("handleCanonicalUpload", () => {
+  const canonicalSession = {
+    sessionKey: "claude:abc-123",
+    source: "claude-code",
+    parserRevision: 1,
+    schemaVersion: 1,
+    startedAt: "2026-01-15T10:00:00Z",
+    lastMessageAt: "2026-01-15T10:30:00Z",
+    durationSeconds: 1800,
+    projectRef: null,
+    projectName: "my-project",
+    model: "claude-sonnet-4-20250514",
+    title: "Test",
+    messages: [
+      { role: "user", content: "Hello", timestamp: "2026-01-15T10:00:00Z" },
+      { role: "assistant", content: "Hi there!", timestamp: "2026-01-15T10:00:05Z" },
+    ],
+    totalInputTokens: 100,
+    totalOutputTokens: 200,
+    totalCachedTokens: 0,
+    snapshotAt: "2026-01-15T10:31:00Z",
+  };
+
+  async function makeCanonicalRequest(
+    headers?: Record<string, string>,
+    body?: string,
+  ): Promise<Request> {
+    const json = body ?? JSON.stringify(canonicalSession);
+    const compressed = await gzipCompress(json);
+    return new Request("http://worker/ingest/content/claude%3Aabc-123/canonical", {
+      method: "PUT",
+      headers: {
+        "Content-Encoding": "gzip",
+        "Content-Type": "application/octet-stream",
+        "X-Content-Hash": "newhash123",
+        "X-Parser-Revision": "1",
+        "X-Schema-Version": "1",
+        ...headers,
+      },
+      body: compressed,
+    });
+  }
+
+  function mockEnvForCanonical(sessionRow: unknown): Env {
+    const bucket = mockR2();
+    const db = mockD1(undefined, { firstResult: sessionRow });
+    return { DB: db, BUCKET: bucket, WORKER_SECRET: "secret" };
+  }
+
+  it("returns 400 when X-Content-Hash is missing", async () => {
+    const req = new Request("http://worker/test", {
+      method: "PUT",
+      headers: {
+        "X-Parser-Revision": "1",
+        "X-Schema-Version": "1",
+      },
+      body: "test",
+    });
+    const env = mockEnvForCanonical(null);
+    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("X-Content-Hash");
+  });
+
+  it("returns 400 when X-Parser-Revision is invalid", async () => {
+    const req = new Request("http://worker/test", {
+      method: "PUT",
+      headers: {
+        "X-Content-Hash": "hash",
+        "X-Parser-Revision": "invalid",
+        "X-Schema-Version": "1",
+      },
+      body: "test",
+    });
+    const env = mockEnvForCanonical(null);
+    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("X-Parser-Revision");
+  });
+
+  it("returns 400 when X-Schema-Version is invalid", async () => {
+    const req = new Request("http://worker/test", {
+      method: "PUT",
+      headers: {
+        "X-Content-Hash": "hash",
+        "X-Parser-Revision": "1",
+        "X-Schema-Version": "0",
+      },
+      body: "test",
+    });
+    const env = mockEnvForCanonical(null);
+    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("X-Schema-Version");
+  });
+
+  it("returns 404 when session not found", async () => {
+    const req = await makeCanonicalRequest();
+    const env = mockEnvForCanonical(null);
+    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 204 when content_hash is unchanged (idempotent no-op)", async () => {
+    const req = await makeCanonicalRequest({ "X-Content-Hash": "existing-hash" });
+    const env = mockEnvForCanonical({
+      id: "session-id-1",
+      content_hash: "existing-hash",
+      raw_hash: "raw-1",
+      parser_revision: 1,
+      schema_version: 1,
+    });
+    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    expect(res.status).toBe(204);
+    // R2 should not be called
+    expect(env.BUCKET.put).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 when incoming parser_revision is older", async () => {
+    const req = await makeCanonicalRequest({ "X-Parser-Revision": "1" });
+    const env = mockEnvForCanonical({
+      id: "session-id-1",
+      content_hash: "old-hash",
+      raw_hash: "raw-1",
+      parser_revision: 3,
+      schema_version: 1,
+    });
+    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    expect(res.status).toBe(409);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("Version conflict");
+  });
+
+  it("successfully ingests canonical content", async () => {
+    const req = await makeCanonicalRequest();
+    const env = mockEnvForCanonical({
+      id: "session-id-1",
+      content_hash: "old-hash",
+      raw_hash: "raw-1",
+      parser_revision: 1,
+      schema_version: 1,
+    });
+    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    expect(res.status).toBe(200);
+
+    const body = await res.json() as { stored: boolean; messages: number; chunks: number };
+    expect(body.stored).toBe(true);
+    expect(body.messages).toBe(2);
+    expect(body.chunks).toBe(2); // 2 messages, each fits in 1 chunk
+
+    // D1 batch should have been called with:
+    // 1 DELETE + 2 INSERTs (messages) + 2 INSERTs (chunks) + 1 UPDATE = 6 statements
+    expect(env.DB.batch).toHaveBeenCalledTimes(1);
+
+    // R2 should have been called
+    expect(env.BUCKET.put).toHaveBeenCalledTimes(1);
+    const putCall = (env.BUCKET.put as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(putCall[0]).toBe("user-1/claude:abc-123/canonical.json.gz");
+  });
+
+  it("returns 400 when request body is missing", async () => {
+    const req = new Request("http://worker/test", {
+      method: "PUT",
+      headers: {
+        "X-Content-Hash": "hash",
+        "X-Parser-Revision": "1",
+        "X-Schema-Version": "1",
+      },
+    });
+    const env = mockEnvForCanonical({
+      id: "session-id-1",
+      content_hash: "old-hash",
+      raw_hash: "raw-1",
+      parser_revision: 1,
+      schema_version: 1,
+    });
+    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("Missing request body");
+  });
+
+  it("chunks long messages correctly", async () => {
+    const longSession = {
+      ...canonicalSession,
+      messages: [
+        { role: "user", content: "Hello", timestamp: "2026-01-15T10:00:00Z" },
+        { role: "assistant", content: "x".repeat(5000), timestamp: "2026-01-15T10:00:05Z" },
+      ],
+    };
+    const req = await makeCanonicalRequest(undefined, JSON.stringify(longSession));
+    const env = mockEnvForCanonical({
+      id: "session-id-1",
+      content_hash: "old-hash",
+      raw_hash: "raw-1",
+      parser_revision: 1,
+      schema_version: 1,
+    });
+    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    expect(res.status).toBe(200);
+
+    const body = await res.json() as { stored: boolean; messages: number; chunks: number };
+    expect(body.messages).toBe(2);
+    expect(body.chunks).toBe(4); // 1 chunk for short msg + 3 chunks for 5000-char msg
+  });
+
+  it("includes tool_context in chunks for tool messages", async () => {
+    const toolSession = {
+      ...canonicalSession,
+      messages: [
+        {
+          role: "tool",
+          content: "File content here",
+          toolName: "read_file",
+          toolInput: '{"path":"src/a.ts"}',
+          timestamp: "2026-01-15T10:00:00Z",
+        },
+      ],
+    };
+    const req = await makeCanonicalRequest(undefined, JSON.stringify(toolSession));
+    const env = mockEnvForCanonical({
+      id: "session-id-1",
+      content_hash: "old-hash",
+      raw_hash: "raw-1",
+      parser_revision: 1,
+      schema_version: 1,
+    });
+    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    expect(res.status).toBe(200);
+
+    // Verify D1 batch was called — check that chunk INSERT includes tool_context
+    const batchCalls = (env.DB.batch as ReturnType<typeof vi.fn>).mock.calls;
+    expect(batchCalls.length).toBe(1);
+    // The batch has: 1 DELETE + 1 message INSERT + 1 chunk INSERT + 1 UPDATE = 4 stmts
+    expect(batchCalls[0][0]).toHaveLength(4);
+  });
+
+  it("returns 500 when D1 batch fails", async () => {
+    const req = await makeCanonicalRequest();
+    const bucket = mockR2();
+    const db = {
+      prepare: vi.fn().mockReturnValue({
+        bind: vi.fn().mockReturnValue({
+          first: vi.fn().mockResolvedValue({
+            id: "session-id-1",
+            content_hash: "old-hash",
+            raw_hash: "raw-1",
+            parser_revision: 1,
+            schema_version: 1,
+          }),
+          run: vi.fn(),
+        }),
+        first: vi.fn(),
+        run: vi.fn(),
+      }),
+      batch: vi.fn().mockRejectedValue(new Error("D1 write quota exceeded")),
+    } as unknown as D1Database;
+    const env: Env = { DB: db, BUCKET: bucket, WORKER_SECRET: "secret" };
+    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    expect(res.status).toBe(500);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("Canonical ingest failed");
+  });
+});
+
+// ── handleRawUpload ───────────────────────────────────────────
+
+describe("handleRawUpload", () => {
+  async function makeRawRequest(
+    headers?: Record<string, string>,
+  ): Promise<Request> {
+    const rawContent = JSON.stringify({
+      sessionKey: "claude:abc-123",
+      source: "claude-code",
+      parserRevision: 1,
+      collectedAt: "2026-01-15T10:31:00Z",
+      sourceFiles: [{ path: "/path/to/file.jsonl", format: "jsonl", content: "line1\nline2" }],
+    });
+    const compressed = await gzipCompress(rawContent);
+    return new Request("http://worker/ingest/content/claude%3Aabc-123/raw", {
+      method: "PUT",
+      headers: {
+        "Content-Encoding": "gzip",
+        "Content-Type": "application/octet-stream",
+        "X-Raw-Hash": "newrawhash456",
+        ...headers,
+      },
+      body: compressed,
+    });
+  }
+
+  function mockEnvForRaw(sessionRow: unknown): Env {
+    const bucket = mockR2();
+    const db = mockD1(undefined, { firstResult: sessionRow });
+    return { DB: db, BUCKET: bucket, WORKER_SECRET: "secret" };
+  }
+
+  it("returns 400 when X-Raw-Hash is missing", async () => {
+    const rawContent = "compressed data";
+    const req = new Request("http://worker/test", {
+      method: "PUT",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: rawContent,
+    });
+    const env = mockEnvForRaw(null);
+    const res = await handleRawUpload("claude:abc-123", "user-1", req, env);
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("X-Raw-Hash");
+  });
+
+  it("returns 404 when session not found", async () => {
+    const req = await makeRawRequest();
+    const env = mockEnvForRaw(null);
+    const res = await handleRawUpload("claude:abc-123", "user-1", req, env);
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 204 when raw_hash is unchanged (idempotent no-op)", async () => {
+    const req = await makeRawRequest({ "X-Raw-Hash": "existing-raw-hash" });
+    const env = mockEnvForRaw({
+      id: "session-id-1",
+      content_hash: "content-1",
+      raw_hash: "existing-raw-hash",
+      parser_revision: 1,
+      schema_version: 1,
+    });
+    const res = await handleRawUpload("claude:abc-123", "user-1", req, env);
+    expect(res.status).toBe(204);
+    expect(env.BUCKET.put).not.toHaveBeenCalled();
+  });
+
+  it("successfully uploads raw content to R2", async () => {
+    const req = await makeRawRequest();
+    const env = mockEnvForRaw({
+      id: "session-id-1",
+      content_hash: "content-1",
+      raw_hash: "old-raw-hash",
+      parser_revision: 1,
+      schema_version: 1,
+    });
+    const res = await handleRawUpload("claude:abc-123", "user-1", req, env);
+    expect(res.status).toBe(200);
+
+    const body = await res.json() as { stored: boolean };
+    expect(body.stored).toBe(true);
+
+    // R2 should have been called with content-addressed path
+    expect(env.BUCKET.put).toHaveBeenCalledTimes(1);
+    const putCall = (env.BUCKET.put as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(putCall[0]).toBe("user-1/claude:abc-123/raw/newrawhash456.json.gz");
+  });
+
+  it("returns 400 when request body is missing", async () => {
+    const req = new Request("http://worker/test", {
+      method: "PUT",
+      headers: { "X-Raw-Hash": "hash" },
+    });
+    const env = mockEnvForRaw({
+      id: "session-id-1",
+      content_hash: "content-1",
+      raw_hash: "old-hash",
+      parser_revision: 1,
+      schema_version: 1,
+    });
+    const res = await handleRawUpload("claude:abc-123", "user-1", req, env);
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("Missing request body");
+  });
+
+  it("returns 500 when R2 put fails", async () => {
+    const req = await makeRawRequest();
+    const bucket = mockR2();
+    (bucket.put as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("R2 write failed"));
+    const db = mockD1(undefined, {
+      firstResult: {
+        id: "session-id-1",
+        content_hash: "content-1",
+        raw_hash: "old-hash",
+        parser_revision: 1,
+        schema_version: 1,
+      },
+    });
+    const env: Env = { DB: db, BUCKET: bucket, WORKER_SECRET: "secret" };
+    const res = await handleRawUpload("claude:abc-123", "user-1", req, env);
+    expect(res.status).toBe(500);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("Raw ingest failed");
+  });
+});
+
 // ── Router (default export fetch) ──────────────────────────────
 
 describe("worker fetch handler", () => {
-  // Dynamic import to get the default export
   let workerFetch: (request: Request, env: Env) => Promise<Response>;
 
   function mockEnv(): Env {
     return {
       DB: mockD1(),
-      BUCKET: {} as unknown as R2Bucket,
+      BUCKET: mockR2(),
       WORKER_SECRET: "test-secret",
     };
   }
 
-  // Import the default export
   it("setup", async () => {
     const mod = await import("./index.js");
     workerFetch = mod.default.fetch;
     expect(workerFetch).toBeDefined();
   });
 
-  it("rejects non-POST methods with 405", async () => {
+  it("rejects requests without auth with 401", async () => {
     const env = mockEnv();
-    const req = new Request("http://worker/ingest/sessions", { method: "GET" });
-    const res = await workerFetch(req, env);
-    expect(res.status).toBe(405);
-  });
-
-  it("rejects missing auth with 401", async () => {
-    const env = mockEnv();
-    const req = makeRequest("http://worker/ingest/sessions", {
-      body: validPayload,
-    });
+    const req = new Request("http://worker/ingest/sessions", { method: "POST" });
     const res = await workerFetch(req, env);
     expect(res.status).toBe(401);
   });
 
-  it("rejects wrong secret with 401", async () => {
+  it("rejects wrong auth with 401", async () => {
     const env = mockEnv();
     const req = makeRequest("http://worker/ingest/sessions", {
       headers: { Authorization: "Bearer wrong" },
@@ -442,7 +927,19 @@ describe("worker fetch handler", () => {
     expect(res.status).toBe(401);
   });
 
-  it("rejects invalid JSON with 400", async () => {
+  it("routes POST /ingest/sessions correctly", async () => {
+    const env = mockEnv();
+    const req = makeRequest("http://worker/ingest/sessions", {
+      headers: { Authorization: "Bearer test-secret" },
+      body: validPayload,
+    });
+    const res = await workerFetch(req, env);
+    expect(res.status).toBe(200);
+    const body = await res.json() as { ingested: number };
+    expect(body.ingested).toBe(1);
+  });
+
+  it("returns 400 for invalid JSON on sessions route", async () => {
     const env = mockEnv();
     const req = new Request("http://worker/ingest/sessions", {
       method: "POST",
@@ -456,6 +953,46 @@ describe("worker fetch handler", () => {
     expect(res.status).toBe(400);
   });
 
+  it("returns 405 for GET on sessions route", async () => {
+    const env = mockEnv();
+    const req = new Request("http://worker/ingest/sessions", {
+      method: "GET",
+      headers: { Authorization: "Bearer test-secret" },
+    });
+    const res = await workerFetch(req, env);
+    expect(res.status).toBe(405);
+  });
+
+  it("returns 400 for PUT content without X-User-Id", async () => {
+    const env = mockEnv();
+    const body = await gzipCompress("{}");
+    const req = new Request("http://worker/ingest/content/claude%3Aabc/canonical", {
+      method: "PUT",
+      headers: {
+        Authorization: "Bearer test-secret",
+        "X-Content-Hash": "hash",
+        "X-Parser-Revision": "1",
+        "X-Schema-Version": "1",
+      },
+      body,
+    });
+    const res = await workerFetch(req, env);
+    expect(res.status).toBe(400);
+    const respBody = await res.json() as { error: string };
+    expect(respBody.error).toContain("X-User-Id");
+  });
+
+  it("returns 405 for POST on content route", async () => {
+    const env = mockEnv();
+    const req = makeRequest("http://worker/ingest/content/claude%3Aabc/canonical", {
+      method: "POST",
+      headers: { Authorization: "Bearer test-secret" },
+      body: {},
+    });
+    const res = await workerFetch(req, env);
+    expect(res.status).toBe(405);
+  });
+
   it("returns 404 for unknown paths", async () => {
     const env = mockEnv();
     const req = makeRequest("http://worker/unknown", {
@@ -464,17 +1001,5 @@ describe("worker fetch handler", () => {
     });
     const res = await workerFetch(req, env);
     expect(res.status).toBe(404);
-  });
-
-  it("handles valid ingest request end-to-end", async () => {
-    const env = mockEnv();
-    const req = makeRequest("http://worker/ingest/sessions", {
-      headers: { Authorization: "Bearer test-secret" },
-      body: validPayload,
-    });
-    const res = await workerFetch(req, env);
-    expect(res.status).toBe(200);
-    const body = await res.json() as { ingested: number };
-    expect(body.ingested).toBe(1);
   });
 });
