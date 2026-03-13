@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { R2Client, getR2Client, resetR2Client } from "./r2.js";
+import { R2Client, getR2Client, resetR2Client } from "./r2";
 
 // ── Mock AWS SDK ───────────────────────────────────────────────
 

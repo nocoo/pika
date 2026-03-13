@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
-import { D1AuthAdapter } from "./auth-adapter.js";
-import { getD1Client } from "./d1.js";
+import { D1AuthAdapter } from "./auth-adapter";
+import { getD1Client } from "./d1";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: D1AuthAdapter(() => getD1Client()),

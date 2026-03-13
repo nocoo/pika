@@ -3,7 +3,7 @@ import {
   buildSearchQuery,
   parseSearchParams,
   isSearchError,
-} from "./search.js";
+} from "./search";
 
 // ── buildSearchQuery ───────────────────────────────────────────
 

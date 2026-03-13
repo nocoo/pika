@@ -6,8 +6,8 @@
  * the route handler uses this real implementation.
  */
 
-import type { D1Client } from "./d1.js";
-import type { CliAuthDb } from "./cli-auth.js";
+import type { D1Client } from "./d1";
+import type { CliAuthDb } from "./cli-auth";
 
 export class D1CliAuthDb implements CliAuthDb {
   constructor(private readonly db: D1Client) {}

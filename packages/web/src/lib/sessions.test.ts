@@ -9,7 +9,7 @@ import {
   parseSessionListParams,
   type SessionRow,
   type SessionSort,
-} from "./sessions.js";
+} from "./sessions";
 
 // ── validateSort ───────────────────────────────────────────────
 

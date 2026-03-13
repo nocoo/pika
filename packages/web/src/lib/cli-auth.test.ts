@@ -31,7 +31,7 @@ import {
   E2E_TEST_USER_ID,
   E2E_TEST_USER_EMAIL,
   type CliAuthDb,
-} from "./cli-auth.js";
+} from "./cli-auth";
 import { API_KEY_PREFIX, API_KEY_HEX_LENGTH } from "@pika/core";
 import { isValidApiKey } from "@pika/core";
 

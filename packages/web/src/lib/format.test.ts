@@ -6,7 +6,7 @@ import {
   formatDate,
   formatDateTime,
   buildHeatmapData,
-} from "./format.js";
+} from "./format";
 
 // ── sourceLabel ────────────────────────────────────────────────
 

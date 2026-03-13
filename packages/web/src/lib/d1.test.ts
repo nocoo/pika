@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { D1Client, D1Error, getD1Client, resetD1Client } from "./d1.js";
+import { D1Client, D1Error, getD1Client, resetD1Client } from "./d1";
 
 // ── Mock fetch ─────────────────────────────────────────────────
 

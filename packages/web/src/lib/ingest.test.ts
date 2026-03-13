@@ -7,7 +7,7 @@ import {
   validateConfirmRawRequest,
   buildConfirmRawUpdate,
   type ProxyConfig,
-} from "./ingest.js";
+} from "./ingest";
 
 const cfg: ProxyConfig = {
   workerUrl: "https://worker.example.com",

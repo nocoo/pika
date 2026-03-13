@@ -6,7 +6,7 @@ import {
   buildDailyActivityQuery,
   buildTopProjectsQuery,
   assembleOverviewStats,
-} from "./stats.js";
+} from "./stats";
 
 // ── buildOverviewQuery ─────────────────────────────────────────
 

@@ -16,7 +16,7 @@
  */
 
 import type { Adapter, AdapterUser, AdapterAccount } from "next-auth/adapters";
-import type { D1Client } from "./d1.js";
+import type { D1Client } from "./d1";
 
 interface UserRow {
   id: string;

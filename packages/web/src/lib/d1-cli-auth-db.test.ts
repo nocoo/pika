@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { D1CliAuthDb } from "./d1-cli-auth-db.js";
-import type { D1Client } from "./d1.js";
+import { D1CliAuthDb } from "./d1-cli-auth-db";
+import type { D1Client } from "./d1";
 
 function createMockD1Client(overrides?: Partial<D1Client>): D1Client {
   return {

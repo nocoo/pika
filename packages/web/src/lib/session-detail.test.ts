@@ -3,7 +3,7 @@ import {
   buildSessionDetailQuery,
   canonicalR2Key,
   rawR2Key,
-} from "./session-detail.js";
+} from "./session-detail";
 
 // ── buildSessionDetailQuery ────────────────────────────────────
 

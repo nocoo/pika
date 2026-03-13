@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { D1AuthAdapter } from "./auth-adapter.js";
-import type { D1Client } from "./d1.js";
+import { D1AuthAdapter } from "./auth-adapter";
+import type { D1Client } from "./d1";
 import type { AdapterAccount } from "next-auth/adapters";
 
 // ── Mock D1 client ─────────────────────────────────────────────
