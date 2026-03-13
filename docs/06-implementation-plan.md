@@ -120,7 +120,7 @@ E2E tests bypass authentication via:
 | 2.13 | `feat: add driver registry` | Auto-detect available sources, construct driver set | L1: registry tests with mocked fs | ✅ |
 | 2.14 | `feat: add upload engine` | Batch metadata upload with retry + backoff, content_hash + raw_hash computation (SHA-256 of uncompressed JSON) | L1: upload engine tests (mocked HTTP) | ✅ |
 | 2.15 | `feat: add content upload (dual R2)` | Gzip compress, dual upload to R2: `canonical.json.gz` (overwrite) + `raw/{raw_hash}.json.gz` (content-addressed, immutable) via API or presigned URL | L1: compression + upload tests | ✅ |
-| 2.16 | `feat: add sync command` | Orchestrate: discover -> parse -> split -> collect raw payload alongside canonical output -> upload. Parse errors logged to error queue (non-blocking) | L1: integration test with fixtures |
+| 2.16 | `feat: add sync command` | Orchestrate: discover -> parse -> split -> collect raw payload alongside canonical output -> upload. Parse errors logged to error queue (non-blocking) | L1: integration test with fixtures | ✅ |
 | 2.16b | `feat: add message chunking utility` | Split message content at natural boundaries (~2000 chars), paragraph/sentence/line aware chunking. Populate tool_context on chunk_index=0 for tool messages | L1: chunking boundary tests (long messages, edge cases) |
 | 2.17 | `feat: add worker session ingest + R2 storage` | Worker: content_hash + raw_hash comparison for idempotency (both match = no-op), parser_revision/schema_version comparison as integers (newer overwrites, older rejects), chunked message content insertion into message_chunks (with tool_context) + chunks_fts, dual R2 put (canonical.json.gz overwrite + raw/{raw_hash}.json.gz append) | L1: worker handler tests |
 
