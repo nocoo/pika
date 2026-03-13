@@ -43,6 +43,12 @@ import { hashProjectRef } from "../utils/hash-project-ref.js";
 
 // ── Types ───────────────────────────────────────────────────────
 
+/** Extended ParseResult that includes newly processed request IDs for cursor building. */
+export interface VscodeCopilotParseResult extends ParseResult {
+  /** Request IDs processed in this parse (used by driver to build cursor). */
+  newRequestIds: string[];
+}
+
 /** A single CRDT operation line from the JSONL file. */
 interface CrdtOp {
   /** 0=Snapshot, 1=Set, 2=Append */
@@ -607,18 +613,18 @@ export async function parseVscodeCopilotFile(
   startOffset = 0,
   processedRequestIds: string[] = [],
   workspaceFolder: string | null = null,
-): Promise<ParseResult> {
+): Promise<VscodeCopilotParseResult> {
   const st = await stat(filePath).catch(() => null);
-  if (!st || !st.isFile() || st.size === 0) return buildEmptyResult(filePath);
+  if (!st || !st.isFile() || st.size === 0) return { ...buildEmptyResult(filePath), newRequestIds: [] };
 
-  if (startOffset >= st.size) return buildEmptyResult(filePath);
+  if (startOffset >= st.size) return { ...buildEmptyResult(filePath), newRequestIds: [] };
 
   // Read file content
   let rawContent: string;
   try {
     rawContent = await readFile(filePath, "utf8");
   } catch {
-    return buildEmptyResult(filePath);
+    return { ...buildEmptyResult(filePath), newRequestIds: [] };
   }
 
   // Parse CRDT operations
@@ -626,17 +632,17 @@ export async function parseVscodeCopilotFile(
   // full state. The byte offset is used by the driver to know how much raw
   // content was already archived, but CRDT replay must be complete.
   const ops = parseCrdtOps(rawContent);
-  if (ops.length === 0) return buildEmptyResult(filePath);
+  if (ops.length === 0) return { ...buildEmptyResult(filePath), newRequestIds: [] };
 
   // Replay CRDT to reconstruct session state
   const state = replayCrdt(ops);
-  if (state.requests.length === 0) return buildEmptyResult(filePath);
+  if (state.requests.length === 0) return { ...buildEmptyResult(filePath), newRequestIds: [] };
 
   // Extract messages (skipping previously processed requests)
   const processedSet = new Set(processedRequestIds);
   const { accum, newRequestIds } = extractMessages(state, processedSet);
 
-  if (accum.messages.length === 0) return buildEmptyResult(filePath);
+  if (accum.messages.length === 0) return { ...buildEmptyResult(filePath), newRequestIds: [] };
 
   // Resolve workspace folder if not provided
   const folder = workspaceFolder ?? (await extractWorkspaceFolder(filePath));
@@ -644,5 +650,5 @@ export async function parseVscodeCopilotFile(
   // Build result — only include raw content from startOffset onward
   const rawSlice = startOffset > 0 ? rawContent.slice(startOffset) : rawContent;
 
-  return buildParseResult(state, accum, filePath, rawSlice, folder);
+  return { ...buildParseResult(state, accum, filePath, rawSlice, folder), newRequestIds };
 }
