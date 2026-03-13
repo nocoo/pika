@@ -153,10 +153,10 @@ E2E tests bypass authentication via:
 | 3.7 | `feat: add ingest api routes` | `POST /api/ingest/sessions`, `PUT /api/ingest/content` — proxy to worker | L3: endpoint tests | ✅ |
 | 3.8 | `feat: add dashboard layout` | Sidebar navigation, header, auth guard, pew/basalt design system alignment | L4: can navigate between pages | ✅ |
 | 3.9 | `feat: add dashboard overview page` | Stats cards, activity heatmap, source chart, recent sessions | L1: 22 format tests; L4: page renders with data | ✅ |
-| 3.10 | `feat: add session list page` | Paginated list, filter controls, sort options | L4: list renders, filters work |
-| 3.11 | `feat: add session replay page` | Full conversation display, message bubbles, tool calls | L4: replay renders conversation |
-| 3.12 | `feat: add search page` | Search input, results with highlights, click-to-jump | L4: search returns results |
-| 3.13 | `feat: add dockerfile + railway config` | Multi-stage Docker build, standalone output | Manual: deploy succeeds |
+| 3.10 | `feat: add session list page` | Paginated list, filter controls, sort options | L4: list renders, filters work | ✅ |
+| 3.11 | `feat: add session replay page` | Full conversation display, message bubbles, tool calls | L4: replay renders conversation | ✅ |
+| 3.12 | `feat: add search page` | Search input, results with highlights, click-to-jump | L4: search returns results | ✅ |
+| 3.13 | `feat: add dockerfile + railway config` | Multi-stage Docker build, standalone output | Manual: deploy succeeds | ✅ |
 
 ### Verification Gate
 
