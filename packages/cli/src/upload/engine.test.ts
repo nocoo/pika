@@ -8,8 +8,8 @@ import {
   AuthError,
   RetryExhaustedError,
   ClientError,
-} from "./engine.js";
-import type { UploadEngineOptions } from "./engine.js";
+} from "./engine";
+import type { UploadEngineOptions } from "./engine";
 import type {
   CanonicalSession,
   RawSessionArchive,

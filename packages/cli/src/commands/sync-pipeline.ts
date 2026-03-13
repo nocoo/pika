@@ -21,12 +21,12 @@ import type {
   ParseError,
   OpenCodeSqliteCursor,
 } from "@pika/core";
-import type { FileDriver, DbDriver, DiscoverOpts, SyncContext } from "../drivers/types.js";
-import type { FileFingerprint } from "../utils/file-changed.js";
-import { toSessionSnapshot, uploadMetadataBatches } from "../upload/engine.js";
-import type { UploadEngineOptions, UploadResult } from "../upload/engine.js";
-import { uploadContentBatch } from "../upload/content.js";
-import type { ContentUploadOptions, BatchContentUploadResult } from "../upload/content.js";
+import type { FileDriver, DbDriver, DiscoverOpts, SyncContext } from "../drivers/types";
+import type { FileFingerprint } from "../utils/file-changed";
+import { toSessionSnapshot, uploadMetadataBatches } from "../upload/engine";
+import type { UploadEngineOptions, UploadResult } from "../upload/engine";
+import { uploadContentBatch } from "../upload/content";
+import type { ContentUploadOptions, BatchContentUploadResult } from "../upload/content";
 
 // ── Types ──────────────────────────────────────────────────────
 

@@ -9,8 +9,8 @@ import { mkdtemp, writeFile, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { GeminiCursor, ParseResult } from "@pika/core";
-import type { FileFingerprint } from "../../utils/file-changed.js";
-import { geminiSessionDriver } from "./gemini.js";
+import type { FileFingerprint } from "../../utils/file-changed";
+import { geminiSessionDriver } from "./gemini";
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { ConfigManager } from "./manager.js";
+import { ConfigManager } from "./manager";
 
 describe("ConfigManager", () => {
   let tempDir: string;

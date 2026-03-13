@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { CursorStore } from "./cursor-store.js";
+import { CursorStore } from "./cursor-store";
 import type { CursorState, ClaudeCursor } from "@pika/core";
 
 describe("CursorStore", () => {

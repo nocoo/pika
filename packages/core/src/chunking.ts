@@ -15,8 +15,8 @@
  * string combining toolName + toolInput for FTS discoverability.
  */
 
-import { MAX_CHUNK_SIZE } from "./constants.js";
-import type { CanonicalMessage } from "./types.js";
+import { MAX_CHUNK_SIZE } from "./constants";
+import type { CanonicalMessage } from "./types";
 
 // ── Types ──────────────────────────────────────────────────────
 

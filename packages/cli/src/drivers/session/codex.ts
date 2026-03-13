@@ -12,14 +12,14 @@
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { CodexCursor, ParseResult } from "@pika/core";
-import { fileUnchanged } from "../../utils/file-changed.js";
-import { parseCodexFile } from "../../parsers/codex.js";
+import { fileUnchanged } from "../../utils/file-changed";
+import { parseCodexFile } from "../../parsers/codex";
 import type {
   FileDriver,
   DiscoverOpts,
   CodexResumeState,
   FileFingerprint,
-} from "../types.js";
+} from "../types";
 
 // ---------------------------------------------------------------------------
 // Discovery: find rollout-*.jsonl files under {codexSessionsDir}/

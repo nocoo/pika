@@ -9,13 +9,13 @@ import {
   validateCanonicalSession,
   validateSessionSnapshot,
   validateParseError,
-} from "./validation.js";
+} from "./validation";
 import type {
   CanonicalMessage,
   CanonicalSession,
   SessionSnapshot,
   ParseError,
-} from "./types.js";
+} from "./types";
 
 // ── Source validation ──────────────────────────────────────────
 

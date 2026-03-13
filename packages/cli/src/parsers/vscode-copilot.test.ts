@@ -10,7 +10,7 @@ import {
   extractWorkspaceFolder,
   extractProjectRef,
   extractProjectName,
-} from "./vscode-copilot.js";
+} from "./vscode-copilot";
 
 describe("parseVscodeCopilotFile", () => {
   let tempDir: string;

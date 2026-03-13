@@ -15,15 +15,15 @@
 import { readdir, stat } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import type { OpenCodeCursor, ParseResult } from "@pika/core";
-import { fileUnchanged } from "../../utils/file-changed.js";
-import { parseOpenCodeJsonSession } from "../../parsers/opencode.js";
+import { fileUnchanged } from "../../utils/file-changed";
+import { parseOpenCodeJsonSession } from "../../parsers/opencode";
 import type {
   FileDriver,
   DiscoverOpts,
   OpenCodeJsonResumeState,
   FileFingerprint,
   SyncContext,
-} from "../types.js";
+} from "../types";
 
 // ---------------------------------------------------------------------------
 // Discovery: find ses_*.json files under {storageDir}/session/*/

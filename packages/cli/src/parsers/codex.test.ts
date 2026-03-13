@@ -7,7 +7,7 @@ import {
   extractSessionIdFromFilename,
   extractProjectRef,
   extractProjectName,
-} from "./codex.js";
+} from "./codex";
 
 describe("parseCodexFile", () => {
   let tempDir: string;

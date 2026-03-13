@@ -18,13 +18,13 @@ export type {
   FileCursor,
   CursorState,
   SessionSnapshot,
-} from "./types.js";
+} from "./types";
 
 export {
   SOURCES,
   MESSAGE_ROLES,
   RAW_FORMATS,
-} from "./types.js";
+} from "./types";
 
 export {
   PARSER_REVISION,
@@ -41,7 +41,7 @@ export {
   PARSE_ERRORS_FILE,
   MAX_UPLOAD_RETRIES,
   INITIAL_BACKOFF_MS,
-} from "./constants.js";
+} from "./constants";
 
 export {
   isValidSource,
@@ -53,15 +53,15 @@ export {
   validateCanonicalSession,
   validateSessionSnapshot,
   validateParseError,
-} from "./validation.js";
+} from "./validation";
 
 export type {
   MessageChunk,
-} from "./chunking.js";
+} from "./chunking";
 
 export {
   splitText,
   buildToolContext,
   chunkMessage,
   chunkMessages,
-} from "./chunking.js";
+} from "./chunking";

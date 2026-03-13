@@ -27,13 +27,13 @@ import {
   type OcSession,
   type OcMessage,
   type OcPart,
-} from "../../parsers/opencode.js";
+} from "../../parsers/opencode";
 import type {
   DbDriver,
   DbDriverResult,
   SyncContext,
   OpenCodeSessionInfo,
-} from "../types.js";
+} from "../types";
 
 // ---------------------------------------------------------------------------
 // SQLite interface — minimal contract for any SQLite binding

@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { resolveDefaultPaths, buildDriverSet } from "./registry.js";
+import { resolveDefaultPaths, buildDriverSet } from "./registry";
 
 // ---------------------------------------------------------------------------
 // resolveDefaultPaths

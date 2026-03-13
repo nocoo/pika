@@ -7,8 +7,8 @@ import {
   type CanonicalSession,
   type SessionSnapshot,
   type ParseError,
-} from "./types.js";
-import { API_KEY_PREFIX, API_KEY_HEX_LENGTH } from "./constants.js";
+} from "./types";
+import { API_KEY_PREFIX, API_KEY_HEX_LENGTH } from "./constants";
 
 // ── Primitive validators ───────────────────────────────────────
 

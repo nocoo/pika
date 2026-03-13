@@ -16,18 +16,18 @@
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { VscodeCopilotCursor, ParseResult } from "@pika/core";
-import { fileUnchanged } from "../../utils/file-changed.js";
+import { fileUnchanged } from "../../utils/file-changed";
 import {
   parseVscodeCopilotFile,
   extractWorkspaceFolder,
   type VscodeCopilotParseResult,
-} from "../../parsers/vscode-copilot.js";
+} from "../../parsers/vscode-copilot";
 import type {
   FileDriver,
   DiscoverOpts,
   VscodeCopilotResumeState,
   FileFingerprint,
-} from "../types.js";
+} from "../types";
 
 // ---------------------------------------------------------------------------
 // Discovery helpers

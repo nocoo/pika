@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fileUnchanged, type FileFingerprint } from "./file-changed.js";
+import { fileUnchanged, type FileFingerprint } from "./file-changed";
 
 describe("fileUnchanged", () => {
   const curr: FileFingerprint = {

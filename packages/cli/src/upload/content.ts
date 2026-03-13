@@ -22,7 +22,7 @@ import type {
   CanonicalSession,
   RawSessionArchive,
 } from "@pika/core";
-import { sha256, parseRetryAfter, AuthError, RetryExhaustedError, ClientError } from "./engine.js";
+import { sha256, parseRetryAfter, AuthError, RetryExhaustedError, ClientError } from "./engine";
 
 // ── Types ──────────────────────────────────────────────────────
 

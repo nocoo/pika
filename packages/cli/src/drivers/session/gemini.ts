@@ -12,14 +12,14 @@
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { GeminiCursor, ParseResult } from "@pika/core";
-import { fileUnchanged } from "../../utils/file-changed.js";
-import { parseGeminiFile } from "../../parsers/gemini.js";
+import { fileUnchanged } from "../../utils/file-changed";
+import { parseGeminiFile } from "../../parsers/gemini";
 import type {
   FileDriver,
   DiscoverOpts,
   ArrayIndexResumeState,
   FileFingerprint,
-} from "../types.js";
+} from "../types";
 
 // ---------------------------------------------------------------------------
 // Discovery: find session-*.json files under {geminiDir}/tmp/*/chats/

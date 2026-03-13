@@ -12,14 +12,14 @@
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { ClaudeCursor, ParseResult } from "@pika/core";
-import { fileUnchanged } from "../../utils/file-changed.js";
-import { parseClaudeFileMulti } from "../../parsers/claude.js";
+import { fileUnchanged } from "../../utils/file-changed";
+import { parseClaudeFileMulti } from "../../parsers/claude";
 import type {
   FileDriver,
   DiscoverOpts,
   ByteOffsetResumeState,
   FileFingerprint,
-} from "../types.js";
+} from "../types";
 
 // ---------------------------------------------------------------------------
 // Discovery: find all .jsonl files under {claudeDir}/projects/

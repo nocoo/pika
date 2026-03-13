@@ -4,7 +4,7 @@ import {
   buildToolContext,
   chunkMessage,
   chunkMessages,
-} from "./chunking.js";
+} from "./chunking";
 import type { CanonicalMessage } from "@pika/core";
 import { MAX_CHUNK_SIZE } from "@pika/core";
 

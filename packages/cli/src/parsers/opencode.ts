@@ -33,7 +33,7 @@ import type {
   RawSessionArchive,
   ParseResult,
 } from "@pika/core";
-import { hashProjectRef } from "../utils/hash-project-ref.js";
+import { hashProjectRef } from "../utils/hash-project-ref";
 
 // ── Types ───────────────────────────────────────────────────────
 

@@ -17,8 +17,8 @@ import {
   parseOpenCodeSqliteSession,
   extractProjectRef,
   extractProjectName,
-} from "./opencode.js";
-import type { OcSession, OcMessage, OcPart } from "./opencode.js";
+} from "./opencode";
+import type { OcSession, OcMessage, OcPart } from "./opencode";
 
 // ---------------------------------------------------------------------------
 // Helpers

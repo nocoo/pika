@@ -3,9 +3,9 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import consola from "consola";
 import { CONFIG_DIR, PARSE_ERRORS_FILE } from "@pika/core";
-import { ConfigManager } from "../config/manager.js";
-import { CursorStore } from "../storage/cursor-store.js";
-import { buildStatus, loadParseErrors, formatStatusLines } from "./status-display.js";
+import { ConfigManager } from "../config/manager";
+import { CursorStore } from "../storage/cursor-store";
+import { buildStatus, loadParseErrors, formatStatusLines } from "./status-display";
 
 export default defineCommand({
   meta: {

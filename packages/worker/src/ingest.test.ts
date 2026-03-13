@@ -11,7 +11,7 @@ import {
   checkVersionConflicts,
   type IngestSessionPayload,
   type Env,
-} from "./index.js";
+} from "./index";
 
 // ── Test data ──────────────────────────────────────────────────
 

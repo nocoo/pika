@@ -13,7 +13,7 @@ import {
   parseGeminiFile,
   extractProjectRef,
   extractProjectName,
-} from "./gemini.js";
+} from "./gemini";
 
 // ---------------------------------------------------------------------------
 // Helpers

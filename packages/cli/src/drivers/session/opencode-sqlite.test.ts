@@ -12,13 +12,13 @@ import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { OpenCodeSqliteCursor } from "@pika/core";
-import type { SyncContext } from "../types.js";
+import type { SyncContext } from "../types";
 import {
   createOpenCodeSqliteDriver,
   type SqliteDb,
   type SqliteStatement,
   type OpenDbFn,
-} from "./opencode-sqlite.js";
+} from "./opencode-sqlite";
 
 // ---------------------------------------------------------------------------
 // Mock SQLite database

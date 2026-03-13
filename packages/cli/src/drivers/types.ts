@@ -15,10 +15,10 @@ import type {
   FileCursor,
   ParseResult,
 } from "@pika/core";
-import type { FileFingerprint } from "../utils/file-changed.js";
+import type { FileFingerprint } from "../utils/file-changed";
 
 // Re-export for convenience -- consumers import from drivers/types
-export type { FileFingerprint } from "../utils/file-changed.js";
+export type { FileFingerprint } from "../utils/file-changed";
 
 // ---------------------------------------------------------------------------
 // SyncContext -- shared state bag for cross-driver communication

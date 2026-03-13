@@ -10,8 +10,8 @@ import { mkdtemp, writeFile, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { OpenCodeCursor, ParseResult } from "@pika/core";
-import type { FileFingerprint, SyncContext } from "../types.js";
-import { createOpenCodeJsonDriver } from "./opencode.js";
+import type { FileFingerprint, SyncContext } from "../types";
+import { createOpenCodeJsonDriver } from "./opencode";
 
 // ---------------------------------------------------------------------------
 // Helpers: build fixture files

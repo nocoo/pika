@@ -8,9 +8,9 @@ import {
   uploadToPresignedUrl,
   confirmRawUpload,
   uploadRawDirect,
-} from "./content.js";
-import type { ContentUploadOptions } from "./content.js";
-import { AuthError, RetryExhaustedError, ClientError } from "./engine.js";
+} from "./content";
+import type { ContentUploadOptions } from "./content";
+import { AuthError, RetryExhaustedError, ClientError } from "./engine";
 import type {
   CanonicalSession,
   RawSessionArchive,

@@ -1,5 +1,5 @@
 import http from "node:http";
-import type { ConfigManager } from "../config/manager.js";
+import type { ConfigManager } from "../config/manager";
 
 export interface LoginDeps {
   openBrowser: (url: string) => Promise<void>;

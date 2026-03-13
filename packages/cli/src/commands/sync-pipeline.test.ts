@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { runSyncPipeline, getFingerprint } from "./sync-pipeline.js";
-import type { SyncPipelineInput, SyncPipelineOptions } from "./sync-pipeline.js";
+import { runSyncPipeline, getFingerprint } from "./sync-pipeline";
+import type { SyncPipelineInput, SyncPipelineOptions } from "./sync-pipeline";
 import type {
   CursorState,
   ParseResult,
@@ -17,8 +17,8 @@ import type {
   ResumeState,
   FileFingerprint,
   DbDriverResult,
-} from "../drivers/types.js";
-import { AuthError } from "../upload/engine.js";
+} from "../drivers/types";
+import { AuthError } from "../upload/engine";
 
 // ── Fixtures ───────────────────────────────────────────────────
 

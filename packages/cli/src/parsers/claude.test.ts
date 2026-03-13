@@ -6,7 +6,7 @@ import {
   parseClaudeFile,
   extractProjectRef,
   extractProjectName,
-} from "./claude.js";
+} from "./claude";
 import type { CanonicalMessage } from "@pika/core";
 
 describe("parseClaudeFile", () => {

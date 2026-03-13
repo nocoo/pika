@@ -22,12 +22,12 @@ import { stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { FileCursorBase } from "@pika/core";
-import type { FileDriver, DiscoverOpts, SyncContext } from "./types.js";
-import { claudeSessionDriver } from "./session/claude.js";
-import { codexSessionDriver } from "./session/codex.js";
-import { geminiSessionDriver } from "./session/gemini.js";
-import { createOpenCodeJsonDriver } from "./session/opencode.js";
-import { vscodeCopilotSessionDriver } from "./session/vscode-copilot.js";
+import type { FileDriver, DiscoverOpts, SyncContext } from "./types";
+import { claudeSessionDriver } from "./session/claude";
+import { codexSessionDriver } from "./session/codex";
+import { geminiSessionDriver } from "./session/gemini";
+import { createOpenCodeJsonDriver } from "./session/opencode";
+import { vscodeCopilotSessionDriver } from "./session/vscode-copilot";
 
 // ---------------------------------------------------------------------------
 // Default paths (macOS)

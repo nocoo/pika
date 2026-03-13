@@ -2,11 +2,11 @@ import { defineCommand } from "citty";
 import { join } from "node:path";
 import consola from "consola";
 import { CONFIG_DIR } from "@pika/core";
-import { ConfigManager } from "../config/manager.js";
-import { CursorStore } from "../storage/cursor-store.js";
-import { buildDriverSet } from "../drivers/registry.js";
-import type { SyncContext } from "../drivers/types.js";
-import { runSyncPipeline } from "./sync-pipeline.js";
+import { ConfigManager } from "../config/manager";
+import { CursorStore } from "../storage/cursor-store";
+import { buildDriverSet } from "../drivers/registry";
+import type { SyncContext } from "../drivers/types";
+import { runSyncPipeline } from "./sync-pipeline";
 
 export default defineCommand({
   meta: {

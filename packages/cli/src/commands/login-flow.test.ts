@@ -3,8 +3,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import http from "node:http";
-import { ConfigManager } from "../config/manager.js";
-import { performLogin, type LoginDeps } from "./login-flow.js";
+import { ConfigManager } from "../config/manager";
+import { performLogin, type LoginDeps } from "./login-flow";
 import { LOGIN_TIMEOUT_MS } from "@pika/core";
 
 describe("login flow", () => {

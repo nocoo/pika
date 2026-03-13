@@ -7,8 +7,8 @@ import {
   loadParseErrors,
   formatSourceLabel,
   formatStatusLines,
-} from "./status-display.js";
-import type { StatusInput, StatusOutput } from "./status-display.js";
+} from "./status-display";
+import type { StatusInput, StatusOutput } from "./status-display";
 
 // ── inferSource ────────────────────────────────────────────────
 

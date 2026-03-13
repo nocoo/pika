@@ -9,8 +9,8 @@ import { mkdtemp, writeFile, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { VscodeCopilotCursor } from "@pika/core";
-import type { FileFingerprint } from "../../utils/file-changed.js";
-import { vscodeCopilotSessionDriver } from "./vscode-copilot.js";
+import type { FileFingerprint } from "../../utils/file-changed";
+import { vscodeCopilotSessionDriver } from "./vscode-copilot";
 
 // ---------------------------------------------------------------------------
 // Helpers
