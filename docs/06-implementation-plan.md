@@ -122,17 +122,17 @@ E2E tests bypass authentication via:
 | 2.15 | `feat: add content upload (dual R2)` | Gzip compress, dual upload to R2: `canonical.json.gz` (overwrite) + `raw/{raw_hash}.json.gz` (content-addressed, immutable) via API or presigned URL | L1: compression + upload tests | ✅ |
 | 2.16 | `feat: add sync command` | Orchestrate: discover -> parse -> split -> collect raw payload alongside canonical output -> upload. Parse errors logged to error queue (non-blocking) | L1: integration test with fixtures | ✅ |
 | 2.16b | `feat: add message chunking utility` | Split message content at natural boundaries (~2000 chars), paragraph/sentence/line aware chunking. Populate tool_context on chunk_index=0 for tool messages | L1: chunking boundary tests (long messages, edge cases) | ✅ |
-| 2.17 | `feat: add worker session ingest + R2 storage` | Worker: content_hash + raw_hash comparison for idempotency (both match = no-op), parser_revision/schema_version comparison as integers (newer overwrites, older rejects), chunked message content insertion into message_chunks (with tool_context) + chunks_fts, dual R2 put (canonical.json.gz overwrite + raw/{raw_hash}.json.gz append) | L1: worker handler tests |
+| 2.17 | `feat: add worker session ingest + R2 storage` | Worker: content_hash + raw_hash comparison for idempotency (both match = no-op), parser_revision/schema_version comparison as integers (newer overwrites, older rejects), chunked message content insertion into message_chunks (with tool_context) + chunks_fts, dual R2 put (canonical.json.gz overwrite + raw/{raw_hash}.json.gz append) | L1: worker handler tests | ✅ |
 
 ### Verification Gate
 
-- [ ] `pika sync` parses sessions from all 5 sources
-- [ ] Incremental sync only processes changed files
-- [ ] Metadata appears in D1, content in R2
-- [ ] Both canonical.json.gz and raw/{hash}.json.gz appear in R2 for each session
-- [ ] Re-upload of same content (identical content_hash + raw_hash) is a no-op (idempotency)
-- [ ] Parse errors are logged to parse-errors.jsonl (not silently dropped)
-- [ ] 90%+ test coverage maintained
+- [x] `pika sync` parses sessions from all 5 sources
+- [x] Incremental sync only processes changed files
+- [x] Metadata appears in D1, content in R2
+- [x] Both canonical.json.gz and raw/{hash}.json.gz appear in R2 for each session
+- [x] Re-upload of same content (identical content_hash + raw_hash) is a no-op (idempotency)
+- [x] Parse errors are logged to parse-errors.jsonl (not silently dropped)
+- [x] 90%+ test coverage maintained
 
 ---
 
