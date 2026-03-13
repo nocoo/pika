@@ -271,6 +271,10 @@
   font-family: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
 }
 
+@utility font-handwriting {
+  font-family: var(--font-caveat), "Caveat", cursive;
+}
+
 /* Landing page entrance animations — respect reduced motion */
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(12px); }
