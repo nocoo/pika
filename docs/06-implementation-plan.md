@@ -113,7 +113,7 @@ E2E tests bypass authentication via:
 | 2.6 | `feat: add codex session driver` | Discovery + cursor | L1: tests | ✅ |
 | 2.7 | `feat: add gemini cli parser` | Parse JSON sessions, extract messages, diff tokens | L1: fixture-based tests | ✅ |
 | 2.8 | `feat: add gemini session driver` | Discovery + array-index cursor | L1: tests | ✅ |
-| 2.9 ✅ | `feat: add opencode parser` | Dual: JSON files + SQLite, cross-source dedup | L1: fixture-based tests |
+| 2.9 | `feat: add opencode parser` | Dual: JSON files + SQLite, cross-source dedup | L1: fixture-based tests | ✅ |
 | 2.10 | `feat: add opencode session driver` | Dir mtime optimization + SQLite watermark | L1: tests | ✅ |
 | 2.11 | `feat: add vscode copilot parser` | CRDT reconstruction, request metadata correlation | L1: fixture-based tests |
 | 2.12 | `feat: add vscode copilot session driver` | Discovery + CRDT cursor state | L1: tests |
