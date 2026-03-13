@@ -113,6 +113,10 @@ export async function runSyncPipeline(
   let totalFiles = 0;
   let totalSkipped = 0;
 
+  // Track sessionKey→filePath and save previous cursors for rollback on content failure
+  const sessionKeyToFile = new Map<string, string>();
+  const prevCursors = new Map<string, FileCursor | undefined>();
+
   // ── Stage 1+2: Discover + incremental parse (file drivers) ──
 
   for (const driver of fileDrivers) {
@@ -143,6 +147,13 @@ export async function runSyncPipeline(
 
         if (results.length > 0) {
           allResults.push(...results);
+
+          // Save previous cursor for rollback and map sessionKeys to filePath
+          prevCursors.set(filePath, cursorState.files[filePath] as FileCursor | undefined);
+          for (const r of results) {
+            sessionKeyToFile.set(r.canonical.sessionKey, filePath);
+          }
+
           // Build and save cursor for this file
           const newCursor = driver.buildCursor(fingerprint, results);
           cursorState.files[filePath] = newCursor as FileCursor;
@@ -217,6 +228,24 @@ export async function runSyncPipeline(
       allResults.map((r) => ({ canonical: r.canonical, raw: r.raw })),
       contentOpts,
     );
+
+    // ── Rollback cursors for sessions with content upload errors ──
+    // This ensures next sync will re-parse and re-upload failed sessions.
+    if (contentResult.errors.length > 0) {
+      const rolledBackFiles = new Set<string>();
+      for (const { sessionKey } of contentResult.errors) {
+        const filePath = sessionKeyToFile.get(sessionKey);
+        if (filePath && !rolledBackFiles.has(filePath)) {
+          rolledBackFiles.add(filePath);
+          const prev = prevCursors.get(filePath);
+          if (prev === undefined) {
+            delete cursorState.files[filePath];
+          } else {
+            cursorState.files[filePath] = prev;
+          }
+        }
+      }
+    }
   }
 
   return {

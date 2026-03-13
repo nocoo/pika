@@ -448,4 +448,98 @@ describe("runSyncPipeline: upload", () => {
       ),
     ).rejects.toThrow(AuthError);
   });
+
+  it("rolls back cursor for sessions with content upload errors", async () => {
+    const parseResult1 = makeParseResult("claude-code:s1");
+    const driver = mockFileDriver({
+      discover: vi.fn().mockResolvedValue([__filename]),
+      parse: vi.fn().mockResolvedValue([parseResult1]),
+    });
+
+    // metadata batch POST — success
+    mockFetch.mockResolvedValueOnce(jsonResponse({ ingested: 1 }));
+    // content: canonical PUT — 500 error (will exhaust retries)
+    mockFetch.mockResolvedValue(new Response("Server Error", { status: 500 }));
+
+    const result = await runSyncPipeline(
+      makeInput({ fileDrivers: [driver] }),
+      makeOpts({ upload: true, fetch: mockFetch }),
+    );
+
+    // Content upload should have errors
+    expect(result.contentResult!.errors).toHaveLength(1);
+    expect(result.contentResult!.errors[0].sessionKey).toBe("claude-code:s1");
+
+    // Cursor should be rolled back — file was not in cursor before, so it should be removed
+    expect(result.cursorState.files[__filename]).toBeUndefined();
+  });
+
+  it("restores previous cursor on content upload failure", async () => {
+    const prevCursor = makeCursor({ inode: 11111, mtimeMs: 1600000000000, size: 512 });
+    const cursorState = makeCursorState();
+    cursorState.files[__filename] = prevCursor;
+
+    const parseResult1 = makeParseResult("claude-code:s1");
+    const newCursor = makeCursor({ inode: 99999, mtimeMs: 2000000000000, size: 2048 });
+    const driver = mockFileDriver({
+      discover: vi.fn().mockResolvedValue([__filename]),
+      parse: vi.fn().mockResolvedValue([parseResult1]),
+      buildCursor: vi.fn().mockReturnValue(newCursor),
+    });
+
+    // metadata batch POST — success
+    mockFetch.mockResolvedValueOnce(jsonResponse({ ingested: 1 }));
+    // content: canonical PUT — 500 error (exhaust retries)
+    mockFetch.mockResolvedValue(new Response("Server Error", { status: 500 }));
+
+    const result = await runSyncPipeline(
+      makeInput({ fileDrivers: [driver], cursorState }),
+      makeOpts({ upload: true, fetch: mockFetch }),
+    );
+
+    // Cursor should be restored to previous value, not the new one
+    expect(result.cursorState.files[__filename]).toEqual(prevCursor);
+  });
+
+  it("does not roll back cursor for sessions without content errors", async () => {
+    const otherFile = __filename.replace(".test.ts", ".ts");
+    const parseResult1 = makeParseResult("claude-code:s1");
+    const parseResult2 = makeParseResult("claude-code:s2");
+
+    const newCursor1 = makeCursor({ inode: 11111 });
+    const newCursor2 = makeCursor({ inode: 22222 });
+
+    const driver = mockFileDriver({
+      discover: vi.fn().mockResolvedValue([__filename, otherFile]),
+      parse: vi.fn()
+        .mockResolvedValueOnce([parseResult1])
+        .mockResolvedValueOnce([parseResult2]),
+      buildCursor: vi.fn()
+        .mockReturnValueOnce(newCursor1)
+        .mockReturnValueOnce(newCursor2),
+    });
+
+    // metadata batch POST — success (both in one batch)
+    mockFetch.mockResolvedValueOnce(jsonResponse({ ingested: 2 }));
+    // s1: canonical PUT — success
+    mockFetch.mockResolvedValueOnce(new Response(null, { status: 201 }));
+    // s1: presign request
+    mockFetch.mockResolvedValueOnce(jsonResponse({ url: "https://r2.example.com/presigned", key: "k1" }));
+    // s1: R2 PUT
+    mockFetch.mockResolvedValueOnce(new Response(null, { status: 200 }));
+    // s1: confirm raw
+    mockFetch.mockResolvedValueOnce(jsonResponse({ confirmed: true }));
+    // s2: canonical PUT — 500 error (exhaust retries)
+    mockFetch.mockResolvedValue(new Response("Server Error", { status: 500 }));
+
+    const result = await runSyncPipeline(
+      makeInput({ fileDrivers: [driver] }),
+      makeOpts({ upload: true, fetch: mockFetch }),
+    );
+
+    // s1 succeeded — cursor preserved
+    expect(result.cursorState.files[__filename]).toEqual(newCursor1);
+    // s2 failed — cursor rolled back (was undefined before)
+    expect(result.cursorState.files[otherFile]).toBeUndefined();
+  });
 });
