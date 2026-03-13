@@ -179,7 +179,7 @@ E2E tests bypass authentication via:
 | 4.1 | `feat: add d1 migration 002-tags` | Tags + session_tags tables | L1: SQL validation | ✅ |
 | 4.2 | `feat: add tags api routes` | CRUD for tags, add/remove from sessions | L3: endpoint tests | ✅ |
 | 4.3 | `feat: add tags ui` | Settings page tag management, session card tag badges | L4: tag workflow | ✅ |
-| 4.4 | `feat: add star/unstar api + ui` | Star endpoint, starred filter, session card star button | L3 + L4 |
+| 4.4 | `feat: add star/unstar api + ui` | Star endpoint, starred filter, session card star button | L3 + L4 | ✅ |
 | 4.5 | `feat: add notifier hooks (init command)` | Install hooks into AI tools for auto-sync | L1: hook install tests |
 | 4.6 | `feat: add notify command with coordinator` | Lock-based sync coordination, follow-up detection | L1: coordinator tests |
 | 4.7 | `feat: add r2 presigned url direct upload` | CLI uploads content directly to R2, bypassing API | L1: presigned flow tests |
