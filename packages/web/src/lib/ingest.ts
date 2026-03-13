@@ -36,6 +36,8 @@ export async function proxyToWorker(
     userId: string;
     body: ReadableStream<Uint8Array> | ArrayBuffer | string | null;
     contentType?: string;
+    /** Extra headers to forward to the worker (e.g. X-Content-Hash) */
+    extraHeaders?: Record<string, string>;
   },
   fetchFn: typeof fetch = fetch,
 ): Promise<ProxyResult> {
@@ -48,6 +50,13 @@ export async function proxyToWorker(
 
   if (opts.contentType) {
     headers["Content-Type"] = opts.contentType;
+  }
+
+  // Forward custom headers from the original request
+  if (opts.extraHeaders) {
+    for (const [key, value] of Object.entries(opts.extraHeaders)) {
+      headers[key] = value;
+    }
   }
 
   let response: Response;
@@ -111,4 +120,136 @@ export function parseContentPath(
 
   const sessionKey = pathSegments.slice(0, -1).join("/");
   return { workerPath: `/ingest/content/${sessionKey}/${type}` };
+}
+
+// ── Presign request validation ─────────────────────────────────
+
+export interface PresignRequest {
+  sessionKey: string;
+  rawHash: string;
+}
+
+export interface PresignValidationResult {
+  valid: true;
+  sessionKey: string;
+  rawHash: string;
+}
+
+export interface PresignValidationError {
+  valid: false;
+  error: string;
+}
+
+/**
+ * Validate a presign request body.
+ * Requires sessionKey (non-empty string) and rawHash (non-empty hex string).
+ */
+export function validatePresignRequest(
+  body: unknown,
+): PresignValidationResult | PresignValidationError {
+  if (!body || typeof body !== "object") {
+    return { valid: false, error: "Request body must be a JSON object" };
+  }
+
+  const obj = body as Record<string, unknown>;
+
+  if (typeof obj.sessionKey !== "string" || !obj.sessionKey) {
+    return { valid: false, error: "sessionKey (non-empty string) is required" };
+  }
+
+  if (typeof obj.rawHash !== "string" || !obj.rawHash) {
+    return { valid: false, error: "rawHash (non-empty string) is required" };
+  }
+
+  // Validate rawHash looks like a hex string
+  if (!/^[0-9a-f]{8,128}$/i.test(obj.rawHash)) {
+    return { valid: false, error: "rawHash must be a hex string (8-128 chars)" };
+  }
+
+  return { valid: true, sessionKey: obj.sessionKey, rawHash: obj.rawHash };
+}
+
+// ── Confirm raw upload request validation ──────────────────────
+
+export interface ConfirmRawRequest {
+  sessionKey: string;
+  rawHash: string;
+  rawSize: number;
+}
+
+export interface ConfirmRawValidationResult {
+  valid: true;
+  sessionKey: string;
+  rawHash: string;
+  rawSize: number;
+}
+
+export interface ConfirmRawValidationError {
+  valid: false;
+  error: string;
+}
+
+/**
+ * Validate a confirm-raw request body.
+ * Requires sessionKey, rawHash (hex), and rawSize (positive integer).
+ */
+export function validateConfirmRawRequest(
+  body: unknown,
+): ConfirmRawValidationResult | ConfirmRawValidationError {
+  if (!body || typeof body !== "object") {
+    return { valid: false, error: "Request body must be a JSON object" };
+  }
+
+  const obj = body as Record<string, unknown>;
+
+  if (typeof obj.sessionKey !== "string" || !obj.sessionKey) {
+    return { valid: false, error: "sessionKey (non-empty string) is required" };
+  }
+
+  if (typeof obj.rawHash !== "string" || !obj.rawHash) {
+    return { valid: false, error: "rawHash (non-empty string) is required" };
+  }
+
+  if (!/^[0-9a-f]{8,128}$/i.test(obj.rawHash)) {
+    return { valid: false, error: "rawHash must be a hex string (8-128 chars)" };
+  }
+
+  if (typeof obj.rawSize !== "number" || obj.rawSize <= 0 || !Number.isInteger(obj.rawSize)) {
+    return { valid: false, error: "rawSize (positive integer) is required" };
+  }
+
+  return {
+    valid: true,
+    sessionKey: obj.sessionKey,
+    rawHash: obj.rawHash,
+    rawSize: obj.rawSize,
+  };
+}
+
+// ── Confirm raw upload D1 update ───────────────────────────────
+
+export interface ConfirmRawUpdateParams {
+  userId: string;
+  sessionKey: string;
+  rawHash: string;
+  rawSize: number;
+}
+
+/**
+ * Build the D1 SQL update for confirming a direct-to-R2 raw upload.
+ * Updates raw_key, raw_size, raw_hash, and updated_at.
+ * Only updates if the session belongs to the user.
+ */
+export function buildConfirmRawUpdate(params: ConfirmRawUpdateParams): {
+  sql: string;
+  params: unknown[];
+} {
+  const r2Key = `${params.userId}/${params.sessionKey}/raw/${params.rawHash}.json.gz`;
+
+  return {
+    sql: `UPDATE sessions
+      SET raw_key = ?, raw_size = ?, raw_hash = ?, updated_at = datetime('now')
+      WHERE user_id = ? AND session_key = ?`,
+    params: [r2Key, params.rawSize, params.rawHash, params.userId, params.sessionKey],
+  };
 }

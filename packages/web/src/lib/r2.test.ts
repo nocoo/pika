@@ -6,6 +6,7 @@ import { R2Client, getR2Client, resetR2Client } from "./r2.js";
 vi.mock("@aws-sdk/client-s3", () => ({
   S3Client: vi.fn().mockImplementation(() => ({})),
   GetObjectCommand: vi.fn().mockImplementation((input) => ({ input })),
+  PutObjectCommand: vi.fn().mockImplementation((input) => ({ input })),
 }));
 
 vi.mock("@aws-sdk/s3-request-presigner", () => ({
@@ -147,6 +148,65 @@ describe("R2Client.getRawUrl", () => {
     const url = await client.getRawUrl("u", "k", "h", 900);
 
     expect(url).toContain("expires=900");
+  });
+});
+
+// ── Singleton factory ──────────────────────────────────────────
+
+// ── putPresignedUrl() ──────────────────────────────────────────
+
+describe("R2Client.putPresignedUrl", () => {
+  it("returns presigned PUT URL for given key", async () => {
+    const client = new R2Client(cfg);
+
+    const url = await client.putPresignedUrl("some/key.json.gz");
+
+    expect(url).toBe(
+      "https://r2.example.com/some/key.json.gz?expires=3600",
+    );
+  });
+
+  it("uses custom expiresIn", async () => {
+    const client = new R2Client(cfg);
+
+    const url = await client.putPresignedUrl("key.gz", "application/gzip", 300);
+
+    expect(url).toContain("expires=300");
+  });
+
+  it("passes correct Bucket, Key, and ContentType to PutObjectCommand", async () => {
+    const { PutObjectCommand } = await import("@aws-sdk/client-s3");
+    const client = new R2Client(cfg);
+
+    await client.putPresignedUrl("my/obj.gz", "application/gzip");
+
+    expect(PutObjectCommand).toHaveBeenCalledWith({
+      Bucket: "pika-sessions",
+      Key: "my/obj.gz",
+      ContentType: "application/gzip",
+    });
+  });
+});
+
+// ── putRawUrl() ────────────────────────────────────────────────
+
+describe("R2Client.putRawUrl", () => {
+  it("generates correct key pattern with rawHash", async () => {
+    const client = new R2Client(cfg);
+
+    const url = await client.putRawUrl("user-1", "claude:abc", "deadbeef");
+
+    expect(url).toBe(
+      "https://r2.example.com/user-1/claude:abc/raw/deadbeef.json.gz?expires=3600",
+    );
+  });
+
+  it("uses custom expiresIn", async () => {
+    const client = new R2Client(cfg);
+
+    const url = await client.putRawUrl("u", "k", "h", 600);
+
+    expect(url).toContain("expires=600");
   });
 });
 

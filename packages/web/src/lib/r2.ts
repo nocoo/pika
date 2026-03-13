@@ -7,7 +7,7 @@
  * Uses S3-compatible SDK since R2 exposes an S3 API.
  */
 
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -88,6 +88,44 @@ export class R2Client {
   ): Promise<string> {
     return this.getPresignedUrl(
       `${userId}/${sessionKey}/raw/${rawHash}.json.gz`,
+      expiresIn,
+    );
+  }
+
+  // ── Presigned PUT URLs ────────────────────────────────────────
+
+  /**
+   * Generate a presigned PUT URL for uploading to R2.
+   * @param key - Full R2 object key
+   * @param contentType - MIME type for the upload
+   * @param expiresIn - URL TTL in seconds (default 3600)
+   */
+  async putPresignedUrl(
+    key: string,
+    contentType = "application/octet-stream",
+    expiresIn = DEFAULT_EXPIRES_IN,
+  ): Promise<string> {
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      ContentType: contentType,
+    });
+    return getSignedUrl(this.s3, command, { expiresIn });
+  }
+
+  /**
+   * Presigned PUT URL for raw session archive direct upload.
+   * Key pattern: `{userId}/{sessionKey}/raw/{rawHash}.json.gz`
+   */
+  async putRawUrl(
+    userId: string,
+    sessionKey: string,
+    rawHash: string,
+    expiresIn = DEFAULT_EXPIRES_IN,
+  ): Promise<string> {
+    return this.putPresignedUrl(
+      `${userId}/${sessionKey}/raw/${rawHash}.json.gz`,
+      "application/gzip",
       expiresIn,
     );
   }

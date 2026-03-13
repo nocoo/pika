@@ -42,12 +42,27 @@ export async function PUT(
     );
   }
 
+  // Collect custom ingest headers to forward to the Worker
+  const extraHeaders: Record<string, string> = {};
+  const forwardHeaders = [
+    "X-Content-Hash",
+    "X-Parser-Revision",
+    "X-Schema-Version",
+    "X-Raw-Hash",
+    "Content-Encoding",
+  ];
+  for (const name of forwardHeaders) {
+    const value = request.headers.get(name);
+    if (value) extraHeaders[name] = value;
+  }
+
   const result = await proxyToWorker(config, {
     method: "PUT",
     path: parsed.workerPath,
     userId: user.userId,
     body: request.body,
     contentType: request.headers.get("Content-Type") ?? "application/octet-stream",
+    extraHeaders,
   });
 
   return new NextResponse(result.body, {

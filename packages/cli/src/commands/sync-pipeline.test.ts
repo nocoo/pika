@@ -385,9 +385,14 @@ describe("runSyncPipeline: upload", () => {
 
     // metadata batch POST
     mockFetch.mockResolvedValueOnce(jsonResponse({ ingested: 1 }));
-    // content PUTs (canonical + raw)
+    // content: canonical PUT
     mockFetch.mockResolvedValueOnce(new Response(null, { status: 201 }));
-    mockFetch.mockResolvedValueOnce(new Response(null, { status: 201 }));
+    // content: presign request
+    mockFetch.mockResolvedValueOnce(jsonResponse({ url: "https://r2.example.com/presigned", key: "k" }));
+    // content: R2 PUT
+    mockFetch.mockResolvedValueOnce(new Response(null, { status: 200 }));
+    // content: confirm raw
+    mockFetch.mockResolvedValueOnce(jsonResponse({ confirmed: true }));
 
     const result = await runSyncPipeline(
       makeInput({ fileDrivers: [driver] }),
@@ -398,7 +403,7 @@ describe("runSyncPipeline: upload", () => {
     expect(result.uploadResult!.totalIngested).toBe(1);
     expect(result.contentResult).toBeDefined();
     expect(result.contentResult!.uploaded).toBe(1);
-    expect(mockFetch).toHaveBeenCalledTimes(3);
+    expect(mockFetch).toHaveBeenCalledTimes(5);
   });
 
   it("skips upload when upload=false", async () => {

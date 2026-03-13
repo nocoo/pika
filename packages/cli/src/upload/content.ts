@@ -6,9 +6,9 @@
  *    Headers: Content-Encoding: gzip, X-Content-Hash, X-Parser-Revision, X-Schema-Version
  *    Body: gzip-compressed canonical JSON
  *
- * 2. PUT /api/ingest/content/{sessionKey}/raw
- *    Headers: Content-Encoding: gzip, X-Raw-Hash
- *    Body: gzip-compressed raw JSON
+ * 2. Raw content: two strategies:
+ *    a. Presigned URL (default): POST /api/ingest/presign → PUT directly to R2 → POST /api/ingest/confirm-raw
+ *    b. Proxy fallback: PUT /api/ingest/content/{sessionKey}/raw (through Next.js → Worker)
  *
  * Same retry strategy as metadata upload.
  */
@@ -147,6 +147,152 @@ async function putWithRetry(
   throw new RetryExhaustedError(lastStatus, MAX_UPLOAD_RETRIES + 1);
 }
 
+// ── Presigned URL direct upload ────────────────────────────────
+
+export interface PresignResponse {
+  url: string;
+  key: string;
+}
+
+/**
+ * Request a presigned PUT URL from the API for direct-to-R2 raw upload.
+ * POST /api/ingest/presign with { sessionKey, rawHash }.
+ */
+export async function requestPresignedUrl(
+  sessionKey: string,
+  rawHash: string,
+  opts: ContentUploadOptions,
+): Promise<PresignResponse> {
+  const fetchFn = opts.fetch ?? globalThis.fetch;
+
+  const response = await fetchFn(`${opts.apiUrl}/api/ingest/presign`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${opts.apiKey}`,
+    },
+    body: JSON.stringify({ sessionKey, rawHash }),
+  });
+
+  if (response.status === 401) throw new AuthError();
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new ClientError(response.status, text);
+  }
+
+  const data = (await response.json()) as PresignResponse;
+  if (!data.url || !data.key) {
+    throw new ClientError(response.status, "Invalid presign response: missing url or key");
+  }
+
+  return data;
+}
+
+/**
+ * Upload raw content directly to R2 via presigned PUT URL.
+ * The presigned URL is pre-authorized — no Bearer token needed.
+ */
+export async function uploadToPresignedUrl(
+  presignedUrl: string,
+  body: Buffer,
+  opts: ContentUploadOptions,
+): Promise<void> {
+  const fetchFn = opts.fetch ?? globalThis.fetch;
+  const sleepFn = opts.sleep ?? defaultSleep;
+
+  let lastStatus = 0;
+
+  for (let attempt = 0; attempt <= MAX_UPLOAD_RETRIES; attempt++) {
+    const response = await fetchFn(presignedUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/gzip",
+      },
+      body,
+    });
+
+    lastStatus = response.status;
+
+    // 200/201 — uploaded successfully
+    if (response.status === 200 || response.status === 201) {
+      return;
+    }
+
+    // 5xx — retry with exponential backoff
+    if (response.status >= 500) {
+      if (attempt < MAX_UPLOAD_RETRIES) {
+        const backoff = INITIAL_BACKOFF_MS * Math.pow(2, attempt);
+        await sleepFn(backoff);
+        continue;
+      }
+    }
+
+    // 4xx — non-retryable
+    if (response.status >= 400 && response.status < 500) {
+      const text = await response.text();
+      throw new ClientError(response.status, text);
+    }
+  }
+
+  throw new RetryExhaustedError(lastStatus, MAX_UPLOAD_RETRIES + 1);
+}
+
+/**
+ * Confirm a direct-to-R2 raw upload by updating D1 metadata.
+ * POST /api/ingest/confirm-raw with { sessionKey, rawHash, rawSize }.
+ */
+export async function confirmRawUpload(
+  sessionKey: string,
+  rawHash: string,
+  rawSize: number,
+  opts: ContentUploadOptions,
+): Promise<void> {
+  const fetchFn = opts.fetch ?? globalThis.fetch;
+
+  const response = await fetchFn(`${opts.apiUrl}/api/ingest/confirm-raw`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${opts.apiKey}`,
+    },
+    body: JSON.stringify({ sessionKey, rawHash, rawSize }),
+  });
+
+  if (response.status === 401) throw new AuthError();
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new ClientError(response.status, text);
+  }
+}
+
+/**
+ * Upload raw content via presigned URL flow:
+ * 1. Request presigned PUT URL
+ * 2. PUT gzip body directly to R2
+ * 3. Confirm upload (update D1 metadata)
+ *
+ * Returns true if uploaded, false if presign is not available (caller should fall back).
+ */
+export async function uploadRawDirect(
+  sessionKey: string,
+  rawHash: string,
+  rawGzip: Buffer,
+  opts: ContentUploadOptions,
+): Promise<boolean> {
+  // 1. Request presigned URL
+  const presign = await requestPresignedUrl(sessionKey, rawHash, opts);
+
+  // 2. Upload directly to R2
+  await uploadToPresignedUrl(presign.url, rawGzip, opts);
+
+  // 3. Confirm upload (update D1 metadata)
+  await confirmRawUpload(sessionKey, rawHash, rawGzip.length, opts);
+
+  return true;
+}
+
 // ── Upload session content ─────────────────────────────────────
 
 /**
@@ -154,7 +300,9 @@ async function putWithRetry(
  *
  * 1. Serialize to JSON and compute hashes
  * 2. Gzip compress both payloads
- * 3. PUT canonical, then PUT raw
+ * 3. PUT canonical via proxy (Worker needs to process + insert D1 chunks)
+ * 4. Upload raw via presigned URL (direct to R2, bypasses proxy)
+ *    Falls back to proxy if presigned URL fails with non-auth error
  *
  * Returns hashes and upload status for each.
  */
@@ -174,7 +322,7 @@ export async function uploadSessionContent(
 
   const sessionKey = encodeURIComponent(canonical.sessionKey);
 
-  // PUT canonical
+  // PUT canonical (always via proxy — Worker needs to chunk + D1 batch insert)
   const canonicalResult = await putWithRetry(
     `${opts.apiUrl}/api/ingest/content/${sessionKey}/canonical`,
     canonicalGzip,
@@ -186,19 +334,32 @@ export async function uploadSessionContent(
     opts,
   );
 
-  // PUT raw
-  const rawResult = await putWithRetry(
-    `${opts.apiUrl}/api/ingest/content/${sessionKey}/raw`,
-    rawGzip,
-    {
-      "X-Raw-Hash": rawHash,
-    },
-    opts,
-  );
+  // Upload raw — try presigned URL first, fall back to proxy
+  let rawUploaded = false;
+  try {
+    rawUploaded = await uploadRawDirect(
+      canonical.sessionKey,
+      rawHash,
+      rawGzip,
+      opts,
+    );
+  } catch (err) {
+    // AuthError should propagate immediately
+    if (err instanceof AuthError) throw err;
+
+    // Fall back to proxy for any other error
+    const rawResult = await putWithRetry(
+      `${opts.apiUrl}/api/ingest/content/${sessionKey}/raw`,
+      rawGzip,
+      { "X-Raw-Hash": rawHash },
+      opts,
+    );
+    rawUploaded = rawResult.uploaded;
+  }
 
   return {
     canonicalUploaded: canonicalResult.uploaded,
-    rawUploaded: rawResult.uploaded,
+    rawUploaded,
     contentHash,
     rawHash,
   };
