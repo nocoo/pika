@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
-import { resolveUser } from "@/lib/cli-auth.js";
-import { D1CliAuthDb } from "@/lib/d1-cli-auth-db.js";
-import { getD1Client } from "@/lib/d1.js";
-import { auth } from "@/lib/auth.js";
+import { resolveUser } from "@/lib/cli-auth";
+import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
+import { getD1Client } from "@/lib/d1";
+import { auth } from "@/lib/auth";
 import {
   buildSessionListQuery,
   parseSessionListParams,
   shapeSessionListResponse,
   type SessionRow,
-} from "@/lib/sessions.js";
+} from "@/lib/sessions";
 
 export async function GET(request: Request) {
   const d1 = getD1Client();

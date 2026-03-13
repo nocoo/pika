@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { resolveUser } from "@/lib/cli-auth.js";
-import { D1CliAuthDb } from "@/lib/d1-cli-auth-db.js";
-import { getD1Client } from "@/lib/d1.js";
-import { auth } from "@/lib/auth.js";
-import { buildToggleStarQuery } from "@/lib/sessions.js";
+import { resolveUser } from "@/lib/cli-auth";
+import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
+import { getD1Client } from "@/lib/d1";
+import { auth } from "@/lib/auth";
+import { buildToggleStarQuery } from "@/lib/sessions";
 
 async function authenticate(request: Request) {
   const d1 = getD1Client();
