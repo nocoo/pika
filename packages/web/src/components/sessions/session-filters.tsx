@@ -12,6 +12,8 @@ interface SessionFiltersProps {
   sort: SessionSort;
   onSourceChange: (source: Source | "") => void;
   onSortChange: (sort: SessionSort) => void;
+  /** Hide the sort dropdown (e.g. on search page where sort is by relevance). */
+  hideSort?: boolean;
 }
 
 // ── Source options ──────────────────────────────────────────────
@@ -39,6 +41,7 @@ export function SessionFilters({
   sort,
   onSourceChange,
   onSortChange,
+  hideSort,
 }: SessionFiltersProps) {
   const handleSourceChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -68,17 +71,19 @@ export function SessionFilters({
         ))}
       </Select>
 
-      <Select
-        value={sort}
-        onChange={handleSortChange}
-        className="w-auto min-w-[130px]"
-      >
-        {SORT_OPTIONS.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </Select>
+      {!hideSort && (
+        <Select
+          value={sort}
+          onChange={handleSortChange}
+          className="w-auto min-w-[130px]"
+        >
+          {SORT_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </Select>
+      )}
     </div>
   );
 }
