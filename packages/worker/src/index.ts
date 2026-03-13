@@ -6,6 +6,7 @@
  * storage in R2 and chunked FTS indexing.
  *
  * Routes:
+ * - GET  /live — public health check (no auth)
  * - POST /ingest/sessions — session metadata upsert
  * - PUT  /ingest/content/:sessionKey/canonical — canonical content upload
  * - PUT  /ingest/content/:sessionKey/raw — raw content upload
@@ -567,6 +568,49 @@ export async function handleRawUpload(
   }
 }
 
+// ── Handler: health check ──────────────────────────────────────
+
+export interface WorkerLiveResult {
+  status: "ok" | "error";
+  version: string;
+  d1?: { latencyMs: number };
+  error?: string;
+}
+
+/**
+ * Lightweight health check — verifies D1 connectivity.
+ * Public (no auth required). Used by uptime monitors.
+ *
+ * Error responses MUST NOT contain the word "ok" to prevent
+ * keyword-based monitor false positives.
+ */
+export async function handleLive(env: Env): Promise<Response> {
+  const start = Date.now();
+  const version = "0.1.0"; // synced with root package.json
+
+  try {
+    await env.DB.prepare("SELECT 1").first();
+    const latencyMs = Date.now() - start;
+
+    return Response.json(
+      { status: "ok", version, d1: { latencyMs } } satisfies WorkerLiveResult,
+      {
+        headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+      },
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+
+    return Response.json(
+      { status: "error", version, error: message } satisfies WorkerLiveResult,
+      {
+        status: 503,
+        headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+      },
+    );
+  }
+}
+
 // ── Router ─────────────────────────────────────────────────────
 
 /**
@@ -588,7 +632,12 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    // 1. Shared secret auth (all routes)
+    // 0. Public health check (before auth — must be accessible by monitors)
+    if (request.method === "GET" && url.pathname === "/live") {
+      return handleLive(env);
+    }
+
+    // 1. Shared secret auth (all remaining routes)
     if (!validateWorkerAuth(request, env.WORKER_SECRET)) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }

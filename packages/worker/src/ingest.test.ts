@@ -5,6 +5,7 @@ import {
   handleSessionIngest,
   handleCanonicalUpload,
   handleRawUpload,
+  handleLive,
   parseContentPath,
   decompressBody,
   checkVersionConflicts,
@@ -1001,5 +1002,91 @@ describe("worker fetch handler", () => {
     });
     const res = await workerFetch(req, env);
     expect(res.status).toBe(404);
+  });
+
+  it("GET /live returns 200 without auth", async () => {
+    const env = mockEnv();
+    const req = new Request("http://worker/live", { method: "GET" });
+    const res = await workerFetch(req, env);
+    expect(res.status).toBe(200);
+    const body = await res.json() as { status: string; version: string };
+    expect(body.status).toBe("ok");
+    expect(body.version).toBe("0.1.0");
+  });
+});
+
+// ── handleLive ─────────────────────────────────────────────────
+
+describe("handleLive", () => {
+  it("returns ok with latencyMs when D1 responds", async () => {
+    const env: Env = {
+      DB: mockD1(undefined, { firstResult: { "1": 1 } }),
+      BUCKET: mockR2(),
+      WORKER_SECRET: "s",
+    };
+
+    const res = await handleLive(env);
+    expect(res.status).toBe(200);
+
+    const body = await res.json() as { status: string; version: string; d1: { latencyMs: number } };
+    expect(body.status).toBe("ok");
+    expect(body.version).toBe("0.1.0");
+    expect(body.d1.latencyMs).toBeGreaterThanOrEqual(0);
+    expect(res.headers.get("Cache-Control")).toBe("no-store, no-cache, must-revalidate");
+  });
+
+  it("returns 503 error when D1 throws", async () => {
+    const mockFirst = vi.fn().mockRejectedValue(new Error("D1 connection refused"));
+    const env: Env = {
+      DB: {
+        prepare: vi.fn().mockReturnValue({ first: mockFirst, bind: vi.fn().mockReturnThis() }),
+        batch: vi.fn(),
+      } as unknown as D1Database,
+      BUCKET: mockR2(),
+      WORKER_SECRET: "s",
+    };
+
+    const res = await handleLive(env);
+    expect(res.status).toBe(503);
+
+    const body = await res.json() as { status: string; error: string };
+    expect(body.status).toBe("error");
+    expect(body.error).toBe("D1 connection refused");
+    expect(res.headers.get("Cache-Control")).toBe("no-store, no-cache, must-revalidate");
+  });
+
+  it("error response does not contain 'ok'", async () => {
+    const mockFirst = vi.fn().mockRejectedValue(new Error("timeout"));
+    const env: Env = {
+      DB: {
+        prepare: vi.fn().mockReturnValue({ first: mockFirst, bind: vi.fn().mockReturnThis() }),
+        batch: vi.fn(),
+      } as unknown as D1Database,
+      BUCKET: mockR2(),
+      WORKER_SECRET: "s",
+    };
+
+    const res = await handleLive(env);
+    const body = await res.text();
+
+    expect(body).not.toContain('"ok"');
+  });
+
+  it("handles non-Error thrown values", async () => {
+    const mockFirst = vi.fn().mockRejectedValue("string failure");
+    const env: Env = {
+      DB: {
+        prepare: vi.fn().mockReturnValue({ first: mockFirst, bind: vi.fn().mockReturnThis() }),
+        batch: vi.fn(),
+      } as unknown as D1Database,
+      BUCKET: mockR2(),
+      WORKER_SECRET: "s",
+    };
+
+    const res = await handleLive(env);
+    expect(res.status).toBe(503);
+
+    const body = await res.json() as { error: string };
+    expect(body.error).toBe("string failure");
   });
 });
