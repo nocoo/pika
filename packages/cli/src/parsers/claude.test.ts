@@ -400,7 +400,7 @@ describe("parseClaudeFile", () => {
 
   // ── Incremental parsing (byte offset) ─────────────────────────
 
-  it("resumes from byte offset", async () => {
+  it("resumes from byte offset — produces full canonical snapshot", async () => {
     const line1 = userLine({
       content: "First message",
       timestamp: "2026-01-01T00:00:00Z",
@@ -415,10 +415,12 @@ describe("parseClaudeFile", () => {
     // Offset after first line (line + newline)
     const offset = Buffer.byteLength(line1 + "\n");
 
-    // Resume from offset: should only get the second line
+    // Resume from offset: startOffset is only a "has new data?" gate.
+    // Parsing always starts from byte 0 to produce full canonical snapshots.
     const resumed = await parseClaudeFile(filePath, offset);
-    expect(resumed.canonical.messages).toHaveLength(1);
-    expect(resumed.canonical.messages[0].role).toBe("assistant");
+    expect(resumed.canonical.messages).toHaveLength(2);
+    expect(resumed.canonical.messages[0].role).toBe("user");
+    expect(resumed.canonical.messages[1].role).toBe("assistant");
   });
 });
 

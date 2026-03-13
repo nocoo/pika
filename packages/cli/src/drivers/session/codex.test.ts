@@ -365,7 +365,8 @@ describe("codexSessionDriver.parse", () => {
     const secondChunk = line4 + "\n" + line5 + "\n";
     await writeFile(filePath, firstChunk + secondChunk);
 
-    // Parse from offset should only get appended content
+    // Parse from offset — full canonical snapshot includes ALL messages.
+    // The offset is only a "has new data?" gate.
     const results = await codexSessionDriver.parse(filePath, {
       kind: "codex",
       startOffset: offset,
@@ -373,8 +374,8 @@ describe("codexSessionDriver.parse", () => {
       lastModel: null,
     });
     expect(results).toHaveLength(1);
-    // Only the 2 messages from second chunk (session_meta is in first chunk)
-    expect(results[0].canonical.messages).toHaveLength(2);
+    // Full canonical snapshot: all 4 messages
+    expect(results[0].canonical.messages).toHaveLength(4);
   });
 
   it("returns a result with empty messages for empty file", async () => {

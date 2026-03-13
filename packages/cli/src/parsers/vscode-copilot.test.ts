@@ -488,7 +488,8 @@ describe("parseVscodeCopilotFile", () => {
       setResultOp(1, { metadata: { promptTokens: 200, outputTokens: 30 } }),
     ]);
 
-    // Parse with r1 already processed
+    // Parse with r1 already processed — full canonical snapshot still
+    // includes ALL messages; processedRequestIds only affects newRequestIds.
     const result = await parseVscodeCopilotFile(
       filePath,
       0,
@@ -496,15 +497,17 @@ describe("parseVscodeCopilotFile", () => {
       null,
     );
 
-    // Only r2 messages should be extracted
-    expect(result.canonical.messages).toHaveLength(2);
-    expect(result.canonical.messages[0].content).toBe("Second question");
-    expect(result.canonical.messages[1].content).toBe("Second answer");
-    expect(result.canonical.totalInputTokens).toBe(200);
-    expect(result.canonical.totalOutputTokens).toBe(30);
+    // All messages extracted (full canonical snapshot)
+    expect(result.canonical.messages).toHaveLength(4);
+    expect(result.canonical.messages[0].content).toBe("First question");
+    expect(result.canonical.messages[1].content).toBe("First answer");
+    expect(result.canonical.messages[2].content).toBe("Second question");
+    expect(result.canonical.messages[3].content).toBe("Second answer");
+    expect(result.canonical.totalInputTokens).toBe(300);
+    expect(result.canonical.totalOutputTokens).toBe(50);
   });
 
-  it("returns empty result when all requests are already processed", async () => {
+  it("returns full canonical even when all requests are already processed", async () => {
     const filePath = await writeJsonl("session.jsonl", [
       snapshotOp(),
       appendRequestOp(makeRequest({ requestId: "r1" })),
@@ -518,7 +521,12 @@ describe("parseVscodeCopilotFile", () => {
       null,
     );
 
-    expect(result.canonical.messages).toHaveLength(0);
+    // Full canonical snapshot still includes all messages
+    expect(result.canonical.messages).toHaveLength(2);
+    expect(result.canonical.messages[0].content).toBe("Hello Copilot");
+    expect(result.canonical.messages[1].content).toBe("Hi");
+    // newRequestIds is empty since r1 was already processed
+    expect(result.newRequestIds).toEqual([]);
   });
 
   // ── Raw output ────────────────────────────────────────────────
@@ -1073,7 +1081,7 @@ describe("extractMessages", () => {
     expect(newRequestIds).toEqual(["r1"]);
   });
 
-  it("skips processed request IDs", () => {
+  it("extracts all messages but only reports new request IDs", () => {
     const state = replayCrdt([
       {
         kind: 0,
@@ -1101,8 +1109,13 @@ describe("extractMessages", () => {
       state,
       new Set(["r1"]),
     );
-    expect(accum.messages).toHaveLength(2);
-    expect(accum.messages[0].content).toBe("Q2");
+    // All messages extracted (full canonical snapshot)
+    expect(accum.messages).toHaveLength(4);
+    expect(accum.messages[0].content).toBe("Q1");
+    expect(accum.messages[1].content).toBe("A1");
+    expect(accum.messages[2].content).toBe("Q2");
+    expect(accum.messages[3].content).toBe("A2");
+    // Only r2 is new
     expect(newRequestIds).toEqual(["r2"]);
   });
 

@@ -331,8 +331,9 @@ describe("geminiSessionDriver.parse", () => {
       lastModel: null,
     });
     expect(results).toHaveLength(1);
-    expect(results[0].canonical.messages).toHaveLength(2);
-    expect(results[0].canonical.messages[0].content).toBe("Second");
+    // Full canonical snapshot: all 4 messages
+    expect(results[0].canonical.messages).toHaveLength(4);
+    expect(results[0].canonical.messages[0].content).toBe("First");
   });
 
   it("returns result with empty messages for empty file", async () => {

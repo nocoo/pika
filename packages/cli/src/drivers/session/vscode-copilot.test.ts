@@ -519,23 +519,24 @@ describe("vscodeCopilotSessionDriver.parse", () => {
     // Should have user + assistant for both requests
     expect(results1[0].canonical.messages.length).toBeGreaterThanOrEqual(4);
 
-    // Second parse: skip old request
+    // Second parse: full canonical snapshot still includes ALL messages;
+    // processedRequestIds only affects newRequestIds tracking.
     const results2 = await vscodeCopilotSessionDriver.parse(filePath, {
       kind: "vscode-copilot",
       startOffset: 0,
       processedRequestIds: ["req-old"],
     });
     expect(results2).toHaveLength(1);
-    // Should only have messages from req-new
-    expect(results2[0].canonical.messages.length).toBeGreaterThanOrEqual(2);
-    // Verify the first user message is the new one
+    // Full canonical: all messages from both requests
+    expect(results2[0].canonical.messages.length).toBeGreaterThanOrEqual(4);
+    // First user message is from the old request (full snapshot)
     const userMsg = results2[0].canonical.messages.find(
       (m) => m.role === "user",
     );
-    expect(userMsg?.content).toContain("New question");
+    expect(userMsg?.content).toContain("Old question");
   });
 
-  it("returns empty when all requests are already processed", async () => {
+  it("returns full canonical even when all requests are already processed", async () => {
     const content = buildSessionContent([
       snapshotOp({ sessionId: "ses-done" }),
       appendRequestOp(makeRequest({ requestId: "req-a" })),
@@ -551,7 +552,11 @@ describe("vscodeCopilotSessionDriver.parse", () => {
       processedRequestIds: ["req-a"],
     });
 
-    expect(results).toEqual([]);
+    // Full canonical snapshot — still returns results
+    expect(results).toHaveLength(1);
+    expect(results[0].canonical.messages).toHaveLength(2);
+    // No new request IDs
+    expect(results[0].newRequestIds).toEqual([]);
   });
 
   it("includes model info from session state", async () => {

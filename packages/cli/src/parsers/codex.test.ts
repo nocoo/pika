@@ -868,10 +868,15 @@ describe("parseCodexFile", () => {
       Buffer.byteLength(line2 + "\n") +
       Buffer.byteLength(line3 + "\n");
 
+    // With the full-canonical fix, resumed parse always produces the
+    // complete snapshot (all 4 messages). The offset is only used as
+    // a "has new data?" gate — parsing always starts from byte 0.
     const resumed = await parseCodexFile(filePath, offset);
-    expect(resumed.canonical.messages).toHaveLength(2);
-    expect(resumed.canonical.messages[0].content).toBe("Second message");
-    expect(resumed.canonical.messages[1].content).toBe("Second response");
+    expect(resumed.canonical.messages).toHaveLength(4);
+    expect(resumed.canonical.messages[0].content).toBe("First message");
+    expect(resumed.canonical.messages[1].content).toBe("First response");
+    expect(resumed.canonical.messages[2].content).toBe("Second message");
+    expect(resumed.canonical.messages[3].content).toBe("Second response");
   });
 
   it("returns empty result when offset is at or past file size", async () => {

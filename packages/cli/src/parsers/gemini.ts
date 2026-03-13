@@ -348,6 +348,10 @@ export async function parseGeminiFile(
     return buildEmptyResult(filePath);
   }
 
+  // startIndex is only used as a "has new data?" gate.
+  // If no new messages since last parse, return empty.
+  if (startIndex >= messages.length) return buildEmptyResult(filePath);
+
   const accum: SessionAccum = {
     messages: [],
     totalInputTokens: 0,
@@ -356,7 +360,8 @@ export async function parseGeminiFile(
     lastModel: null,
   };
 
-  for (let i = startIndex; i < messages.length; i++) {
+  // Always process from index 0 to produce full canonical snapshots.
+  for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
     if (!msg || typeof msg !== "object" || typeof msg.type !== "string") {
       continue;

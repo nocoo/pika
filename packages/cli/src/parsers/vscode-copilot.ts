@@ -569,8 +569,9 @@ export { replayCrdt };
 /**
  * Extract messages from a reconstructed session state.
  *
- * Processes only requests whose IDs are NOT in `processedIds` (for incremental parsing).
- * Returns the accumulator and the set of newly processed request IDs.
+ * Always processes ALL requests to produce full canonical snapshots.
+ * Returns the accumulator and the set of newly processed request IDs
+ * (those NOT in `processedIds`) for cursor advancement.
  */
 export function extractMessages(
   state: SessionState,
@@ -585,12 +586,13 @@ export function extractMessages(
 
   const newRequestIds: string[] = [];
 
+  // Always extract ALL requests to produce full canonical snapshots.
+  // processedIds is only used to track which request IDs are new.
   for (const req of state.requests) {
     const id = req.requestId;
-    if (id && processedIds.has(id)) continue;
 
     extractRequestMessages(req, state.selectedModel, accum);
-    if (id) newRequestIds.push(id);
+    if (id && !processedIds.has(id)) newRequestIds.push(id);
   }
 
   return { accum, newRequestIds };
@@ -647,8 +649,7 @@ export async function parseVscodeCopilotFile(
   // Resolve workspace folder if not provided
   const folder = workspaceFolder ?? (await extractWorkspaceFolder(filePath));
 
-  // Build result — only include raw content from startOffset onward
-  const rawSlice = startOffset > 0 ? rawContent.slice(startOffset) : rawContent;
-
-  return { ...buildParseResult(state, accum, filePath, rawSlice, folder), newRequestIds };
+  // Always include full raw content for complete snapshots.
+  // startOffset is only used as a "has new data?" gate above.
+  return { ...buildParseResult(state, accum, filePath, rawContent, folder), newRequestIds };
 }

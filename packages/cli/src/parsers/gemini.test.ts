@@ -428,14 +428,17 @@ describe("parseGeminiFile — incremental parsing", () => {
     const filePath = join(tmpDir, "session.json");
     await writeFile(filePath, JSON.stringify(session));
 
-    // Start from index 2 (skip first pair)
+    // Start from index 2 — acts as a "has new data?" gate, but
+    // parsing always builds the full canonical snapshot from index 0.
     const result = await parseGeminiFile(filePath, 2);
-    expect(result.canonical.messages).toHaveLength(2);
-    expect(result.canonical.messages[0].content).toBe("Second");
-    expect(result.canonical.messages[1].content).toBe("Reply 2");
-    // Only tokens from message index >= 2
-    expect(result.canonical.totalInputTokens).toBe(200);
-    expect(result.canonical.totalOutputTokens).toBe(80);
+    expect(result.canonical.messages).toHaveLength(4);
+    expect(result.canonical.messages[0].content).toBe("First");
+    expect(result.canonical.messages[1].content).toBe("Reply 1");
+    expect(result.canonical.messages[2].content).toBe("Second");
+    expect(result.canonical.messages[3].content).toBe("Reply 2");
+    // Tokens include ALL messages (full snapshot)
+    expect(result.canonical.totalInputTokens).toBe(300);
+    expect(result.canonical.totalOutputTokens).toBe(130);
   });
 
   it("returns empty result when startIndex exceeds message count", async () => {

@@ -432,9 +432,11 @@ export async function parseClaudeFileMulti(
 
   const sessions = new Map<string, SessionAccum>();
 
+  // Always read from byte 0 to produce full canonical snapshots.
+  // startOffset is only used as a "has new data?" gate above.
   const stream = createReadStream(filePath, {
     encoding: "utf8",
-    start: startOffset,
+    start: 0,
   });
   const rl = createInterface({ input: stream, crlfDelay: Infinity });
 

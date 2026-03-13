@@ -272,14 +272,15 @@ describe("claudeSessionDriver.parse", () => {
     const secondChunk = line3 + "\n" + line4 + "\n";
     await writeFile(filePath, firstChunk + secondChunk);
 
-    // Parse from offset should only get the second chunk
+    // Parse from offset — full canonical snapshot includes ALL messages.
+    // The offset is only a "has new data?" gate.
     const results = await claudeSessionDriver.parse(filePath, {
       kind: "byte-offset",
       startOffset: offset,
     });
     expect(results).toHaveLength(1);
-    // Only the 2 messages from second chunk
-    expect(results[0].canonical.messages).toHaveLength(2);
+    // Full canonical snapshot: all 4 messages
+    expect(results[0].canonical.messages).toHaveLength(4);
   });
 
   it("handles multi-session files", async () => {
