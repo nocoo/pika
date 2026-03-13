@@ -603,12 +603,14 @@ describe("handleCanonicalUpload", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns 204 when content_hash is unchanged (idempotent no-op)", async () => {
+  it("returns 204 when content_hash is unchanged and content already stored (idempotent no-op)", async () => {
     const req = await makeCanonicalRequest({ "X-Content-Hash": "existing-hash" });
     const env = mockEnvForCanonical({
       id: "session-id-1",
       content_hash: "existing-hash",
       raw_hash: "raw-1",
+      content_key: "user-1/claude:abc-123/canonical.json.gz",
+      raw_key: null,
       parser_revision: 1,
       schema_version: 1,
     });
@@ -618,12 +620,31 @@ describe("handleCanonicalUpload", () => {
     expect(env.BUCKET.put).not.toHaveBeenCalled();
   });
 
+  it("proceeds when content_hash matches but content_key is null (first-time storage)", async () => {
+    const req = await makeCanonicalRequest({ "X-Content-Hash": "existing-hash" });
+    const env = mockEnvForCanonical({
+      id: "session-id-1",
+      content_hash: "existing-hash",
+      raw_hash: "raw-1",
+      content_key: null,
+      raw_key: null,
+      parser_revision: 1,
+      schema_version: 1,
+    });
+    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    expect(res.status).toBe(200);
+    // R2 should have been called to store the content
+    expect(env.BUCKET.put).toHaveBeenCalledTimes(1);
+  });
+
   it("returns 409 when incoming parser_revision is older", async () => {
     const req = await makeCanonicalRequest({ "X-Parser-Revision": "1" });
     const env = mockEnvForCanonical({
       id: "session-id-1",
       content_hash: "old-hash",
       raw_hash: "raw-1",
+      content_key: null,
+      raw_key: null,
       parser_revision: 3,
       schema_version: 1,
     });
@@ -639,6 +660,8 @@ describe("handleCanonicalUpload", () => {
       id: "session-id-1",
       content_hash: "old-hash",
       raw_hash: "raw-1",
+      content_key: null,
+      raw_key: null,
       parser_revision: 1,
       schema_version: 1,
     });
@@ -673,6 +696,8 @@ describe("handleCanonicalUpload", () => {
       id: "session-id-1",
       content_hash: "old-hash",
       raw_hash: "raw-1",
+      content_key: null,
+      raw_key: null,
       parser_revision: 1,
       schema_version: 1,
     });
@@ -695,6 +720,8 @@ describe("handleCanonicalUpload", () => {
       id: "session-id-1",
       content_hash: "old-hash",
       raw_hash: "raw-1",
+      content_key: null,
+      raw_key: null,
       parser_revision: 1,
       schema_version: 1,
     });
@@ -724,6 +751,8 @@ describe("handleCanonicalUpload", () => {
       id: "session-id-1",
       content_hash: "old-hash",
       raw_hash: "raw-1",
+      content_key: null,
+      raw_key: null,
       parser_revision: 1,
       schema_version: 1,
     });
@@ -747,6 +776,8 @@ describe("handleCanonicalUpload", () => {
             id: "session-id-1",
             content_hash: "old-hash",
             raw_hash: "raw-1",
+            content_key: null,
+            raw_key: null,
             parser_revision: 1,
             schema_version: 1,
           }),
@@ -818,12 +849,14 @@ describe("handleRawUpload", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns 204 when raw_hash is unchanged (idempotent no-op)", async () => {
+  it("returns 204 when raw_hash is unchanged and raw already stored (idempotent no-op)", async () => {
     const req = await makeRawRequest({ "X-Raw-Hash": "existing-raw-hash" });
     const env = mockEnvForRaw({
       id: "session-id-1",
       content_hash: "content-1",
       raw_hash: "existing-raw-hash",
+      content_key: null,
+      raw_key: "user-1/claude:abc-123/raw/existing-raw-hash.json.gz",
       parser_revision: 1,
       schema_version: 1,
     });
@@ -832,12 +865,30 @@ describe("handleRawUpload", () => {
     expect(env.BUCKET.put).not.toHaveBeenCalled();
   });
 
+  it("proceeds when raw_hash matches but raw_key is null (first-time storage)", async () => {
+    const req = await makeRawRequest({ "X-Raw-Hash": "existing-raw-hash" });
+    const env = mockEnvForRaw({
+      id: "session-id-1",
+      content_hash: "content-1",
+      raw_hash: "existing-raw-hash",
+      content_key: null,
+      raw_key: null,
+      parser_revision: 1,
+      schema_version: 1,
+    });
+    const res = await handleRawUpload("claude:abc-123", "user-1", req, env);
+    expect(res.status).toBe(200);
+    expect(env.BUCKET.put).toHaveBeenCalledTimes(1);
+  });
+
   it("successfully uploads raw content to R2", async () => {
     const req = await makeRawRequest();
     const env = mockEnvForRaw({
       id: "session-id-1",
       content_hash: "content-1",
       raw_hash: "old-raw-hash",
+      content_key: null,
+      raw_key: null,
       parser_revision: 1,
       schema_version: 1,
     });
@@ -862,6 +913,8 @@ describe("handleRawUpload", () => {
       id: "session-id-1",
       content_hash: "content-1",
       raw_hash: "old-hash",
+      content_key: null,
+      raw_key: null,
       parser_revision: 1,
       schema_version: 1,
     });
@@ -880,6 +933,8 @@ describe("handleRawUpload", () => {
         id: "session-id-1",
         content_hash: "content-1",
         raw_hash: "old-hash",
+        content_key: null,
+        raw_key: null,
         parser_revision: 1,
         schema_version: 1,
       },

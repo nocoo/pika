@@ -152,8 +152,8 @@ const SESSION_VERSION_CHECK_SQL = `SELECT session_key, parser_revision, schema_v
 
 // ── Content ingest SQL ─────────────────────────────────────────
 
-/** Look up session for content ingest — need id, content_hash, raw_hash, parser_revision, schema_version */
-const SESSION_LOOKUP_SQL = `SELECT id, content_hash, raw_hash, parser_revision, schema_version
+/** Look up session for content ingest — need id, content_hash, raw_hash, content_key, raw_key, parser_revision, schema_version */
+const SESSION_LOOKUP_SQL = `SELECT id, content_hash, raw_hash, content_key, raw_key, parser_revision, schema_version
   FROM sessions WHERE user_id = ? AND session_key = ?`;
 
 /** Update session after canonical content ingest */
@@ -337,6 +337,8 @@ interface SessionRow {
   id: string;
   content_hash: string | null;
   raw_hash: string | null;
+  content_key: string | null;
+  raw_key: string | null;
   parser_revision: number;
   schema_version: number;
 }
@@ -388,8 +390,8 @@ export async function handleCanonicalUpload(
       );
     }
 
-    // 2. Idempotency: if content_hash unchanged → 204 no-op
-    if (result.content_hash === contentHash) {
+    // 2. Idempotency: if content_hash unchanged AND content already stored → 204 no-op
+    if (result.content_hash === contentHash && result.content_key) {
       return new Response(null, { status: 204 });
     }
 
@@ -534,8 +536,8 @@ export async function handleRawUpload(
       );
     }
 
-    // 2. Idempotency: if raw_hash unchanged → 204 no-op
-    if (result.raw_hash === rawHash) {
+    // 2. Idempotency: if raw_hash unchanged AND raw already stored → 204 no-op
+    if (result.raw_hash === rawHash && result.raw_key) {
       return new Response(null, { status: 204 });
     }
 
