@@ -18,12 +18,16 @@ import { APP_VERSION } from "./version";
 export interface LiveOk {
   status: "ok";
   version: string;
+  uptime: number;
+  timestamp: string;
   d1: { latencyMs: number };
 }
 
 export interface LiveError {
   status: "error";
   version: string;
+  uptime: number;
+  timestamp: string;
   d1: { error: string };
 }
 
@@ -47,14 +51,20 @@ export async function checkHealth(db: D1Client): Promise<LiveResult> {
     return {
       status: "ok",
       version: APP_VERSION,
+      uptime: Math.round(process.uptime()),
+      timestamp: new Date().toISOString(),
       d1: { latencyMs },
     };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const raw = err instanceof Error ? err.message : String(err);
+    // Sanitize "ok" from error messages to prevent keyword-based monitor false positives
+    const message = raw.replace(/\bok\b/gi, "***");
 
     return {
       status: "error",
       version: APP_VERSION,
+      uptime: Math.round(process.uptime()),
+      timestamp: new Date().toISOString(),
       d1: { error: message },
     };
   }

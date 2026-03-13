@@ -64,6 +64,17 @@ describe("checkHealth", () => {
     expect(serialized).not.toContain('"ok"');
   });
 
+  it("sanitizes 'ok' from error messages", async () => {
+    const db = mockD1({
+      query: vi.fn().mockRejectedValue(new Error("lookup ok failed ok")),
+    });
+
+    const result = await checkHealth(db);
+
+    expect(result.status).toBe("error");
+    expect((result as { d1: { error: string } }).d1.error).toBe("lookup *** failed ***");
+  });
+
   it("handles non-Error thrown values", async () => {
     const db = mockD1({
       query: vi.fn().mockRejectedValue("string error"),
@@ -86,5 +97,33 @@ describe("checkHealth", () => {
 
     expect(result.status).toBe("ok");
     expect((result as { d1: { latencyMs: number } }).d1.latencyMs).toBeGreaterThanOrEqual(15);
+  });
+
+  it("includes uptime as a non-negative integer", async () => {
+    const db = mockD1();
+    const result = await checkHealth(db);
+
+    expect(result.uptime).toBeGreaterThanOrEqual(0);
+    expect(Number.isInteger(result.uptime)).toBe(true);
+  });
+
+  it("includes timestamp as ISO 8601 string", async () => {
+    const db = mockD1();
+    const result = await checkHealth(db);
+
+    expect(result.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+    expect(new Date(result.timestamp).toISOString()).toBe(result.timestamp);
+  });
+
+  it("error response also includes uptime and timestamp", async () => {
+    const db = mockD1({
+      query: vi.fn().mockRejectedValue(new Error("fail")),
+    });
+
+    const result = await checkHealth(db);
+
+    expect(result.status).toBe("error");
+    expect(result.uptime).toBeGreaterThanOrEqual(0);
+    expect(result.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 });

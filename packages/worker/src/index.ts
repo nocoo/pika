@@ -573,9 +573,14 @@ export async function handleRawUpload(
 export interface WorkerLiveResult {
   status: "ok" | "error";
   version: string;
+  uptime: number;
+  timestamp: string;
   d1?: { latencyMs: number };
   error?: string;
 }
+
+/** Boot time for uptime calculation */
+const bootTime = Date.now();
 
 /**
  * Lightweight health check — verifies D1 connectivity.
@@ -587,22 +592,26 @@ export interface WorkerLiveResult {
 export async function handleLive(env: Env): Promise<Response> {
   const start = Date.now();
   const version = "0.1.0"; // synced with root package.json
+  const uptime = Math.round((Date.now() - bootTime) / 1000);
+  const timestamp = new Date().toISOString();
 
   try {
     await env.DB.prepare("SELECT 1").first();
     const latencyMs = Date.now() - start;
 
     return Response.json(
-      { status: "ok", version, d1: { latencyMs } } satisfies WorkerLiveResult,
+      { status: "ok", version, uptime, timestamp, d1: { latencyMs } } satisfies WorkerLiveResult,
       {
         headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
       },
     );
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const raw = err instanceof Error ? err.message : String(err);
+    // Sanitize "ok" from error messages to prevent keyword-based monitor false positives
+    const message = raw.replace(/\bok\b/gi, "***");
 
     return Response.json(
-      { status: "error", version, error: message } satisfies WorkerLiveResult,
+      { status: "error", version, uptime, timestamp, error: message } satisfies WorkerLiveResult,
       {
         status: 503,
         headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },

@@ -1009,9 +1009,11 @@ describe("worker fetch handler", () => {
     const req = new Request("http://worker/live", { method: "GET" });
     const res = await workerFetch(req, env);
     expect(res.status).toBe(200);
-    const body = await res.json() as { status: string; version: string };
+    const body = await res.json() as { status: string; version: string; uptime: number; timestamp: string };
     expect(body.status).toBe("ok");
     expect(body.version).toBe("0.1.0");
+    expect(body.uptime).toBeGreaterThanOrEqual(0);
+    expect(body.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 });
 
@@ -1028,10 +1030,13 @@ describe("handleLive", () => {
     const res = await handleLive(env);
     expect(res.status).toBe(200);
 
-    const body = await res.json() as { status: string; version: string; d1: { latencyMs: number } };
+    const body = await res.json() as { status: string; version: string; uptime: number; timestamp: string; d1: { latencyMs: number } };
     expect(body.status).toBe("ok");
     expect(body.version).toBe("0.1.0");
     expect(body.d1.latencyMs).toBeGreaterThanOrEqual(0);
+    expect(body.uptime).toBeGreaterThanOrEqual(0);
+    expect(Number.isInteger(body.uptime)).toBe(true);
+    expect(body.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
     expect(res.headers.get("Cache-Control")).toBe("no-store, no-cache, must-revalidate");
   });
 
@@ -1049,14 +1054,16 @@ describe("handleLive", () => {
     const res = await handleLive(env);
     expect(res.status).toBe(503);
 
-    const body = await res.json() as { status: string; error: string };
+    const body = await res.json() as { status: string; error: string; uptime: number; timestamp: string };
     expect(body.status).toBe("error");
     expect(body.error).toBe("D1 connection refused");
+    expect(body.uptime).toBeGreaterThanOrEqual(0);
+    expect(body.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(res.headers.get("Cache-Control")).toBe("no-store, no-cache, must-revalidate");
   });
 
   it("error response does not contain 'ok'", async () => {
-    const mockFirst = vi.fn().mockRejectedValue(new Error("timeout"));
+    const mockFirst = vi.fn().mockRejectedValue(new Error("lookup ok failed"));
     const env: Env = {
       DB: {
         prepare: vi.fn().mockReturnValue({ first: mockFirst, bind: vi.fn().mockReturnThis() }),
@@ -1070,6 +1077,9 @@ describe("handleLive", () => {
     const body = await res.text();
 
     expect(body).not.toContain('"ok"');
+    // Verify "ok" was sanitized in the error message
+    const parsed = JSON.parse(body) as { error: string };
+    expect(parsed.error).toBe("lookup *** failed");
   });
 
   it("handles non-Error thrown values", async () => {

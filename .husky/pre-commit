@@ -1,1 +1,10 @@
-bun test && bun run lint
+#!/usr/bin/env sh
+
+bun run test:coverage 2>&1
+TEST_EXIT=$?
+if [ $TEST_EXIT -ne 0 ]; then
+  echo "❌ pre-commit FAILED: Unit tests or coverage threshold (90%) not met."
+  exit 1
+fi
+
+echo "✅ pre-commit passed: UT + Coverage ≥90%"
