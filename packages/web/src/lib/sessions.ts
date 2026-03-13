@@ -224,6 +224,21 @@ const VALID_SOURCES: ReadonlySet<string> = new Set([
   "vscode-copilot",
 ]);
 
+// ── Star/unstar ────────────────────────────────────────────────
+
+export function buildToggleStarQuery(
+  sessionId: string,
+  userId: string,
+  starred: boolean,
+): BuiltQuery {
+  return {
+    sql: "UPDATE sessions SET is_starred = ? WHERE id = ? AND user_id = ?",
+    params: [starred ? 1 : 0, sessionId, userId],
+  };
+}
+
+// ── Parse request params ───────────────────────────────────────
+
 export function parseSessionListParams(
   searchParams: URLSearchParams,
 ): ParsedSessionListParams {

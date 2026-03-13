@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildSessionListQuery,
+  buildToggleStarQuery,
   encodeCursor,
   decodeCursor,
   validateSort,
@@ -348,5 +349,26 @@ describe("parseSessionListParams", () => {
   it("starred is undefined when not 'true'", () => {
     const sp = new URLSearchParams({ starred: "false" });
     expect(parseSessionListParams(sp).starred).toBeUndefined();
+  });
+});
+
+// ── buildToggleStarQuery ───────────────────────────────────────
+
+describe("buildToggleStarQuery", () => {
+  it("sets is_starred to 1 when starred is true", () => {
+    const { sql, params } = buildToggleStarQuery("sess-1", "u1", true);
+    expect(sql).toContain("UPDATE sessions SET is_starred = ?");
+    expect(sql).toContain("WHERE id = ? AND user_id = ?");
+    expect(params).toEqual([1, "sess-1", "u1"]);
+  });
+
+  it("sets is_starred to 0 when starred is false", () => {
+    const { sql, params } = buildToggleStarQuery("sess-1", "u1", false);
+    expect(params).toEqual([0, "sess-1", "u1"]);
+  });
+
+  it("scopes update to session owner", () => {
+    const { sql } = buildToggleStarQuery("sess-1", "u1", true);
+    expect(sql).toContain("user_id = ?");
   });
 });

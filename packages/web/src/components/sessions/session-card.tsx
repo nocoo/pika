@@ -1,6 +1,8 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import Link from "next/link";
+import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { sourceLabel, formatDuration, relativeTime } from "@/lib/format";
@@ -46,6 +48,34 @@ interface SessionCardProps {
 export function SessionCard({ session, className }: SessionCardProps) {
   const totalTokens = session.total_input_tokens + session.total_output_tokens;
   const agent = agentColor(session.source);
+  const [starred, setStarred] = useState(session.is_starred === 1);
+  const [pending, setPending] = useState(false);
+
+  const toggleStar = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (pending) return;
+
+      const next = !starred;
+      setStarred(next); // optimistic
+      setPending(true);
+
+      try {
+        const res = await fetch(`/api/sessions/${session.id}/star`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ starred: next }),
+        });
+        if (!res.ok) setStarred(!next); // revert on error
+      } catch {
+        setStarred(!next); // revert on error
+      } finally {
+        setPending(false);
+      }
+    },
+    [starred, pending, session.id],
+  );
 
   return (
     <Link
@@ -55,7 +85,7 @@ export function SessionCard({ session, className }: SessionCardProps) {
         className,
       )}
     >
-      {/* Top row: source badge + time */}
+      {/* Top row: source badge + star + time */}
       <div className="flex items-center justify-between">
         <Badge
           variant="secondary"
@@ -67,9 +97,23 @@ export function SessionCard({ session, className }: SessionCardProps) {
           />
           {sourceLabel(session.source)}
         </Badge>
-        <span className="text-xs text-muted-foreground">
-          {relativeTime(session.started_at)}
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleStar}
+            disabled={pending}
+            className={cn(
+              "p-0.5 rounded transition-colors hover:text-amber-500",
+              starred ? "text-amber-500" : "text-muted-foreground/40",
+            )}
+            aria-label={starred ? "Unstar session" : "Star session"}
+          >
+            <Star className="h-3.5 w-3.5" fill={starred ? "currentColor" : "none"} />
+          </button>
+          <span className="text-xs text-muted-foreground">
+            {relativeTime(session.started_at)}
+          </span>
+        </div>
       </div>
 
       {/* Title */}
@@ -113,9 +157,6 @@ export function SessionCard({ session, className }: SessionCardProps) {
         <span>{session.total_messages} msgs</span>
         <span>{formatDuration(session.duration_seconds)}</span>
         <span>{formatTokens(totalTokens)} tokens</span>
-        {session.is_starred === 1 && (
-          <span className="text-amber-500 ml-auto">★</span>
-        )}
       </div>
     </Link>
   );
