@@ -5,6 +5,7 @@ import { getD1Client } from "./d1.js";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: D1AuthAdapter(() => getD1Client()),
+  trustHost: true,
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
