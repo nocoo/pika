@@ -128,8 +128,10 @@ export interface OpenCodeCursor extends FileCursorBase {
 export interface OpenCodeSqliteCursor {
   /** Database file inode for detecting replacement */
   inode: number;
-  /** Last processed message timestamp for watermark queries */
+  /** Last processed message timestamp for watermark queries (>= semantics) */
   lastTimeCreated: string;
+  /** Message IDs at the watermark timestamp, used to deduplicate on >= queries */
+  lastMessageIds: string[];
   /** ISO 8601 timestamp of last cursor update */
   updatedAt: string;
 }

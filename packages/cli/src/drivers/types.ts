@@ -33,10 +33,15 @@ export type { FileFingerprint } from "../utils/file-changed.js";
  */
 export interface SyncContext {
   /**
-   * Message keys deposited by OpenCode JSON driver.
-   * Read by OpenCode SQLite driver for cross-source dedup.
+   * OpenCode cross-source dedup state.
+   *
+   * Deposited by the JSON driver after parsing each session.
+   * Read by the SQLite driver to decide whether to skip or re-process.
+   *
+   * Key: sessionKey (e.g. "opencode:ses_001")
+   * Value: { lastMessageAt, totalMessages } from the JSON parse result
    */
-  messageKeys?: Set<string>;
+  openCodeSessionState?: Map<string, OpenCodeSessionInfo>;
 
   /**
    * Directory mtime cache for OpenCode JSON discovery optimization.
@@ -44,6 +49,14 @@ export interface SyncContext {
    * Persisted to CursorState.dirMtimes by the orchestrator.
    */
   dirMtimes?: Record<string, number>;
+}
+
+/**
+ * Summary info from one OpenCode session parse, used for cross-source dedup.
+ */
+export interface OpenCodeSessionInfo {
+  lastMessageAt: string;
+  totalMessages: number;
 }
 
 // ---------------------------------------------------------------------------

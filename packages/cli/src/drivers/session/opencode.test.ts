@@ -2,7 +2,7 @@
  * Tests for OpenCode JSON file session driver.
  *
  * Covers: discover (with dir mtime optimization), shouldSkip, resumeState,
- * parse (with SyncContext messageKeys deposit), buildCursor
+ * parse (with SyncContext openCodeSessionState deposit), buildCursor
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -191,6 +191,52 @@ describe("openCodeJsonDriver.discover", () => {
     expect(typeof ctx.dirMtimes![key]).toBe("number");
   });
 
+  it("skips readdir when dir mtime matches cached value", async () => {
+    const storageDir = join(tmpDir, "storage");
+    const sessDir = join(storageDir, "session", "proj_a");
+    const messageDir = join(storageDir, "message");
+    await mkdir(sessDir, { recursive: true });
+    await mkdir(messageDir, { recursive: true });
+    await writeSessionJson(sessDir, "ses_001");
+
+    // First pass: populate dirMtimes
+    const ctx: SyncContext = {};
+    const driver = createOpenCodeJsonDriver(ctx);
+    const firstFiles = await driver.discover({ openCodeMessageDir: messageDir });
+    expect(firstFiles).toHaveLength(1);
+    expect(ctx.dirMtimes).toBeDefined();
+    const cachedMtime = ctx.dirMtimes![Object.keys(ctx.dirMtimes!)[0]];
+
+    // Second pass: same driver + same ctx, dir mtime unchanged → skip readdir → return empty
+    const secondFiles = await driver.discover({ openCodeMessageDir: messageDir });
+    expect(secondFiles).toHaveLength(0);
+    // dirMtimes should still be populated (refreshed from stat)
+    expect(ctx.dirMtimes).toBeDefined();
+    expect(ctx.dirMtimes![Object.keys(ctx.dirMtimes!)[0]]).toBe(cachedMtime);
+  });
+
+  it("re-reads dir when mtime changes after adding a file", async () => {
+    const storageDir = join(tmpDir, "storage");
+    const sessDir = join(storageDir, "session", "proj_a");
+    const messageDir = join(storageDir, "message");
+    await mkdir(sessDir, { recursive: true });
+    await mkdir(messageDir, { recursive: true });
+    await writeSessionJson(sessDir, "ses_001");
+
+    // First pass
+    const ctx: SyncContext = {};
+    const driver = createOpenCodeJsonDriver(ctx);
+    await driver.discover({ openCodeMessageDir: messageDir });
+
+    // Wait a tiny bit then add a new file to change dir mtime
+    await new Promise((r) => setTimeout(r, 50));
+    await writeSessionJson(sessDir, "ses_002");
+
+    // Second pass: dir mtime changed → should rediscover
+    const files = await driver.discover({ openCodeMessageDir: messageDir });
+    expect(files).toHaveLength(2);
+  });
+
   it("handles unreadable project directory gracefully", async () => {
     const storageDir = join(tmpDir, "storage");
     const sessDir = join(storageDir, "session", "proj_a");
@@ -331,7 +377,7 @@ describe("openCodeJsonDriver.parse", () => {
     expect(session.totalOutputTokens).toBe(50);
   });
 
-  it("deposits messageKeys into SyncContext", async () => {
+  it("deposits openCodeSessionState into SyncContext", async () => {
     const storageDir = join(tmpDir, "storage");
     const sessionDir = join(storageDir, "session", "proj_abc");
     const messageDir = join(storageDir, "message");
@@ -341,7 +387,10 @@ describe("openCodeJsonDriver.parse", () => {
     await mkdir(partDir, { recursive: true });
 
     await writeSessionJson(sessionDir, "ses_001");
-    await writeMessageJson(messageDir, "ses_001", "msg_001", { role: "user" });
+    await writeMessageJson(messageDir, "ses_001", "msg_001", {
+      role: "user",
+      time: { created: 1700000001000 },
+    });
     await writePartJson(partDir, "msg_001", "prt_001", {
       type: "text",
       text: "test",
@@ -352,8 +401,11 @@ describe("openCodeJsonDriver.parse", () => {
     const filePath = join(sessionDir, "ses_001.json");
     await driver.parse(filePath, { kind: "opencode-json" });
 
-    expect(ctx.messageKeys).toBeDefined();
-    expect(ctx.messageKeys!.has("opencode:ses_001")).toBe(true);
+    expect(ctx.openCodeSessionState).toBeDefined();
+    expect(ctx.openCodeSessionState!.has("opencode:ses_001")).toBe(true);
+    const info = ctx.openCodeSessionState!.get("opencode:ses_001")!;
+    expect(info.totalMessages).toBe(1);
+    expect(info.lastMessageAt).toBeDefined();
   });
 
   it("returns empty result for missing session file", async () => {

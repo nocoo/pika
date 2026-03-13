@@ -56,7 +56,7 @@ function createMockDb(tables: {
             );
             if (watermark) {
               filtered = filtered.filter(
-                (r) => (r.time_created as string) > watermark,
+                (r) => (r.time_created as string) >= watermark,
               );
             }
             return filtered.map((r) => ({
@@ -234,9 +234,11 @@ describe("openCodeSqliteDriver.run", () => {
     expect(cursor.lastTimeCreated).toBe(
       new Date(1700000002000).toISOString(),
     );
+    // lastMessageIds populated (tested thoroughly in dedicated test)
+    expect(Array.isArray(cursor.lastMessageIds)).toBe(true);
   });
 
-  it("skips sessions already in SyncContext.messageKeys (dedup)", async () => {
+  it("skips sessions already in SyncContext.openCodeSessionState (dedup)", async () => {
     const dbPath = join(tmpDir, "test.db");
     await writeFile(dbPath, "dummy");
 
@@ -273,9 +275,20 @@ describe("openCodeSqliteDriver.run", () => {
 
     const openDb: OpenDbFn = () => mockDb;
     const driver = createOpenCodeSqliteDriver(openDb, dbPath);
-    // Pre-populate messageKeys as if JSON driver already processed ses_001
+    // Pre-populate openCodeSessionState as if JSON driver already processed ses_001
+    // with an equal-or-newer version (lastMessageAt >= sqlite's, totalMessages >= sqlite's)
+    // sqlite ses_001 has session.time.updated = 1700000300000 → lastMessageAt = "2023-11-14T22:18:20.000Z"
+    // sqlite ses_001 has 1 message
     const ctx: SyncContext = {
-      messageKeys: new Set(["opencode:ses_001"]),
+      openCodeSessionState: new Map([
+        [
+          "opencode:ses_001",
+          {
+            lastMessageAt: "2023-11-14T22:18:20.000Z",
+            totalMessages: 1,
+          },
+        ],
+      ]),
     };
 
     const { results } = await driver.run(undefined, ctx);
@@ -284,7 +297,7 @@ describe("openCodeSqliteDriver.run", () => {
     expect(results[0].canonical.sessionKey).toBe("opencode:ses_002");
   });
 
-  it("deposits sessionKeys into SyncContext after processing", async () => {
+  it("deposits openCodeSessionState into SyncContext after processing", async () => {
     const dbPath = join(tmpDir, "test.db");
     await writeFile(dbPath, "dummy");
 
@@ -308,10 +321,14 @@ describe("openCodeSqliteDriver.run", () => {
 
     const openDb: OpenDbFn = () => mockDb;
     const driver = createOpenCodeSqliteDriver(openDb, dbPath);
-    const ctx: SyncContext = { messageKeys: new Set() };
+    const ctx: SyncContext = {};
 
     await driver.run(undefined, ctx);
-    expect(ctx.messageKeys!.has("opencode:ses_new")).toBe(true);
+    expect(ctx.openCodeSessionState).toBeDefined();
+    expect(ctx.openCodeSessionState!.has("opencode:ses_new")).toBe(true);
+    const info = ctx.openCodeSessionState!.get("opencode:ses_new")!;
+    expect(info.totalMessages).toBe(1);
+    expect(info.lastMessageAt).toBeDefined();
   });
 
   it("uses watermark from previous cursor when inode matches", async () => {
@@ -327,15 +344,14 @@ describe("openCodeSqliteDriver.run", () => {
       prepare(sql: string): SqliteStatement {
         prepareSpy(sql);
         return {
-          all(...params: unknown[]): unknown[] {
+          all(..._params: unknown[]): unknown[] {
             if (sql.includes("FROM session")) {
               return [
                 { data: JSON.stringify(sessionData("ses_001")) },
               ];
             }
             if (sql.includes("FROM message")) {
-              // With watermark, the query should have 2 params
-              // Return empty to simulate "no new messages"
+              // Return empty for all message queries (watermark, boundary, etc.)
               return [];
             }
             return [];
@@ -351,6 +367,7 @@ describe("openCodeSqliteDriver.run", () => {
     const prevCursor: OpenCodeSqliteCursor = {
       inode: dbStat.ino,
       lastTimeCreated: "2023-11-14T16:53:00.000Z",
+      lastMessageIds: [],
       updatedAt: "2024-01-01T00:00:00.000Z",
     };
 
@@ -390,6 +407,7 @@ describe("openCodeSqliteDriver.run", () => {
     const prevCursor: OpenCodeSqliteCursor = {
       inode: 99999, // different from actual inode
       lastTimeCreated: "2023-11-14T16:53:00.000Z",
+      lastMessageIds: [],
       updatedAt: "2024-01-01T00:00:00.000Z",
     };
 
@@ -649,11 +667,183 @@ describe("openCodeSqliteDriver.run", () => {
     const prevCursor: OpenCodeSqliteCursor = {
       inode: 12345,
       lastTimeCreated: "2023-11-14T16:00:00.000Z",
+      lastMessageIds: [],
       updatedAt: "2024-01-01T00:00:00.000Z",
     };
 
     const ctx: SyncContext = {};
     const { cursor } = await driver.run(prevCursor, ctx);
     expect(cursor).toBe(prevCursor);
+  });
+
+  it("cursor includes lastMessageIds at boundary timestamp", async () => {
+    const dbPath = join(tmpDir, "test.db");
+    await writeFile(dbPath, "dummy");
+
+    // Both messages share the same time.created epoch → same maxTimeCreated
+    const sharedEpoch = 1700000001000;
+    const sharedIso = new Date(sharedEpoch).toISOString();
+
+    const mockDb = createMockDb({
+      session: [{ data: sessionData("ses_001") }],
+      message: [
+        {
+          id: "msg_001",
+          session_id: "ses_001",
+          data: messageData("msg_001", "ses_001", "user", sharedEpoch),
+          time_created: sharedIso,
+        },
+        {
+          id: "msg_002",
+          session_id: "ses_001",
+          data: messageData("msg_002", "ses_001", "assistant", sharedEpoch, {
+            modelID: "test-model",
+            tokens: { input: 50, output: 25 },
+          }),
+          // Same timestamp as msg_001 — both at boundary
+          time_created: sharedIso,
+        },
+      ],
+      part: [
+        {
+          message_id: "msg_001",
+          data: partData("prt_001", "text", { text: "Q" }),
+        },
+        {
+          message_id: "msg_002",
+          data: partData("prt_002", "text", { text: "A" }),
+        },
+      ],
+    });
+
+    const openDb: OpenDbFn = () => mockDb;
+    const driver = createOpenCodeSqliteDriver(openDb, dbPath);
+    const ctx: SyncContext = {};
+
+    const { cursor } = await driver.run(undefined, ctx);
+    // Both messages share the boundary timestamp → both IDs in lastMessageIds
+    expect(cursor.lastMessageIds).toContain("msg_001");
+    expect(cursor.lastMessageIds).toContain("msg_002");
+    expect(cursor.lastMessageIds).toHaveLength(2);
+  });
+
+  it("deduplicates messages via lastMessageIds on >= watermark", async () => {
+    const dbPath = join(tmpDir, "test.db");
+    await writeFile(dbPath, "dummy");
+
+    const oldEpoch = 1700000001000;
+    const newEpoch = 1700000002000;
+    const oldIso = new Date(oldEpoch).toISOString();
+    const newIso = new Date(newEpoch).toISOString();
+
+    const mockDb = createMockDb({
+      session: [{ data: sessionData("ses_001") }],
+      message: [
+        {
+          id: "msg_old",
+          session_id: "ses_001",
+          data: messageData("msg_old", "ses_001", "user", oldEpoch),
+          time_created: oldIso,
+        },
+        {
+          id: "msg_new",
+          session_id: "ses_001",
+          data: messageData("msg_new", "ses_001", "assistant", newEpoch, {
+            modelID: "test-model",
+            tokens: { input: 50, output: 25 },
+          }),
+          time_created: newIso,
+        },
+      ],
+      part: [
+        {
+          message_id: "msg_old",
+          data: partData("prt_001", "text", { text: "Already seen" }),
+        },
+        {
+          message_id: "msg_new",
+          data: partData("prt_002", "text", { text: "Brand new" }),
+        },
+      ],
+    });
+
+    const { stat: statFn } = await import("node:fs/promises");
+    const dbStat = await statFn(dbPath);
+
+    const openDb: OpenDbFn = () => mockDb;
+    const driver = createOpenCodeSqliteDriver(openDb, dbPath);
+
+    // Cursor watermark at msg_old's timestamp, with msg_old in lastMessageIds
+    const prevCursor: OpenCodeSqliteCursor = {
+      inode: dbStat.ino,
+      lastTimeCreated: oldIso,
+      lastMessageIds: ["msg_old"],
+      updatedAt: "2024-01-01T00:00:00.000Z",
+    };
+
+    const ctx: SyncContext = {};
+    const { results } = await driver.run(prevCursor, ctx);
+
+    // Should produce results (new message found) but only the new message
+    expect(results).toHaveLength(1);
+    // The session should contain only the new message (msg_old was deduped)
+    expect(results[0].canonical.messages).toHaveLength(1);
+    expect(results[0].canonical.messages[0].content).toBe("Brand new");
+  });
+
+  it("does not skip SQLite session when JSON has fewer messages", async () => {
+    const dbPath = join(tmpDir, "test.db");
+    await writeFile(dbPath, "dummy");
+
+    const mockDb = createMockDb({
+      session: [{ data: sessionData("ses_001") }],
+      message: [
+        {
+          id: "msg_001",
+          session_id: "ses_001",
+          data: messageData("msg_001", "ses_001", "user", 1700000001000),
+          time_created: new Date(1700000001000).toISOString(),
+        },
+        {
+          id: "msg_002",
+          session_id: "ses_001",
+          data: messageData("msg_002", "ses_001", "assistant", 1700000002000, {
+            modelID: "test-model",
+            tokens: { input: 50, output: 25 },
+          }),
+          time_created: new Date(1700000002000).toISOString(),
+        },
+      ],
+      part: [
+        {
+          message_id: "msg_001",
+          data: partData("prt_001", "text", { text: "Q" }),
+        },
+        {
+          message_id: "msg_002",
+          data: partData("prt_002", "text", { text: "A" }),
+        },
+      ],
+    });
+
+    const openDb: OpenDbFn = () => mockDb;
+    const driver = createOpenCodeSqliteDriver(openDb, dbPath);
+    // JSON has only 1 message, but SQLite has 2 → should NOT skip
+    // session.time.updated = 1700000300000 → lastMessageAt from parser
+    const ctx: SyncContext = {
+      openCodeSessionState: new Map([
+        [
+          "opencode:ses_001",
+          {
+            lastMessageAt: new Date(1700000001000).toISOString(),
+            totalMessages: 1,
+          },
+        ],
+      ]),
+    };
+
+    const { results } = await driver.run(undefined, ctx);
+    expect(results).toHaveLength(1);
+    expect(results[0].canonical.messages).toHaveLength(2);
   });
 });

@@ -8,7 +8,8 @@
  * Resume: full re-parse (OpenCode sessions are small JSON files, not append logs)
  * Parser: parseOpenCodeJsonSession(sessionJsonPath, messageDir, partDir)
  *
- * After parsing, deposits messageKeys into SyncContext for SQLite driver dedup.
+ * After parsing, deposits session state into SyncContext.openCodeSessionState
+ * for SQLite driver cross-source dedup.
  */
 
 import { readdir, stat } from "node:fs/promises";
@@ -35,7 +36,9 @@ import type {
  * The DiscoverOpts.openCodeMessageDir points to the message dir;
  * we derive the session/part dirs as siblings.
  *
- * Dir mtime optimization: skip project dirs whose mtime hasn't changed.
+ * Dir mtime optimization: if a project dir's mtime matches the cached value,
+ * skip the readdir entirely — no files in that dir have been added/removed.
+ * Per-file shouldSkip() will catch content changes on the next round.
  */
 async function discoverOpenCodeJsonFiles(
   messageDir: string,
@@ -66,7 +69,6 @@ async function discoverOpenCodeJsonFiles(
 
     const projDir = join(sessionDir, projEntry.name);
 
-    // Dir mtime optimization: record for orchestrator-level skip decisions
     let dirStat;
     try {
       dirStat = await stat(projDir);
@@ -74,7 +76,14 @@ async function discoverOpenCodeJsonFiles(
       continue;
     }
 
-    newDirMtimes[projDir] = dirStat.mtimeMs;
+    const dirMtime = dirStat.mtimeMs;
+    newDirMtimes[projDir] = dirMtime;
+
+    // Dir mtime optimization: if mtime unchanged, skip readdir.
+    // No files added/removed/renamed in this dir since last scan.
+    if (prevDirMtimes[projDir] === dirMtime) {
+      continue;
+    }
 
     let sessionFiles;
     try {
@@ -110,7 +119,7 @@ async function discoverOpenCodeJsonFiles(
  * Create an OpenCode JSON file driver.
  *
  * Accepts an optional SyncContext for dir-mtime optimization and
- * cross-source message key dedup.
+ * cross-source session state sharing.
  */
 export function createOpenCodeJsonDriver(
   syncCtx?: SyncContext,
@@ -159,12 +168,15 @@ export function createOpenCodeJsonDriver(
         partDir,
       );
 
-      // Deposit message keys for SQLite dedup
+      // Deposit session state for SQLite driver cross-source dedup
       if (syncCtx) {
-        if (!syncCtx.messageKeys) {
-          syncCtx.messageKeys = new Set();
+        if (!syncCtx.openCodeSessionState) {
+          syncCtx.openCodeSessionState = new Map();
         }
-        syncCtx.messageKeys.add(result.canonical.sessionKey);
+        syncCtx.openCodeSessionState.set(result.canonical.sessionKey, {
+          lastMessageAt: result.canonical.lastMessageAt,
+          totalMessages: result.canonical.messages.length,
+        });
       }
 
       return [result];

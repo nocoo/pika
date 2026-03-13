@@ -5,10 +5,16 @@
  *
  * DB path: ~/.local/share/opencode/opencode.db
  * Tables: session, message, part — each with `data` JSON blob column.
- * Cursor: inode + lastTimeCreated watermark.
+ * Cursor: inode + lastTimeCreated watermark + lastMessageIds for dedup.
  *
- * This driver runs AFTER the JSON file driver so it can read messageKeys
- * from SyncContext to avoid re-processing sessions already seen from JSON.
+ * Watermark uses >= semantics to avoid missing messages that share the same
+ * timestamp as the cursor. The lastMessageIds set filters out already-processed
+ * rows at the boundary timestamp.
+ *
+ * This driver runs AFTER the JSON file driver so it can read
+ * SyncContext.openCodeSessionState to avoid redundant processing.
+ * Dedup rule: skip if JSON version is not behind (lastMessageAt >= and
+ * totalMessages >=).
  *
  * Uses better-sqlite3-compatible API (synchronous queries).
  * The caller (orchestrator) is responsible for choosing the right SQLite binding.
@@ -22,7 +28,12 @@ import {
   type OcMessage,
   type OcPart,
 } from "../../parsers/opencode.js";
-import type { DbDriver, DbDriverResult, SyncContext } from "../types.js";
+import type {
+  DbDriver,
+  DbDriverResult,
+  SyncContext,
+  OpenCodeSessionInfo,
+} from "../types.js";
 
 // ---------------------------------------------------------------------------
 // SQLite interface — minimal contract for any SQLite binding
@@ -71,15 +82,39 @@ interface PartRow {
 }
 
 // ---------------------------------------------------------------------------
+// Cross-source dedup helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Determine if the SQLite version of a session should be skipped because
+ * the JSON driver already produced an equal-or-newer version.
+ *
+ * Rule: skip when JSON lastMessageAt >= sqlite lastMessageAt AND
+ *       JSON totalMessages >= sqlite totalMessages.
+ * Otherwise the SQLite version has data the JSON version lacks.
+ */
+function shouldSkipForJson(
+  sessionKey: string,
+  sqliteLastMessageAt: string,
+  sqliteTotalMessages: number,
+  jsonState: Map<string, OpenCodeSessionInfo> | undefined,
+): boolean {
+  if (!jsonState) return false;
+  const info = jsonState.get(sessionKey);
+  if (!info) return false;
+
+  // JSON is at least as fresh and at least as complete → skip SQLite
+  return (
+    info.lastMessageAt >= sqliteLastMessageAt &&
+    info.totalMessages >= sqliteTotalMessages
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Query helpers
 // ---------------------------------------------------------------------------
 
-function querySessions(
-  db: SqliteDb,
-  watermark: string | null,
-  dedup: Set<string> | undefined,
-): OcSession[] {
-  // Get all sessions (no watermark on session table — watermark is on messages)
+function querySessions(db: SqliteDb): OcSession[] {
   const rows = db
     .prepare("SELECT data FROM session ORDER BY rowid")
     .all() as SessionRow[];
@@ -89,11 +124,6 @@ function querySessions(
     try {
       const data = JSON.parse(row.data) as OcSession;
       if (!data || !data.id) continue;
-
-      // Cross-source dedup: skip if already processed by JSON driver
-      const sessionKey = `opencode:${data.id}`;
-      if (dedup?.has(sessionKey)) continue;
-
       sessions.push(data);
     } catch {
       continue;
@@ -106,12 +136,14 @@ function queryMessagesForSession(
   db: SqliteDb,
   sessionId: string,
   watermark: string | null,
+  lastMessageIds: Set<string> | null,
 ): OcMessage[] {
   let rows: MessageRow[];
   if (watermark) {
+    // >= to catch messages at the same timestamp as the cursor
     rows = db
       .prepare(
-        "SELECT id, session_id, data, time_created FROM message WHERE session_id = ? AND time_created > ? ORDER BY time_created",
+        "SELECT id, session_id, data, time_created FROM message WHERE session_id = ? AND time_created >= ? ORDER BY time_created",
       )
       .all(sessionId, watermark) as MessageRow[];
   } else {
@@ -124,6 +156,9 @@ function queryMessagesForSession(
 
   const messages: OcMessage[] = [];
   for (const row of rows) {
+    // Dedup: skip messages already processed in the previous run
+    if (lastMessageIds?.has(row.id)) continue;
+
     try {
       const data = JSON.parse(row.data) as OcMessage;
       if (!data || typeof data.role !== "string") continue;
@@ -189,6 +224,7 @@ export function createOpenCodeSqliteDriver(
           cursor: prevCursor ?? {
             inode: 0,
             lastTimeCreated: "",
+            lastMessageIds: [],
             updatedAt: new Date().toISOString(),
           },
           rowCount: 0,
@@ -196,10 +232,13 @@ export function createOpenCodeSqliteDriver(
       }
 
       // If inode changed, DB was replaced — reset watermark
-      const watermark =
-        prevCursor && prevCursor.inode === dbStat.ino
-          ? prevCursor.lastTimeCreated || null
-          : null;
+      const inodeMatch = prevCursor && prevCursor.inode === dbStat.ino;
+      const watermark = inodeMatch
+        ? prevCursor.lastTimeCreated || null
+        : null;
+      const prevMessageIds = inodeMatch && prevCursor.lastMessageIds
+        ? new Set(prevCursor.lastMessageIds)
+        : null;
 
       let db: SqliteDb;
       try {
@@ -210,6 +249,7 @@ export function createOpenCodeSqliteDriver(
           cursor: prevCursor ?? {
             inode: dbStat.ino,
             lastTimeCreated: "",
+            lastMessageIds: [],
             updatedAt: new Date().toISOString(),
           },
           rowCount: 0,
@@ -217,7 +257,7 @@ export function createOpenCodeSqliteDriver(
       }
 
       try {
-        const sessions = querySessions(db, watermark, ctx.messageKeys);
+        const sessions = querySessions(db);
         const results: ParseResult[] = [];
         let totalRows = 0;
         let maxTimeCreated = watermark ?? "";
@@ -227,6 +267,7 @@ export function createOpenCodeSqliteDriver(
             db,
             session.id,
             watermark,
+            prevMessageIds,
           );
           totalRows += messages.length;
 
@@ -246,12 +287,29 @@ export function createOpenCodeSqliteDriver(
             dbPath,
           );
 
+          // Cross-source dedup: skip if JSON already has equal-or-newer data
+          const sessionKey = result.canonical.sessionKey;
+          if (
+            shouldSkipForJson(
+              sessionKey,
+              result.canonical.lastMessageAt,
+              result.canonical.messages.length,
+              ctx.openCodeSessionState,
+            )
+          ) {
+            continue;
+          }
+
           results.push(result);
 
-          // Deposit message keys for future dedup
-          if (ctx.messageKeys) {
-            ctx.messageKeys.add(result.canonical.sessionKey);
+          // Deposit session state so future drivers or the orchestrator can see it
+          if (!ctx.openCodeSessionState) {
+            ctx.openCodeSessionState = new Map();
           }
+          ctx.openCodeSessionState.set(sessionKey, {
+            lastMessageAt: result.canonical.lastMessageAt,
+            totalMessages: result.canonical.messages.length,
+          });
 
           // Track watermark: latest message time_created
           for (const msg of messages) {
@@ -265,9 +323,27 @@ export function createOpenCodeSqliteDriver(
           }
         }
 
+        // Collect message IDs at the watermark timestamp for next-run dedup.
+        // Query all messages at maxTimeCreated across all sessions so the
+        // next >= query can filter them out.
+        const boundaryIds: string[] = [];
+        if (maxTimeCreated) {
+          for (const session of sessions) {
+            const rows = db
+              .prepare(
+                "SELECT id FROM message WHERE session_id = ? AND time_created = ?",
+              )
+              .all(session.id, maxTimeCreated) as Array<{ id: string }>;
+            for (const row of rows) {
+              boundaryIds.push(row.id);
+            }
+          }
+        }
+
         const newCursor: OpenCodeSqliteCursor = {
           inode: dbStat.ino,
           lastTimeCreated: maxTimeCreated,
+          lastMessageIds: boundaryIds,
           updatedAt: new Date().toISOString(),
         };
 
