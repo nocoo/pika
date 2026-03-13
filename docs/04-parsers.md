@@ -135,16 +135,30 @@ This dual-layer approach means parser bugs can be fixed and sessions re-parsed f
 |-------|-------|
 | Base dir | `~/.gemini` |
 | File pattern | `~/.gemini/tmp/*/chats/session-*.json` |
-| Format | Single JSON file per session with `messages[]` |
-| Session key | `gemini:{sessionId}` or `gemini:{sha256(filePath)}` |
-| Project ref | SHA-256 hash of `session.projectHash` |
+| Format | Single JSON file per session |
+| Session key | `gemini:{sessionId}` |
+| Project ref | SHA-256 hash of `projectHash` (already a hash in source) |
 | Cursor | Array index + last totals + last model |
 
-**Message extraction**:
-- `messages[]` array, each with `role` and `parts[]`
-- Parts: `{text: "..."}` for content
-- Tool calls in `functionCall` parts, results in `functionResponse` parts
-- Token usage: cumulative `tokens` object, requires diffing
+**File structure** (top-level JSON object):
+- `sessionId`: UUID string
+- `projectHash`: SHA-256 hash string (Gemini CLI's project identifier)
+- `startTime`: ISO 8601 timestamp
+- `lastUpdated`: ISO 8601 timestamp
+- `messages[]`: array of message objects
+
+**Message extraction** (discriminated by `type` field):
+- `type: "user"` → `content: [{text: "..."}]` (array of objects with `text` field)
+- `type: "gemini"` → `content: "..."` (plain string), `model`, `tokens`, `toolCalls[]`, `thoughts[]`
+- `type: "info"` → system info messages (login prompts, etc.) — skipped
+
+**Token usage**: per-message on gemini messages, summed across all turns
+- `tokens: { input, output, cached, thoughts, tool, total }`
+
+**Tool calls**: embedded in gemini messages as `toolCalls[]`:
+- `{ name, displayName, status, args: {}, result: [{functionResponse: {id, name, response: {output: "..."}}}], id, timestamp }`
+
+**Thoughts**: `[{ subject, description, timestamp }]` — skipped for conversation content
 
 ### OpenCode
 
