@@ -1,18 +1,10 @@
-import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
-
-export default async function DashboardPage() {
-  const session = await auth();
-  if (!session) {
-    redirect("/login");
-  }
-
+export default function DashboardPage() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8">
-      <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
-      <p className="text-muted-foreground">
-        Welcome, {session.user?.email ?? "user"}. Sessions will appear here.
+    <div>
+      <h1 className="text-2xl font-bold">Overview</h1>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Dashboard overview will appear here.
       </p>
-    </main>
+    </div>
   );
 }
