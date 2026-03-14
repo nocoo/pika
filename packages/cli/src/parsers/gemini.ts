@@ -33,6 +33,14 @@ import { hashProjectRef } from "../utils/hash-project-ref";
 
 // ── Types ───────────────────────────────────────────────────────
 
+/** Extended parse result with source message count for cursor advancement. */
+export interface GeminiParseResult extends ParseResult {
+  /** Number of messages in the source session.messages[] array.
+   *  Used by the driver to set the next startIndex in the cursor,
+   *  because source→canonical is not 1:1 (info messages are skipped). */
+  sourceMessageCount: number;
+}
+
 interface GeminiTokens {
   input?: number;
   output?: number;
@@ -233,7 +241,8 @@ function buildParseResult(
   accum: SessionAccum,
   filePath: string,
   rawContent: string,
-): ParseResult {
+  sourceMessageCount: number,
+): GeminiParseResult {
   const sessionId = session.sessionId ?? "unknown";
   const sessionKey = `gemini:${sessionId}`;
   const startedAt = session.startTime ?? new Date().toISOString();
@@ -274,10 +283,10 @@ function buildParseResult(
     ],
   };
 
-  return { canonical, raw };
+  return { canonical, raw, sourceMessageCount };
 }
 
-function buildEmptyResult(filePath: string): ParseResult {
+function buildEmptyResult(filePath: string): GeminiParseResult {
   const now = new Date().toISOString();
   const sessionKey = "gemini:unknown";
 
@@ -307,6 +316,7 @@ function buildEmptyResult(filePath: string): ParseResult {
       collectedAt: now,
       sourceFiles: [{ path: filePath, format: "json", content: "" }],
     },
+    sourceMessageCount: 0,
   };
 }
 
@@ -323,7 +333,7 @@ function buildEmptyResult(filePath: string): ParseResult {
 export async function parseGeminiFile(
   filePath: string,
   startIndex = 0,
-): Promise<ParseResult> {
+): Promise<GeminiParseResult> {
   const st = await stat(filePath).catch(() => null);
   if (!st || !st.isFile() || st.size === 0) return buildEmptyResult(filePath);
 
@@ -380,5 +390,5 @@ export async function parseGeminiFile(
 
   if (accum.messages.length === 0) return buildEmptyResult(filePath);
 
-  return buildParseResult(session, accum, filePath, rawContent);
+  return buildParseResult(session, accum, filePath, rawContent, messages.length);
 }

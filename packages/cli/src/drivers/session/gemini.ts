@@ -14,6 +14,7 @@ import { join } from "node:path";
 import type { GeminiCursor, ParseResult } from "@pika/core";
 import { fileUnchanged } from "../../utils/file-changed";
 import { parseGeminiFile } from "../../parsers/gemini";
+import type { GeminiParseResult } from "../../parsers/gemini";
 import type {
   FileDriver,
   DiscoverOpts,
@@ -144,10 +145,11 @@ export const geminiSessionDriver: FileDriver<GeminiCursor> = {
       lastTotalTokens =
         session.totalInputTokens + session.totalOutputTokens;
       lastModel = session.model;
-      // Count all messages (user + assistant + tool) to determine next index
-      // For Gemini, we need the source messages count, not canonical messages
-      // Approximate: the canonical messages correspond to processed source messages
-      messageIndex = session.messages.length;
+      // Use source message count (not canonical), because startIndex
+      // indexes into the raw session.messages[] array where source→canonical
+      // is not 1:1 (e.g., "info" messages are skipped).
+      const geminiResult = results[0] as GeminiParseResult;
+      messageIndex = geminiResult.sourceMessageCount;
     }
 
     return {

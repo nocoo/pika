@@ -9,6 +9,7 @@ import { mkdtemp, writeFile, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { GeminiCursor, ParseResult } from "@pika/core";
+import type { GeminiParseResult } from "../../parsers/gemini";
 import type { FileFingerprint } from "../../utils/file-changed";
 import { geminiSessionDriver } from "./gemini";
 
@@ -367,7 +368,7 @@ describe("geminiSessionDriver.parse", () => {
 describe("geminiSessionDriver.buildCursor", () => {
   it("builds cursor with fingerprint and totals from result", () => {
     const fingerprint = fp({ size: 8192 });
-    const results: ParseResult[] = [
+    const results: GeminiParseResult[] = [
       {
         canonical: {
           sessionKey: "gemini:test",
@@ -397,6 +398,8 @@ describe("geminiSessionDriver.buildCursor", () => {
           collectedAt: "2025-01-15T10:05:00Z",
           sourceFiles: [],
         },
+        // Source had 3 messages (user, gemini, info) but canonical only has 2
+        sourceMessageCount: 3,
       },
     ];
 
@@ -404,7 +407,7 @@ describe("geminiSessionDriver.buildCursor", () => {
     expect(cursor.inode).toBe(12345);
     expect(cursor.mtimeMs).toBe(1700000000000);
     expect(cursor.size).toBe(8192);
-    expect(cursor.messageIndex).toBe(2); // 2 canonical messages
+    expect(cursor.messageIndex).toBe(3); // source message count, not canonical
     expect(cursor.lastTotalTokens).toBe(700); // 500 + 200
     expect(cursor.lastModel).toBe("gemini-3-flash-preview");
     expect(cursor.updatedAt).toBeDefined();

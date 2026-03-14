@@ -377,6 +377,8 @@ describe("parseGeminiFile — info messages", () => {
     const result = await parseGeminiFile(filePath);
     // Only user + gemini, info is skipped
     expect(result.canonical.messages).toHaveLength(2);
+    // sourceMessageCount reflects all 3 source messages (including info)
+    expect(result.sourceMessageCount).toBe(3);
   });
 
   it("returns empty result for session with only info messages", async () => {
@@ -439,6 +441,8 @@ describe("parseGeminiFile — incremental parsing", () => {
     // Tokens include ALL messages (full snapshot)
     expect(result.canonical.totalInputTokens).toBe(300);
     expect(result.canonical.totalOutputTokens).toBe(130);
+    // sourceMessageCount reflects all 4 source messages
+    expect(result.sourceMessageCount).toBe(4);
   });
 
   it("returns empty result when startIndex exceeds message count", async () => {
@@ -454,6 +458,7 @@ describe("parseGeminiFile — incremental parsing", () => {
 
     const result = await parseGeminiFile(filePath, 10);
     expect(result.canonical.messages).toHaveLength(0);
+    expect(result.sourceMessageCount).toBe(0);
   });
 });
 
