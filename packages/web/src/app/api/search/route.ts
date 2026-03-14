@@ -7,6 +7,7 @@ import {
   buildSearchQuery,
   parseSearchParams,
   isSearchError,
+  sanitizeSnippet,
   type SearchResultRow,
 } from "@/lib/search";
 
@@ -42,7 +43,11 @@ export async function GET(request: Request) {
   const result = await d1.query<SearchResultRow>(sql, params);
 
   return NextResponse.json({
-    results: result.results,
+    results: result.results.map((r) => ({
+      ...r,
+      content_snippet: sanitizeSnippet(r.content_snippet),
+      tool_snippet: r.tool_snippet ? sanitizeSnippet(r.tool_snippet) : null,
+    })),
     total: result.results.length,
   });
 }

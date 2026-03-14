@@ -50,11 +50,41 @@ const VALID_SOURCES: ReadonlySet<string> = new Set([
 
 // ── Query builder ──────────────────────────────────────────────
 
+// ── Snippet sanitization ──────────────────────────────────────
+
+/** Control-char delimiters used in FTS5 snippet() — cannot appear in user content */
+const SNIPPET_OPEN = "\x01";
+const SNIPPET_CLOSE = "\x02";
+
+const HTML_ESCAPE_MAP: Record<string, string> = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#x27;",
+};
+
+/**
+ * Sanitize an FTS5 snippet so only our `<mark>` tags survive.
+ *
+ * 1. HTML-escape the entire string (neutralizes any user-injected HTML)
+ * 2. Replace our control-char delimiters with safe `<mark>` / `</mark>`
+ */
+export function sanitizeSnippet(raw: string): string {
+  const escaped = raw.replace(/[&<>"']/g, (ch) => HTML_ESCAPE_MAP[ch]);
+  return escaped
+    .replaceAll(SNIPPET_OPEN, "<mark>")
+    .replaceAll(SNIPPET_CLOSE, "</mark>");
+}
+
+// ── Query builder ──────────────────────────────────────────────
+
 /**
  * Build a full-text search query using FTS5.
  *
  * Searches both `content` and `tool_context` columns in chunks_fts.
- * Returns snippets with `<mark>` highlights.
+ * Returns snippets with control-char delimiters (sanitized via `sanitizeSnippet`
+ * before reaching the client).
  */
 export function buildSearchQuery(params: SearchParams): BuiltQuery {
   const limit = Math.min(Math.max(params.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
@@ -84,8 +114,8 @@ export function buildSearchQuery(params: SearchParams): BuiltQuery {
 
   const sql = [
     `SELECT mc.session_id, mc.message_id, mc.ordinal, mc.chunk_index,`,
-    `  snippet(chunks_fts, 0, '<mark>', '</mark>', '...', 64) AS content_snippet,`,
-    `  snippet(chunks_fts, 1, '<mark>', '</mark>', '...', 64) AS tool_snippet,`,
+    `  snippet(chunks_fts, 0, '${SNIPPET_OPEN}', '${SNIPPET_CLOSE}', '...', 64) AS content_snippet,`,
+    `  snippet(chunks_fts, 1, '${SNIPPET_OPEN}', '${SNIPPET_CLOSE}', '...', 64) AS tool_snippet,`,
     `  s.session_key, s.source, s.project_name, s.title, s.started_at`,
     `FROM chunks_fts f`,
     `JOIN message_chunks mc ON mc.rowid = f.rowid`,

@@ -3,6 +3,7 @@ import {
   buildSearchQuery,
   parseSearchParams,
   isSearchError,
+  sanitizeSnippet,
 } from "./search";
 
 // ── buildSearchQuery ───────────────────────────────────────────
@@ -16,8 +17,8 @@ describe("buildSearchQuery", () => {
 
     expect(sql).toContain("chunks_fts MATCH ?");
     expect(sql).toContain("mc.user_id = ?");
-    expect(sql).toContain("snippet(chunks_fts, 0, '<mark>', '</mark>', '...', 64)");
-    expect(sql).toContain("snippet(chunks_fts, 1, '<mark>', '</mark>', '...', 64)");
+    expect(sql).toContain("snippet(chunks_fts, 0, '\x01', '\x02', '...', 64)");
+    expect(sql).toContain("snippet(chunks_fts, 1, '\x01', '\x02', '...', 64)");
     expect(sql).toContain("FROM chunks_fts f");
     expect(sql).toContain("JOIN message_chunks mc ON mc.rowid = f.rowid");
     expect(sql).toContain("JOIN sessions s ON mc.session_id = s.id");
@@ -217,5 +218,49 @@ describe("isSearchError", () => {
 
   it("returns false for valid params", () => {
     expect(isSearchError({ q: "test", limit: 50 })).toBe(false);
+  });
+});
+
+// ── sanitizeSnippet ───────────────────────────────────────────
+
+describe("sanitizeSnippet", () => {
+  it("preserves basic highlight markers as <mark> tags", () => {
+    const raw = "hello \x01world\x02 foo";
+    expect(sanitizeSnippet(raw)).toBe("hello <mark>world</mark> foo");
+  });
+
+  it("escapes HTML tags in user content", () => {
+    const raw = '<script>alert("xss")</script>';
+    expect(sanitizeSnippet(raw)).toBe(
+      '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;',
+    );
+  });
+
+  it("escapes HTML while preserving highlight markers", () => {
+    const raw = '\x01<img src=x onerror=alert(1)>\x02 safe text';
+    expect(sanitizeSnippet(raw)).toBe(
+      "<mark>&lt;img src=x onerror=alert(1)&gt;</mark> safe text",
+    );
+  });
+
+  it("escapes ampersands", () => {
+    expect(sanitizeSnippet("a & b")).toBe("a &amp; b");
+  });
+
+  it("escapes single quotes", () => {
+    expect(sanitizeSnippet("it's")).toBe("it&#x27;s");
+  });
+
+  it("handles empty string", () => {
+    expect(sanitizeSnippet("")).toBe("");
+  });
+
+  it("handles multiple highlight regions", () => {
+    const raw = "\x01a\x02 b \x01c\x02";
+    expect(sanitizeSnippet(raw)).toBe("<mark>a</mark> b <mark>c</mark>");
+  });
+
+  it("handles plain text with no markers", () => {
+    expect(sanitizeSnippet("just plain text")).toBe("just plain text");
   });
 });

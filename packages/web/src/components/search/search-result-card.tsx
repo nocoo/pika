@@ -73,7 +73,9 @@ export function SearchResultCard({
         )}
       </div>
 
-      {/* Snippet — rendered as HTML since it contains <mark> tags from FTS5 */}
+      {/* Snippet — rendered as HTML since it contains <mark> tags from FTS5.
+          Safe: snippets are server-side sanitized via sanitizeSnippet() in the
+          search API route (HTML-escaped, then only <mark> tags restored). */}
       {result.content_snippet && (
         <div
           className="text-xs text-muted-foreground leading-relaxed line-clamp-3 [&>mark]:bg-primary/20 [&>mark]:text-foreground [&>mark]:rounded-sm [&>mark]:px-0.5"
