@@ -96,7 +96,7 @@ function makeRaw(overrides?: Partial<RawSessionArchive>): RawSessionArchive {
 function makeSnapshot(overrides?: Partial<SessionSnapshot>): SessionSnapshot {
   const canonical = makeCanonical();
   const raw = makeRaw();
-  const base = toSessionSnapshot(canonical, raw);
+  const { snapshot: base } = toSessionSnapshot(canonical, raw);
   return { ...base, ...overrides };
 }
 
@@ -148,7 +148,7 @@ describe("toSessionSnapshot", () => {
   it("transforms canonical + raw into snapshot with correct fields", () => {
     const canonical = makeCanonical();
     const raw = makeRaw();
-    const snapshot = toSessionSnapshot(canonical, raw);
+    const { snapshot } = toSessionSnapshot(canonical, raw);
 
     expect(snapshot.sessionKey).toBe("claude-code:test-session-1");
     expect(snapshot.source).toBe("claude-code");
@@ -167,7 +167,7 @@ describe("toSessionSnapshot", () => {
   it("counts message roles correctly", () => {
     const canonical = makeCanonical();
     const raw = makeRaw();
-    const snapshot = toSessionSnapshot(canonical, raw);
+    const { snapshot } = toSessionSnapshot(canonical, raw);
 
     expect(snapshot.userMessages).toBe(2);
     expect(snapshot.assistantMessages).toBe(2);
@@ -177,7 +177,7 @@ describe("toSessionSnapshot", () => {
   it("computes contentHash as SHA-256 of canonical JSON", () => {
     const canonical = makeCanonical();
     const raw = makeRaw();
-    const snapshot = toSessionSnapshot(canonical, raw);
+    const { snapshot } = toSessionSnapshot(canonical, raw);
 
     const expectedHash = sha256(JSON.stringify(canonical));
     expect(snapshot.contentHash).toBe(expectedHash);
@@ -187,7 +187,7 @@ describe("toSessionSnapshot", () => {
   it("computes rawHash as SHA-256 of raw JSON", () => {
     const canonical = makeCanonical();
     const raw = makeRaw();
-    const snapshot = toSessionSnapshot(canonical, raw);
+    const { snapshot } = toSessionSnapshot(canonical, raw);
 
     const expectedHash = sha256(JSON.stringify(raw));
     expect(snapshot.rawHash).toBe(expectedHash);
@@ -196,8 +196,8 @@ describe("toSessionSnapshot", () => {
 
   it("different canonical content produces different contentHash", () => {
     const raw = makeRaw();
-    const s1 = toSessionSnapshot(makeCanonical({ title: "A" }), raw);
-    const s2 = toSessionSnapshot(makeCanonical({ title: "B" }), raw);
+    const { snapshot: s1 } = toSessionSnapshot(makeCanonical({ title: "A" }), raw);
+    const { snapshot: s2 } = toSessionSnapshot(makeCanonical({ title: "B" }), raw);
     expect(s1.contentHash).not.toBe(s2.contentHash);
   });
 
@@ -205,8 +205,8 @@ describe("toSessionSnapshot", () => {
     const canonical = makeCanonical();
     const r1 = makeRaw({ collectedAt: "2026-01-01T00:00:00Z" });
     const r2 = makeRaw({ collectedAt: "2026-01-02T00:00:00Z" });
-    const s1 = toSessionSnapshot(canonical, r1);
-    const s2 = toSessionSnapshot(canonical, r2);
+    const { snapshot: s1 } = toSessionSnapshot(canonical, r1);
+    const { snapshot: s2 } = toSessionSnapshot(canonical, r2);
     expect(s1.rawHash).not.toBe(s2.rawHash);
     // contentHash should be the same since canonical is identical
     expect(s1.contentHash).toBe(s2.contentHash);
@@ -219,7 +219,7 @@ describe("toSessionSnapshot", () => {
       totalCachedTokens: 50,
     });
     const raw = makeRaw();
-    const snapshot = toSessionSnapshot(canonical, raw);
+    const { snapshot } = toSessionSnapshot(canonical, raw);
     expect(snapshot.totalInputTokens).toBe(100);
     expect(snapshot.totalOutputTokens).toBe(200);
     expect(snapshot.totalCachedTokens).toBe(50);
@@ -233,7 +233,7 @@ describe("toSessionSnapshot", () => {
       title: null,
     });
     const raw = makeRaw();
-    const snapshot = toSessionSnapshot(canonical, raw);
+    const { snapshot } = toSessionSnapshot(canonical, raw);
     expect(snapshot.projectRef).toBeNull();
     expect(snapshot.projectName).toBeNull();
     expect(snapshot.model).toBeNull();
@@ -247,10 +247,21 @@ describe("toSessionSnapshot", () => {
       ],
     });
     const raw = makeRaw();
-    const snapshot = toSessionSnapshot(canonical, raw);
+    const { snapshot } = toSessionSnapshot(canonical, raw);
     expect(snapshot.userMessages).toBe(0);
     expect(snapshot.assistantMessages).toBe(0);
     expect(snapshot.totalMessages).toBe(1);
+  });
+
+  it("returns precomputed hashes matching snapshot", () => {
+    const canonical = makeCanonical();
+    const raw = makeRaw();
+    const { snapshot, precomputed } = toSessionSnapshot(canonical, raw);
+
+    expect(precomputed.contentHash).toBe(snapshot.contentHash);
+    expect(precomputed.rawHash).toBe(snapshot.rawHash);
+    expect(precomputed.canonicalJson).toBe(JSON.stringify(canonical));
+    expect(precomputed.rawJson).toBe(JSON.stringify(raw));
   });
 });
 

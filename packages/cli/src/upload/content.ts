@@ -13,7 +13,8 @@
  * Same retry strategy as metadata upload.
  */
 
-import { gzipSync } from "node:zlib";
+import { gzip } from "node:zlib";
+import { promisify } from "node:util";
 import {
   MAX_UPLOAD_RETRIES,
   INITIAL_BACKOFF_MS,
@@ -24,6 +25,9 @@ import type {
   RawSessionArchive,
 } from "@pika/core";
 import { sha256, parseRetryAfter, AuthError, RetryExhaustedError, ClientError } from "./engine";
+import type { PrecomputedHashes } from "./engine";
+
+const gzipAsync = promisify(gzip);
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -49,9 +53,9 @@ export interface ContentUploadResult {
 
 // ── Gzip helper ────────────────────────────────────────────────
 
-/** Gzip compress a string, returning a Buffer */
-export function gzipCompress(input: string): Buffer {
-  return gzipSync(Buffer.from(input, "utf-8"));
+/** Gzip compress a string, returning a Buffer (async, non-blocking) */
+export async function gzipCompress(input: string): Promise<Buffer> {
+  return gzipAsync(Buffer.from(input, "utf-8")) as Promise<Buffer>;
 }
 
 // ── Sleep helper ───────────────────────────────────────────────
@@ -311,20 +315,24 @@ export async function uploadSessionContent(
   canonical: CanonicalSession,
   raw: RawSessionArchive,
   opts: ContentUploadOptions,
+  precomputed?: PrecomputedHashes,
 ): Promise<ContentUploadResult> {
-  const canonicalJson = JSON.stringify(canonical);
-  const rawJson = JSON.stringify(raw);
+  const canonicalJson = precomputed?.canonicalJson ?? JSON.stringify(canonical);
+  const rawJson = precomputed?.rawJson ?? JSON.stringify(raw);
 
-  const contentHash = sha256(canonicalJson);
-  const rawHash = sha256(rawJson);
+  const contentHash = precomputed?.contentHash ?? sha256(canonicalJson);
+  const rawHash = precomputed?.rawHash ?? sha256(rawJson);
 
-  const canonicalGzip = gzipCompress(canonicalJson);
-  const rawGzip = gzipCompress(rawJson);
+  // Compress both payloads in parallel (async, non-blocking)
+  const [canonicalGzip, rawGzip] = await Promise.all([
+    gzipCompress(canonicalJson),
+    gzipCompress(rawJson),
+  ]);
 
   const sessionKey = encodeURIComponent(canonical.sessionKey);
 
-  // PUT canonical (always via proxy — Worker needs to chunk + D1 batch insert)
-  const canonicalResult = await putWithRetry(
+  // Upload canonical and raw in parallel — they have no dependency on each other
+  const canonicalPromise = putWithRetry(
     `${opts.apiUrl}/api/ingest/content/${sessionKey}/canonical`,
     canonicalGzip,
     {
@@ -335,28 +343,31 @@ export async function uploadSessionContent(
     opts,
   );
 
-  // Upload raw — try presigned URL first, fall back to proxy
-  let rawUploaded = false;
-  try {
-    rawUploaded = await uploadRawDirect(
-      canonical.sessionKey,
-      rawHash,
-      rawGzip,
-      opts,
-    );
-  } catch (err) {
-    // AuthError should propagate immediately
-    if (err instanceof AuthError) throw err;
+  const rawPromise = (async () => {
+    try {
+      return await uploadRawDirect(
+        canonical.sessionKey,
+        rawHash,
+        rawGzip,
+        opts,
+      );
+    } catch (err) {
+      if (err instanceof AuthError) throw err;
+      // Fall back to proxy for any other error
+      const rawResult = await putWithRetry(
+        `${opts.apiUrl}/api/ingest/content/${sessionKey}/raw`,
+        rawGzip,
+        { "X-Raw-Hash": rawHash },
+        opts,
+      );
+      return rawResult.uploaded;
+    }
+  })();
 
-    // Fall back to proxy for any other error
-    const rawResult = await putWithRetry(
-      `${opts.apiUrl}/api/ingest/content/${sessionKey}/raw`,
-      rawGzip,
-      { "X-Raw-Hash": rawHash },
-      opts,
-    );
-    rawUploaded = rawResult.uploaded;
-  }
+  const [canonicalResult, rawUploaded] = await Promise.all([
+    canonicalPromise,
+    rawPromise,
+  ]);
 
   return {
     canonicalUploaded: canonicalResult.uploaded,
@@ -381,7 +392,7 @@ export interface BatchContentUploadResult {
  * AuthError propagates immediately and aborts all inflight work.
  */
 export async function uploadContentBatch(
-  sessions: Array<{ canonical: CanonicalSession; raw: RawSessionArchive }>,
+  sessions: Array<{ canonical: CanonicalSession; raw: RawSessionArchive; precomputed?: PrecomputedHashes }>,
   opts: ContentUploadOptions,
   concurrency: number = CONTENT_UPLOAD_CONCURRENCY,
 ): Promise<BatchContentUploadResult> {
@@ -402,9 +413,9 @@ export async function uploadContentBatch(
       const idx = nextIndex++;
       if (idx >= sessions.length) break;
 
-      const { canonical, raw } = sessions[idx];
+      const { canonical, raw, precomputed } = sessions[idx];
       try {
-        const contentResult = await uploadSessionContent(canonical, raw, opts);
+        const contentResult = await uploadSessionContent(canonical, raw, opts, precomputed);
         if (contentResult.canonicalUploaded || contentResult.rawUploaded) {
           result.uploaded++;
         } else {

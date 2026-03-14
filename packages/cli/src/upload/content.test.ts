@@ -81,35 +81,35 @@ function makeOpts(overrides?: Partial<ContentUploadOptions>): ContentUploadOptio
 // ── gzipCompress ───────────────────────────────────────────────
 
 describe("gzipCompress", () => {
-  it("compresses a string to gzip buffer", () => {
+  it("compresses a string to gzip buffer", async () => {
     const input = '{"hello":"world"}';
-    const compressed = gzipCompress(input);
+    const compressed = await gzipCompress(input);
     expect(Buffer.isBuffer(compressed)).toBe(true);
     expect(compressed.length).toBeGreaterThan(0);
   });
 
-  it("decompresses back to original string", () => {
+  it("decompresses back to original string", async () => {
     const input = '{"hello":"world"}';
-    const compressed = gzipCompress(input);
+    const compressed = await gzipCompress(input);
     const decompressed = gunzipSync(compressed).toString("utf-8");
     expect(decompressed).toBe(input);
   });
 
-  it("compressed output is smaller for large inputs", () => {
+  it("compressed output is smaller for large inputs", async () => {
     const input = JSON.stringify({ data: "x".repeat(10_000) });
-    const compressed = gzipCompress(input);
+    const compressed = await gzipCompress(input);
     expect(compressed.length).toBeLessThan(input.length);
   });
 
-  it("handles empty string", () => {
-    const compressed = gzipCompress("");
+  it("handles empty string", async () => {
+    const compressed = await gzipCompress("");
     const decompressed = gunzipSync(compressed).toString("utf-8");
     expect(decompressed).toBe("");
   });
 
-  it("handles unicode", () => {
+  it("handles unicode", async () => {
     const input = '{"msg":"Hello, world!"}';
-    const compressed = gzipCompress(input);
+    const compressed = await gzipCompress(input);
     const decompressed = gunzipSync(compressed).toString("utf-8");
     expect(decompressed).toBe(input);
   });
@@ -244,13 +244,16 @@ describe("uploadSessionContent", () => {
     const canonical = makeCanonical();
     const raw = makeRaw();
 
-    mockFetch.mockResolvedValueOnce(errorResponse(401));
+    // Both canonical and raw start in parallel, so provide mock responses for both
+    mockFetch
+      .mockResolvedValueOnce(errorResponse(401))   // canonical 401
+      .mockResolvedValueOnce(presignOk())           // raw presign (may fire concurrently)
+      .mockResolvedValueOnce(new Response(null, { status: 200 }))  // R2 PUT
+      .mockResolvedValueOnce(confirmOk());          // confirm
 
     await expect(uploadSessionContent(canonical, raw, opts())).rejects.toThrow(
       AuthError,
     );
-    // Should not attempt raw upload after auth failure
-    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
   // ── 409 conflict ──
@@ -292,14 +295,24 @@ describe("uploadSessionContent", () => {
     const canonical = makeCanonical();
     const raw = makeRaw();
 
-    mockFetch
-      .mockResolvedValueOnce(errorResponse(500))
-      .mockResolvedValueOnce(errorResponse(500))
-      .mockResolvedValueOnce(errorResponse(500));
+    // Use URL-based router since canonical and raw fire concurrently
+    const routerFetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/canonical")) {
+        return Promise.resolve(errorResponse(500));
+      }
+      // Raw requests may fire concurrently — let them succeed
+      if (url.includes("/presign")) {
+        return Promise.resolve(presignOk());
+      }
+      if (url.includes("/confirm-raw")) {
+        return Promise.resolve(confirmOk());
+      }
+      return Promise.resolve(new Response(null, { status: 200 }));
+    });
 
-    await expect(uploadSessionContent(canonical, raw, opts())).rejects.toThrow(
-      RetryExhaustedError,
-    );
+    await expect(
+      uploadSessionContent(canonical, raw, { ...opts(), fetch: routerFetch }),
+    ).rejects.toThrow(RetryExhaustedError);
   });
 
   // ── 429 rate limiting ──
@@ -472,14 +485,32 @@ describe("uploadContentBatch", () => {
       { canonical: makeCanonical({ sessionKey: "claude-code:s3" }), raw: makeRaw({ sessionKey: "claude-code:s3" }) },
     ];
 
-    // s1: OK (4 calls)
-    mockOneSession();
-    // s2: 409 conflict on canonical
-    mockFetch.mockResolvedValueOnce(errorResponse(409, "conflict"));
-    // s3: OK (4 calls)
-    mockOneSession();
+    // Use URL-based router to handle parallel canonical + raw per session
+    let s2CanonicalCalled = false;
+    const routerFetch = vi.fn().mockImplementation((url: string) => {
+      // s2 canonical → 409 conflict
+      if (url.includes("s2") && url.includes("/canonical")) {
+        s2CanonicalCalled = true;
+        return Promise.resolve(errorResponse(409, "conflict"));
+      }
+      // s2 raw presign → also fail (session will error anyway from 409)
+      if (url.includes("/presign") && s2CanonicalCalled) {
+        // presign for s2 — will error but be caught since canonical already errored
+        s2CanonicalCalled = false;
+        return Promise.resolve(presignOk());
+      }
+      // All other canonical/presign/R2/confirm calls succeed
+      if (url.includes("/presign")) {
+        return Promise.resolve(presignOk());
+      }
+      if (url.includes("/confirm-raw")) {
+        return Promise.resolve(confirmOk());
+      }
+      // canonical PUT and R2 PUT both return 201
+      return Promise.resolve(okResponse(201));
+    });
 
-    const result = await uploadContentBatch(sessions, opts(), 1);
+    const result = await uploadContentBatch(sessions, { ...opts(), fetch: routerFetch }, 1);
     expect(result.uploaded).toBe(2);
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0].sessionKey).toBe("claude-code:s2");
@@ -492,13 +523,18 @@ describe("uploadContentBatch", () => {
       { canonical: makeCanonical({ sessionKey: "claude-code:s2" }), raw: makeRaw({ sessionKey: "claude-code:s2" }) },
     ];
 
-    mockFetch
-      // s1: 401 on canonical
-      .mockResolvedValueOnce(errorResponse(401));
+    // canonical and raw fire in parallel, both may hit the mock
+    const routerFetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/canonical")) {
+        return Promise.resolve(errorResponse(401));
+      }
+      if (url.includes("/presign")) {
+        return Promise.resolve(errorResponse(401));
+      }
+      return Promise.resolve(new Response(null, { status: 200 }));
+    });
 
-    await expect(uploadContentBatch(sessions, opts(), 1)).rejects.toThrow(AuthError);
-    // Should not have attempted s2
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+    await expect(uploadContentBatch(sessions, { ...opts(), fetch: routerFetch }, 1)).rejects.toThrow(AuthError);
   });
 
   it("collects RetryExhaustedError per session and continues", async () => {
@@ -507,15 +543,23 @@ describe("uploadContentBatch", () => {
       { canonical: makeCanonical({ sessionKey: "claude-code:s2" }), raw: makeRaw({ sessionKey: "claude-code:s2" }) },
     ];
 
-    mockFetch
-      // s1: all canonical retries fail
-      .mockResolvedValueOnce(errorResponse(500))
-      .mockResolvedValueOnce(errorResponse(500))
-      .mockResolvedValueOnce(errorResponse(500));
-    // s2: OK
-    mockOneSession();
+    // Use URL-based router
+    const routerFetch = vi.fn().mockImplementation((url: string) => {
+      // s1 canonical always fails
+      if (url.includes("s1") && url.includes("/canonical")) {
+        return Promise.resolve(errorResponse(500));
+      }
+      // All presign/confirm/other requests succeed
+      if (url.includes("/presign")) {
+        return Promise.resolve(presignOk());
+      }
+      if (url.includes("/confirm-raw")) {
+        return Promise.resolve(confirmOk());
+      }
+      return Promise.resolve(okResponse(201));
+    });
 
-    const result = await uploadContentBatch(sessions, opts(), 1);
+    const result = await uploadContentBatch(sessions, { ...opts(), fetch: routerFetch }, 1);
     expect(result.uploaded).toBe(1);
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0].sessionKey).toBe("claude-code:s1");
@@ -631,7 +675,7 @@ describe("uploadToPresignedUrl", () => {
 
   it("PUTs body to presigned URL with correct headers", async () => {
     mockFetch.mockResolvedValueOnce(new Response(null, { status: 200 }));
-    const body = gzipCompress('{"test":true}');
+    const body = await gzipCompress('{"test":true}');
 
     await uploadToPresignedUrl("https://r2.example.com/presigned", body, opts());
 
@@ -739,7 +783,7 @@ describe("uploadRawDirect", () => {
   }
 
   it("completes full presigned upload flow", async () => {
-    const rawGzip = gzipCompress('{"raw":true}');
+    const rawGzip = await gzipCompress('{"raw":true}');
 
     // 1. presign request
     mockFetch.mockResolvedValueOnce(
@@ -838,31 +882,50 @@ describe("uploadSessionContent (presigned flow)", () => {
     const canonical = makeCanonical();
     const raw = makeRaw();
 
-    mockFetch
-      // 1. canonical proxy PUT
-      .mockResolvedValueOnce(new Response(null, { status: 201 }))
-      // 2. presign request fails (500)
-      .mockResolvedValueOnce(new Response("Internal error", { status: 500 }))
-      // 3. fallback: raw proxy PUT
-      .mockResolvedValueOnce(new Response(null, { status: 201 }));
+    // With parallel canonical + raw, both fire concurrently
+    // Use a URL-based router to handle both paths
+    const callLog: string[] = [];
+    const routerFetch = vi.fn().mockImplementation((url: string) => {
+      callLog.push(url);
+      if (url.includes("/canonical")) {
+        return Promise.resolve(new Response(null, { status: 201 }));
+      }
+      if (url.includes("/presign")) {
+        return Promise.resolve(new Response("Internal error", { status: 500 }));
+      }
+      if (url.includes("/raw")) {
+        return Promise.resolve(new Response(null, { status: 201 }));
+      }
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
 
-    const result = await uploadSessionContent(canonical, raw, opts());
+    const result = await uploadSessionContent(canonical, raw, {
+      ...opts(),
+      fetch: routerFetch,
+    });
     expect(result.canonicalUploaded).toBe(true);
     expect(result.rawUploaded).toBe(true);
-    // 3 calls: canonical + presign fail + fallback raw
-    expect(mockFetch).toHaveBeenCalledTimes(3);
+    // canonical + presign fail + fallback raw = 3 calls
+    expect(routerFetch).toHaveBeenCalledTimes(3);
   });
 
   it("propagates AuthError from presigned flow", async () => {
     const canonical = makeCanonical();
     const raw = makeRaw();
 
-    mockFetch
-      // 1. canonical proxy PUT
-      .mockResolvedValueOnce(new Response(null, { status: 201 }))
-      // 2. presign returns 401
-      .mockResolvedValueOnce(new Response("Unauthorized", { status: 401 }));
+    // Both canonical and raw fire concurrently
+    const routerFetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/canonical")) {
+        return Promise.resolve(new Response(null, { status: 201 }));
+      }
+      if (url.includes("/presign")) {
+        return Promise.resolve(new Response("Unauthorized", { status: 401 }));
+      }
+      return Promise.resolve(new Response(null, { status: 200 }));
+    });
 
-    await expect(uploadSessionContent(canonical, raw, opts())).rejects.toThrow(AuthError);
+    await expect(
+      uploadSessionContent(canonical, raw, { ...opts(), fetch: routerFetch }),
+    ).rejects.toThrow(AuthError);
   });
 });

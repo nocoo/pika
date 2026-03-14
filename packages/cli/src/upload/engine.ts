@@ -93,6 +93,14 @@ export function sha256(input: string): string {
 
 // ── Snapshot transformation ────────────────────────────────────
 
+/** Pre-computed serialization data from toSessionSnapshot */
+export interface PrecomputedHashes {
+  canonicalJson: string;
+  rawJson: string;
+  contentHash: string;
+  rawHash: string;
+}
+
 /**
  * Transform a CanonicalSession + RawSessionArchive into a SessionSnapshot
  * ready for metadata upload.
@@ -101,13 +109,18 @@ export function sha256(input: string): string {
  * - contentHash: SHA-256 of canonical JSON string (deterministic via sorted keys)
  * - rawHash: SHA-256 of raw JSON string (deterministic via sorted keys)
  * - Message role counts (user, assistant, total)
+ *
+ * Also returns pre-computed JSON strings and hashes for reuse in content upload.
  */
 export function toSessionSnapshot(
   canonical: CanonicalSession,
   raw: RawSessionArchive,
-): SessionSnapshot {
+): { snapshot: SessionSnapshot; precomputed: PrecomputedHashes } {
   const canonicalJson = JSON.stringify(canonical);
   const rawJson = JSON.stringify(raw);
+
+  const contentHash = sha256(canonicalJson);
+  const rawHash = sha256(rawJson);
 
   let userMessages = 0;
   let assistantMessages = 0;
@@ -116,7 +129,7 @@ export function toSessionSnapshot(
     else if (msg.role === "assistant") assistantMessages++;
   }
 
-  return {
+  const snapshot: SessionSnapshot = {
     sessionKey: canonical.sessionKey,
     source: canonical.source,
     startedAt: canonical.startedAt,
@@ -132,11 +145,16 @@ export function toSessionSnapshot(
     projectName: canonical.projectName,
     model: canonical.model,
     title: canonical.title,
-    contentHash: sha256(canonicalJson),
-    rawHash: sha256(rawJson),
+    contentHash,
+    rawHash,
     parserRevision: canonical.parserRevision,
     schemaVersion: canonical.schemaVersion,
     snapshotAt: canonical.snapshotAt,
+  };
+
+  return {
+    snapshot,
+    precomputed: { canonicalJson, rawJson, contentHash, rawHash },
   };
 }
 
@@ -269,10 +287,14 @@ async function uploadBatch(
 
 // ── Upload all batches ─────────────────────────────────────────
 
+/** Maximum concurrent metadata batch uploads */
+const METADATA_BATCH_CONCURRENCY = 4;
+
 /**
  * Upload an array of session snapshots in batches of METADATA_BATCH_SIZE.
  * Returns aggregate result across all batches.
  *
+ * Uploads up to METADATA_BATCH_CONCURRENCY batches in parallel.
  * Stops on first non-retryable error (AuthError, ClientError).
  * Retries are per-batch, not per-snapshot.
  */
@@ -292,12 +314,26 @@ export async function uploadMetadataBatches(
     errors: [],
   };
 
-  for (const batch of batches) {
-    const batchResult = await uploadBatch(batch, opts);
-    result.totalIngested += batchResult.ingested;
-    result.totalConflicts += batchResult.conflicts;
-    result.errors.push(...batchResult.errors);
+  // Upload batches with limited concurrency
+  let nextIndex = 0;
+
+  async function worker(): Promise<void> {
+    while (true) {
+      const idx = nextIndex++;
+      if (idx >= batches.length) break;
+
+      const batchResult = await uploadBatch(batches[idx], opts);
+      result.totalIngested += batchResult.ingested;
+      result.totalConflicts += batchResult.conflicts;
+      result.errors.push(...batchResult.errors);
+    }
   }
+
+  const workers = Array.from(
+    { length: Math.min(METADATA_BATCH_CONCURRENCY, batches.length) },
+    () => worker(),
+  );
+  await Promise.all(workers);
 
   return result;
 }

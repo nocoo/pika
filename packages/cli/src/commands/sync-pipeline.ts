@@ -24,7 +24,7 @@ import type {
 import type { FileDriver, DbDriver, DiscoverOpts, SyncContext } from "../drivers/types";
 import type { FileFingerprint } from "../utils/file-changed";
 import { toSessionSnapshot, uploadMetadataBatches } from "../upload/engine";
-import type { UploadEngineOptions, UploadResult } from "../upload/engine";
+import type { UploadEngineOptions, UploadResult, PrecomputedHashes } from "../upload/engine";
 import { uploadContentBatch } from "../upload/content";
 import type { ContentUploadOptions, BatchContentUploadResult } from "../upload/content";
 
@@ -208,10 +208,15 @@ export async function runSyncPipeline(
   let contentResult: BatchContentUploadResult | undefined;
 
   if (opts.upload && allResults.length > 0) {
-    // Transform to snapshots for metadata upload
-    const snapshots = allResults.map((r) =>
+    // Transform to snapshots for metadata upload (also caches JSON + hashes)
+    const transformed = allResults.map((r) =>
       toSessionSnapshot(r.canonical, r.raw),
     );
+    const snapshots = transformed.map((t) => t.snapshot);
+    const precomputedMap = new Map<string, PrecomputedHashes>();
+    for (const t of transformed) {
+      precomputedMap.set(t.snapshot.sessionKey, t.precomputed);
+    }
 
     const uploadOpts: UploadEngineOptions = {
       apiUrl: opts.apiUrl,
@@ -223,7 +228,7 @@ export async function runSyncPipeline(
 
     uploadResult = await uploadMetadataBatches(snapshots, uploadOpts);
 
-    // Upload content
+    // Upload content (reusing precomputed JSON + hashes from metadata stage)
     const contentOpts: ContentUploadOptions = {
       apiUrl: opts.apiUrl,
       apiKey: opts.apiKey,
@@ -232,7 +237,11 @@ export async function runSyncPipeline(
     };
 
     contentResult = await uploadContentBatch(
-      allResults.map((r) => ({ canonical: r.canonical, raw: r.raw })),
+      allResults.map((r) => ({
+        canonical: r.canonical,
+        raw: r.raw,
+        precomputed: precomputedMap.get(r.canonical.sessionKey),
+      })),
       contentOpts,
       opts.contentConcurrency,
     );
