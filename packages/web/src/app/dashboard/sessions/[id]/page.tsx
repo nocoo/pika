@@ -115,7 +115,7 @@ export default function SessionDetailPage() {
 
       <SessionReplay
         session={data.session}
-        contentUrl={data.contentUrl}
+        contentUrl={data.session.content_key ? `/api/sessions/${id}/content` : null}
       />
     </div>
   );
