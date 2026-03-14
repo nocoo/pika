@@ -50,7 +50,12 @@ export default defineCommand({
       openBrowser: async (url: string) => {
         const { exec } = await import("node:child_process");
         const cmd = getBrowserCommand();
-        exec(`${cmd} "${url}"`);
+        return new Promise<void>((resolve, reject) => {
+          exec(`${cmd} "${url}"`, (error) => {
+            if (error) reject(error);
+            else resolve();
+          });
+        });
       },
       log: (msg: string) => consola.info(msg),
       config,
