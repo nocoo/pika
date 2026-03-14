@@ -794,6 +794,70 @@ describe("handleCanonicalUpload", () => {
     const body = await res.json() as { error: string };
     expect(body.error).toContain("Canonical ingest failed");
   });
+
+  it("writes R2 before D1 — R2 failure prevents D1 batch", async () => {
+    const req = await makeCanonicalRequest();
+    const bucket = {
+      ...mockR2(),
+      put: vi.fn().mockRejectedValue(new Error("R2 service unavailable")),
+    } as unknown as R2Bucket;
+    const db = {
+      prepare: vi.fn().mockReturnValue({
+        bind: vi.fn().mockReturnValue({
+          first: vi.fn().mockResolvedValue({
+            id: "session-id-1",
+            content_hash: "old-hash",
+            raw_hash: "raw-1",
+            content_key: null,
+            raw_key: null,
+            parser_revision: 1,
+            schema_version: 1,
+          }),
+          run: vi.fn(),
+        }),
+        first: vi.fn(),
+        run: vi.fn(),
+      }),
+      batch: vi.fn().mockResolvedValue([]),
+    } as unknown as D1Database;
+    const env: Env = { DB: db, BUCKET: bucket, WORKER_SECRET: "secret" };
+    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    expect(res.status).toBe(500);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("Canonical ingest failed");
+    // D1 batch must NOT have been called — R2 failed first
+    expect(db.batch).not.toHaveBeenCalled();
+  });
+
+  it("R2 succeeds → D1 fails → R2 object is harmless orphan, returns 500", async () => {
+    const req = await makeCanonicalRequest();
+    const bucket = mockR2();
+    const db = {
+      prepare: vi.fn().mockReturnValue({
+        bind: vi.fn().mockReturnValue({
+          first: vi.fn().mockResolvedValue({
+            id: "session-id-1",
+            content_hash: "old-hash",
+            raw_hash: "raw-1",
+            content_key: null,
+            raw_key: null,
+            parser_revision: 1,
+            schema_version: 1,
+          }),
+          run: vi.fn(),
+        }),
+        first: vi.fn(),
+        run: vi.fn(),
+      }),
+      batch: vi.fn().mockRejectedValue(new Error("D1 write quota exceeded")),
+    } as unknown as D1Database;
+    const env: Env = { DB: db, BUCKET: bucket, WORKER_SECRET: "secret" };
+    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    expect(res.status).toBe(500);
+    // R2 was called (succeeded), then D1 failed
+    expect(bucket.put).toHaveBeenCalledTimes(1);
+    expect(db.batch).toHaveBeenCalledTimes(1);
+  });
 });
 
 // ── handleRawUpload ───────────────────────────────────────────

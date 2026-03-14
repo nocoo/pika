@@ -478,13 +478,16 @@ export async function handleCanonicalUpload(
       env.DB.prepare(UPDATE_CANONICAL_SQL).bind(r2Key, compressedSize, sessionId),
     );
 
-    // Execute D1 batch
-    await env.DB.batch(stmts);
-
-    // 6. PUT to R2
+    // 6. PUT to R2 FIRST — if this fails, no D1 state is corrupted.
+    // R2 PUT is idempotent, so retries re-upload harmlessly.
     await env.BUCKET.put(r2Key, compressedBytes, {
       httpMetadata: { contentEncoding: "gzip", contentType: "application/json" },
     });
+
+    // 7. Execute D1 batch SECOND — sets content_key only after R2 succeeds.
+    // If D1 fails after R2 succeeds, the orphaned R2 object is harmless
+    // and the retry will re-upload R2 (idempotent) then succeed on D1.
+    await env.DB.batch(stmts);
 
     return Response.json({
       stored: true,
