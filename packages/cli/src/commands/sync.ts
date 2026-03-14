@@ -48,9 +48,7 @@ export default defineCommand({
     const cursorState = await cursorStore.load();
 
     // Build driver set
-    const syncCtx: SyncContext = {
-      dirMtimes: cursorState.dirMtimes ? { ...cursorState.dirMtimes } : undefined,
-    };
+    const syncCtx: SyncContext = {};
     const driverSet = await buildDriverSet(undefined, syncCtx);
 
     if (driverSet.fileDrivers.length === 0 && !driverSet.dbDriversAvailable) {

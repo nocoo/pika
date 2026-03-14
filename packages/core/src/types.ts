@@ -121,7 +121,8 @@ export interface GeminiCursor extends FileCursorBase {
 
 /** OpenCode JSON: dir-level mtime + per-file cursors */
 export interface OpenCodeCursor extends FileCursorBase {
-  /** Nothing beyond FileCursorBase needed per file */
+  /** mtime of message/{sessionId}/ subdir (detects new messages) */
+  messageDirMtimeMs?: number;
 }
 
 /** OpenCode SQLite: watermark-based cursor */

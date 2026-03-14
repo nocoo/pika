@@ -344,20 +344,21 @@ describe("runSyncPipeline: DB driver", () => {
   });
 });
 
-// ── SyncContext dirMtimes ──────────────────────────────────────
+// ── SyncContext dirMtimes (removed) ───────────────────────────
+// dir-mtime optimization was removed in Bug #4 fix.
+// The pipeline no longer persists dirMtimes to cursor state.
 
-describe("runSyncPipeline: syncCtx dirMtimes", () => {
-  it("persists dirMtimes from syncCtx to cursor state", async () => {
-    const syncCtx: SyncContext = {
-      dirMtimes: { "/test/dir": 1700000000000 },
-    };
+describe("runSyncPipeline: dirMtimes no longer persisted", () => {
+  it("does not persist dirMtimes from syncCtx to cursor state", async () => {
+    const syncCtx: SyncContext = {};
 
     const result = await runSyncPipeline(
       makeInput({ syncCtx }),
       makeOpts(),
     );
 
-    expect(result.cursorState.dirMtimes).toEqual({ "/test/dir": 1700000000000 });
+    // dirMtimes should NOT be set (optimization removed)
+    expect(result.cursorState.dirMtimes).toBeUndefined();
   });
 });
 

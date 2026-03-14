@@ -1,12 +1,13 @@
 /**
  * Tests for OpenCode JSON file session driver.
  *
- * Covers: discover (with dir mtime optimization), shouldSkip, resumeState,
- * parse (with SyncContext openCodeSessionState deposit), buildCursor
+ * Covers: discover (without dir mtime optimization), shouldSkip (with
+ * message dir mtime), resumeState, parse (with SyncContext
+ * openCodeSessionState deposit), buildCursor (with messageDirMtimeMs)
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, writeFile, mkdir, rm } from "node:fs/promises";
+import { mkdtemp, writeFile, mkdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { OpenCodeCursor, ParseResult } from "@pika/core";
@@ -172,7 +173,7 @@ describe("openCodeJsonDriver.discover", () => {
     expect(files).toEqual([]);
   });
 
-  it("updates dirMtimes in SyncContext", async () => {
+  it("always re-reads dir on every discover call (no dir mtime skip)", async () => {
     const storageDir = join(tmpDir, "storage");
     const sessDir = join(storageDir, "session", "proj_a");
     const messageDir = join(storageDir, "message");
@@ -182,59 +183,73 @@ describe("openCodeJsonDriver.discover", () => {
 
     const ctx: SyncContext = {};
     const driver = createOpenCodeJsonDriver(ctx);
-    await driver.discover({ openCodeMessageDir: messageDir });
-
-    expect(ctx.dirMtimes).toBeDefined();
-    expect(Object.keys(ctx.dirMtimes!)).toHaveLength(1);
-    const key = Object.keys(ctx.dirMtimes!)[0];
-    expect(key).toContain("proj_a");
-    expect(typeof ctx.dirMtimes![key]).toBe("number");
-  });
-
-  it("skips readdir when dir mtime matches cached value", async () => {
-    const storageDir = join(tmpDir, "storage");
-    const sessDir = join(storageDir, "session", "proj_a");
-    const messageDir = join(storageDir, "message");
-    await mkdir(sessDir, { recursive: true });
-    await mkdir(messageDir, { recursive: true });
-    await writeSessionJson(sessDir, "ses_001");
-
-    // First pass: populate dirMtimes
-    const ctx: SyncContext = {};
-    const driver = createOpenCodeJsonDriver(ctx);
-    const firstFiles = await driver.discover({ openCodeMessageDir: messageDir });
-    expect(firstFiles).toHaveLength(1);
-    expect(ctx.dirMtimes).toBeDefined();
-    const cachedMtime = ctx.dirMtimes![Object.keys(ctx.dirMtimes!)[0]];
-
-    // Second pass: same driver + same ctx, dir mtime unchanged → skip readdir → return empty
-    const secondFiles = await driver.discover({ openCodeMessageDir: messageDir });
-    expect(secondFiles).toHaveLength(0);
-    // dirMtimes should still be populated (refreshed from stat)
-    expect(ctx.dirMtimes).toBeDefined();
-    expect(ctx.dirMtimes![Object.keys(ctx.dirMtimes!)[0]]).toBe(cachedMtime);
-  });
-
-  it("re-reads dir when mtime changes after adding a file", async () => {
-    const storageDir = join(tmpDir, "storage");
-    const sessDir = join(storageDir, "session", "proj_a");
-    const messageDir = join(storageDir, "message");
-    await mkdir(sessDir, { recursive: true });
-    await mkdir(messageDir, { recursive: true });
-    await writeSessionJson(sessDir, "ses_001");
 
     // First pass
+    const firstFiles = await driver.discover({ openCodeMessageDir: messageDir });
+    expect(firstFiles).toHaveLength(1);
+
+    // Second pass: should still return the file (no dir mtime skip)
+    const secondFiles = await driver.discover({ openCodeMessageDir: messageDir });
+    expect(secondFiles).toHaveLength(1);
+  });
+
+  it("re-discovers files after adding a new session", async () => {
+    const storageDir = join(tmpDir, "storage");
+    const sessDir = join(storageDir, "session", "proj_a");
+    const messageDir = join(storageDir, "message");
+    await mkdir(sessDir, { recursive: true });
+    await mkdir(messageDir, { recursive: true });
+    await writeSessionJson(sessDir, "ses_001");
+
     const ctx: SyncContext = {};
     const driver = createOpenCodeJsonDriver(ctx);
     await driver.discover({ openCodeMessageDir: messageDir });
 
-    // Wait a tiny bit then add a new file to change dir mtime
-    await new Promise((r) => setTimeout(r, 50));
+    // Add a new session file
     await writeSessionJson(sessDir, "ses_002");
 
-    // Second pass: dir mtime changed → should rediscover
+    // Should discover both files
     const files = await driver.discover({ openCodeMessageDir: messageDir });
     expect(files).toHaveLength(2);
+  });
+
+  it("populates openCodeMsgDirMtimes in SyncContext", async () => {
+    const storageDir = join(tmpDir, "storage");
+    const sessDir = join(storageDir, "session", "proj_a");
+    const messageDir = join(storageDir, "message");
+    await mkdir(sessDir, { recursive: true });
+    await mkdir(messageDir, { recursive: true });
+    await writeSessionJson(sessDir, "ses_001");
+
+    // Create a message directory for ses_001
+    await writeMessageJson(messageDir, "ses_001", "msg_001");
+
+    const ctx: SyncContext = {};
+    const driver = createOpenCodeJsonDriver(ctx);
+    const files = await driver.discover({ openCodeMessageDir: messageDir });
+
+    expect(files).toHaveLength(1);
+    expect(ctx.openCodeMsgDirMtimes).toBeDefined();
+    expect(Object.keys(ctx.openCodeMsgDirMtimes!)).toHaveLength(1);
+    const filePath = files[0];
+    expect(ctx.openCodeMsgDirMtimes![filePath]).toBeTypeOf("number");
+  });
+
+  it("does not include msgDirMtime for sessions without message dir", async () => {
+    const storageDir = join(tmpDir, "storage");
+    const sessDir = join(storageDir, "session", "proj_a");
+    const messageDir = join(storageDir, "message");
+    await mkdir(sessDir, { recursive: true });
+    await mkdir(messageDir, { recursive: true });
+    await writeSessionJson(sessDir, "ses_no_msgs");
+
+    const ctx: SyncContext = {};
+    const driver = createOpenCodeJsonDriver(ctx);
+    await driver.discover({ openCodeMessageDir: messageDir });
+
+    expect(ctx.openCodeMsgDirMtimes).toBeDefined();
+    // ses_no_msgs has no message dir, so no entry
+    expect(Object.keys(ctx.openCodeMsgDirMtimes!)).toHaveLength(0);
   });
 
   it("handles unreadable project directory gracefully", async () => {
@@ -245,10 +260,9 @@ describe("openCodeJsonDriver.discover", () => {
     await mkdir(messageDir, { recursive: true });
     await writeSessionJson(sessDir, "ses_001");
 
-    // Make it unreadable — create a second project dir that we can't readdir
+    // Create a second project dir with a file in it
     const badDir = join(storageDir, "session", "proj_bad");
     await mkdir(badDir, { recursive: true });
-    // Write a file in it
     await writeSessionJson(badDir, "ses_bad");
 
     // The driver should discover files from both (both readable in this test)
@@ -263,30 +277,145 @@ describe("openCodeJsonDriver.discover", () => {
 // ---------------------------------------------------------------------------
 
 describe("openCodeJsonDriver.shouldSkip", () => {
-  const driver = createOpenCodeJsonDriver();
-
   it("returns false when cursor is undefined (first scan)", () => {
+    const driver = createOpenCodeJsonDriver();
     expect(driver.shouldSkip(undefined, fp())).toBe(false);
   });
 
-  it("returns true when inode + mtimeMs + size all match", () => {
+  it("returns true when inode + mtimeMs + size match and no syncCtx", () => {
     const cursor = makeCursor();
+    const driver = createOpenCodeJsonDriver();
     expect(driver.shouldSkip(cursor, fp())).toBe(true);
   });
 
   it("returns false when inode differs", () => {
     const cursor = makeCursor({ inode: 99999 });
+    const driver = createOpenCodeJsonDriver();
     expect(driver.shouldSkip(cursor, fp())).toBe(false);
   });
 
   it("returns false when mtimeMs differs", () => {
     const cursor = makeCursor({ mtimeMs: 9999999999999 });
+    const driver = createOpenCodeJsonDriver();
     expect(driver.shouldSkip(cursor, fp())).toBe(false);
   });
 
   it("returns false when size differs", () => {
     const cursor = makeCursor({ size: 9999 });
+    const driver = createOpenCodeJsonDriver();
     expect(driver.shouldSkip(cursor, fp())).toBe(false);
+  });
+
+  it("returns false when cursor has no messageDirMtimeMs (old cursor)", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "pika-oc-skip-"));
+    try {
+      const storageDir = join(tmpDir, "storage");
+      const sessDir = join(storageDir, "session", "proj_a");
+      const messageDir = join(storageDir, "message");
+      await mkdir(sessDir, { recursive: true });
+      await mkdir(messageDir, { recursive: true });
+      await writeSessionJson(sessDir, "ses_001");
+      await writeMessageJson(messageDir, "ses_001", "msg_001");
+
+      const ctx: SyncContext = {};
+      const driver = createOpenCodeJsonDriver(ctx);
+      const files = await driver.discover({ openCodeMessageDir: messageDir });
+      expect(files).toHaveLength(1);
+
+      // Get real fingerprint
+      const fileStat = await stat(files[0]);
+      const fingerprint = fp({
+        inode: fileStat.ino,
+        mtimeMs: fileStat.mtimeMs,
+        size: fileStat.size,
+      });
+
+      // Old cursor without messageDirMtimeMs
+      const cursor = makeCursor({
+        inode: fileStat.ino,
+        mtimeMs: fileStat.mtimeMs,
+        size: fileStat.size,
+      });
+
+      // Should NOT skip — cursor lacks messageDirMtimeMs
+      expect(driver.shouldSkip(cursor, fingerprint)).toBe(false);
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("returns false when message dir mtime changes (new message arrived)", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "pika-oc-skip-"));
+    try {
+      const storageDir = join(tmpDir, "storage");
+      const sessDir = join(storageDir, "session", "proj_a");
+      const messageDir = join(storageDir, "message");
+      await mkdir(sessDir, { recursive: true });
+      await mkdir(messageDir, { recursive: true });
+      await writeSessionJson(sessDir, "ses_001");
+      await writeMessageJson(messageDir, "ses_001", "msg_001");
+
+      const ctx: SyncContext = {};
+      const driver = createOpenCodeJsonDriver(ctx);
+
+      // First discover — populates inode map + msgDirMtimes
+      const files = await driver.discover({ openCodeMessageDir: messageDir });
+      const fileStat = await stat(files[0]);
+      const fingerprint = fp({
+        inode: fileStat.ino,
+        mtimeMs: fileStat.mtimeMs,
+        size: fileStat.size,
+      });
+
+      // Build cursor after first parse (includes messageDirMtimeMs)
+      const cursor = driver.buildCursor(fingerprint, []);
+
+      // Add a new message — changes message dir mtime
+      await new Promise((r) => setTimeout(r, 50));
+      await writeMessageJson(messageDir, "ses_001", "msg_002");
+
+      // Re-discover to update msgDirMtimes
+      await driver.discover({ openCodeMessageDir: messageDir });
+
+      // Should NOT skip — message dir mtime changed
+      expect(driver.shouldSkip(cursor, fingerprint)).toBe(false);
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("returns true when nothing changed (session file + message dir)", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "pika-oc-skip-"));
+    try {
+      const storageDir = join(tmpDir, "storage");
+      const sessDir = join(storageDir, "session", "proj_a");
+      const messageDir = join(storageDir, "message");
+      await mkdir(sessDir, { recursive: true });
+      await mkdir(messageDir, { recursive: true });
+      await writeSessionJson(sessDir, "ses_001");
+      await writeMessageJson(messageDir, "ses_001", "msg_001");
+
+      const ctx: SyncContext = {};
+      const driver = createOpenCodeJsonDriver(ctx);
+
+      // Discover + build cursor
+      const files = await driver.discover({ openCodeMessageDir: messageDir });
+      const fileStat = await stat(files[0]);
+      const fingerprint = fp({
+        inode: fileStat.ino,
+        mtimeMs: fileStat.mtimeMs,
+        size: fileStat.size,
+      });
+      const cursor = driver.buildCursor(fingerprint, []);
+
+      // Re-discover (nothing changed)
+      await driver.discover({ openCodeMessageDir: messageDir });
+
+      // Should skip — both session file and message dir unchanged
+      expect(driver.shouldSkip(cursor, fingerprint)).toBe(true);
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
   });
 });
 
@@ -438,48 +567,69 @@ describe("openCodeJsonDriver.parse", () => {
 // ---------------------------------------------------------------------------
 
 describe("openCodeJsonDriver.buildCursor", () => {
-  const driver = createOpenCodeJsonDriver();
+  it("builds cursor with fingerprint data and messageDirMtimeMs", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "pika-oc-cursor-"));
+    try {
+      const storageDir = join(tmpDir, "storage");
+      const sessDir = join(storageDir, "session", "proj_a");
+      const messageDir = join(storageDir, "message");
+      await mkdir(sessDir, { recursive: true });
+      await mkdir(messageDir, { recursive: true });
+      await writeSessionJson(sessDir, "ses_001");
+      await writeMessageJson(messageDir, "ses_001", "msg_001");
 
-  it("builds cursor with fingerprint data", () => {
-    const fingerprint = fp({ size: 512 });
-    const results: ParseResult[] = [
-      {
-        canonical: {
-          sessionKey: "opencode:ses_001",
-          source: "opencode",
-          parserRevision: 1,
-          schemaVersion: 1,
-          startedAt: "2025-01-15T10:00:00Z",
-          lastMessageAt: "2025-01-15T10:05:00Z",
-          durationSeconds: 300,
-          projectRef: null,
-          projectName: null,
-          model: "claude-sonnet-4-20250514",
-          title: "Test",
-          messages: [],
-          totalInputTokens: 100,
-          totalOutputTokens: 50,
-          totalCachedTokens: 10,
-          snapshotAt: "2025-01-15T10:05:00Z",
-        },
-        raw: {
-          sessionKey: "opencode:ses_001",
-          source: "opencode",
-          parserRevision: 1,
-          collectedAt: "2025-01-15T10:05:00Z",
-          sourceFiles: [],
-        },
-      },
-    ];
+      const ctx: SyncContext = {};
+      const driver = createOpenCodeJsonDriver(ctx);
+      const files = await driver.discover({ openCodeMessageDir: messageDir });
 
-    const cursor = driver.buildCursor(fingerprint, results);
-    expect(cursor.inode).toBe(12345);
-    expect(cursor.mtimeMs).toBe(1700000000000);
-    expect(cursor.size).toBe(512);
-    expect(cursor.updatedAt).toBeDefined();
+      const fileStat = await stat(files[0]);
+      const fingerprint = fp({
+        inode: fileStat.ino,
+        mtimeMs: fileStat.mtimeMs,
+        size: fileStat.size,
+      });
+
+      const cursor = driver.buildCursor(fingerprint, []);
+      expect(cursor.inode).toBe(fileStat.ino);
+      expect(cursor.mtimeMs).toBe(fileStat.mtimeMs);
+      expect(cursor.size).toBe(fileStat.size);
+      expect(cursor.messageDirMtimeMs).toBeTypeOf("number");
+      expect(cursor.updatedAt).toBeDefined();
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("sets messageDirMtimeMs to undefined when no message dir exists", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "pika-oc-cursor-"));
+    try {
+      const storageDir = join(tmpDir, "storage");
+      const sessDir = join(storageDir, "session", "proj_a");
+      const messageDir = join(storageDir, "message");
+      await mkdir(sessDir, { recursive: true });
+      await mkdir(messageDir, { recursive: true });
+      await writeSessionJson(sessDir, "ses_no_msgs");
+
+      const ctx: SyncContext = {};
+      const driver = createOpenCodeJsonDriver(ctx);
+      const files = await driver.discover({ openCodeMessageDir: messageDir });
+
+      const fileStat = await stat(files[0]);
+      const fingerprint = fp({
+        inode: fileStat.ino,
+        mtimeMs: fileStat.mtimeMs,
+        size: fileStat.size,
+      });
+
+      const cursor = driver.buildCursor(fingerprint, []);
+      expect(cursor.messageDirMtimeMs).toBeUndefined();
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
   });
 
   it("builds cursor with zero results", () => {
+    const driver = createOpenCodeJsonDriver();
     const cursor = driver.buildCursor(fp(), []);
     expect(cursor.inode).toBe(12345);
     expect(cursor.mtimeMs).toBe(1700000000000);

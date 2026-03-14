@@ -28,8 +28,7 @@ export type { FileFingerprint } from "../utils/file-changed";
  * Shared state bag passed to all drivers in a sync run.
  *
  * Drivers may read or write entries. The orchestrator creates the context
- * before the driver loop, passes it to every driver, and persists any
- * state that drivers deposited (e.g. dirMtimes -> CursorState).
+ * before the driver loop and passes it to every driver.
  */
 export interface SyncContext {
   /**
@@ -44,11 +43,16 @@ export interface SyncContext {
   openCodeSessionState?: Map<string, OpenCodeSessionInfo>;
 
   /**
-   * Directory mtime cache for OpenCode JSON discovery optimization.
-   * Read/written by the OpenCode JSON driver.
-   * Persisted to CursorState.dirMtimes by the orchestrator.
+   * Message-subdir mtime cache for OpenCode JSON shouldSkip optimization.
+   *
+   * Populated during discover() by stat-ing `message/{sessionId}/`.
+   * Read by shouldSkip() to detect new messages even when session JSON
+   * file is unchanged.
+   *
+   * Key: session file path (same key used in CursorState.files)
+   * Value: mtimeMs of the message/{sessionId}/ directory
    */
-  dirMtimes?: Record<string, number>;
+  openCodeMsgDirMtimes?: Record<string, number>;
 }
 
 /**

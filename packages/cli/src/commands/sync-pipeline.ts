@@ -188,10 +188,9 @@ export async function runSyncPipeline(
   }
 
   // ── Persist dirMtimes from syncCtx ──
-
-  if (syncCtx.dirMtimes) {
-    cursorState.dirMtimes = { ...syncCtx.dirMtimes };
-  }
+  // (dirMtimes no longer used — removed dir-level mtime skip optimization
+  //  for OpenCode, which caused changed sessions to be missed when only
+  //  message/part subdirs were updated. See Bug #4.)
 
   cursorState.updatedAt = new Date().toISOString();
 
