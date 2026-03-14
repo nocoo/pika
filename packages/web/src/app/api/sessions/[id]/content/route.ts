@@ -71,9 +71,9 @@ export async function GET(
     );
   }
 
-  const content = await workerRes.text();
-
-  return new NextResponse(content, {
+  // Stream the worker response body directly — avoids buffering the entire
+  // R2 object in Node.js memory (prevents OOM on large sessions).
+  return new NextResponse(workerRes.body, {
     status: 200,
     headers: {
       "Content-Type": "application/json",
