@@ -305,4 +305,85 @@ describe("buildDriverSet", () => {
 
     expect(result.discoverOpts.vscodeCopilotDirs).toBeUndefined();
   });
+
+  // ── sourceFilter ────────────────────────────────────────────────
+
+  describe("sourceFilter", () => {
+    async function setupAllSources(base: string) {
+      const claudeDir = join(base, ".claude");
+      const codexDir = join(base, ".codex", "sessions");
+      const geminiDir = join(base, ".gemini");
+      const ocDir = join(base, "opencode");
+      const vscodeDir = join(base, "Code", "User");
+
+      await mkdir(claudeDir, { recursive: true });
+      await mkdir(codexDir, { recursive: true });
+      await mkdir(geminiDir, { recursive: true });
+      await mkdir(ocDir, { recursive: true });
+      await writeFile(join(ocDir, "opencode.db"), "");
+      await mkdir(vscodeDir, { recursive: true });
+
+      return { claudeDir, codexSessionsDir: codexDir, geminiDir, openCodeDir: ocDir, vscodeCopilotDirs: [vscodeDir] };
+    }
+
+    it("returns all drivers when sourceFilter is undefined", async () => {
+      const paths = await setupAllSources(tmpDir);
+      const result = await buildDriverSet(paths, undefined, undefined);
+
+      expect(result.fileDrivers).toHaveLength(5);
+      expect(result.dbDriversAvailable).toBe(true);
+    });
+
+    it("filters to single source", async () => {
+      const paths = await setupAllSources(tmpDir);
+      const result = await buildDriverSet(paths, undefined, new Set(["claude-code"]));
+
+      expect(result.fileDrivers).toHaveLength(1);
+      expect(result.fileDrivers[0].source).toBe("claude-code");
+      expect(result.dbDriversAvailable).toBe(false);
+    });
+
+    it("filters to multiple sources", async () => {
+      const paths = await setupAllSources(tmpDir);
+      const result = await buildDriverSet(paths, undefined, new Set(["gemini-cli", "codex"]));
+
+      expect(result.fileDrivers).toHaveLength(2);
+      const sources = result.fileDrivers.map((d) => d.source);
+      expect(sources).toContain("codex");
+      expect(sources).toContain("gemini-cli");
+      expect(result.dbDriversAvailable).toBe(false);
+    });
+
+    it("includes opencode DB when opencode is in filter", async () => {
+      const paths = await setupAllSources(tmpDir);
+      const result = await buildDriverSet(paths, undefined, new Set(["opencode"]));
+
+      expect(result.fileDrivers).toHaveLength(1);
+      expect(result.fileDrivers[0].source).toBe("opencode");
+      expect(result.dbDriversAvailable).toBe(true);
+    });
+
+    it("excludes opencode DB when opencode is not in filter", async () => {
+      const paths = await setupAllSources(tmpDir);
+      const result = await buildDriverSet(paths, undefined, new Set(["claude-code"]));
+
+      expect(result.dbDriversAvailable).toBe(false);
+    });
+
+    it("returns empty drivers when filter matches no existing sources", async () => {
+      const result = await buildDriverSet(
+        {
+          claudeDir: join(tmpDir, "nope"),
+          codexSessionsDir: join(tmpDir, "nope"),
+          geminiDir: join(tmpDir, "nope"),
+          openCodeDir: join(tmpDir, "nope"),
+          vscodeCopilotDirs: [],
+        },
+        undefined,
+        new Set(["claude-code"]),
+      );
+
+      expect(result.fileDrivers).toHaveLength(0);
+    });
+  });
 });

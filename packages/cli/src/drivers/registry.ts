@@ -113,6 +113,7 @@ export interface DriverSet {
 export async function buildDriverSet(
   overrides?: Partial<DefaultPaths>,
   syncCtx?: SyncContext,
+  sourceFilter?: ReadonlySet<string>,
 ): Promise<DriverSet> {
   const paths = { ...resolveDefaultPaths(), ...overrides };
 
@@ -160,20 +161,23 @@ export async function buildDriverSet(
     discoverOpts.vscodeCopilotDirs = activeVscodeDirs;
   }
 
+  // Helper: is this source allowed by the filter?
+  const allowed = (source: string) => !sourceFilter || sourceFilter.has(source);
+
   // Build file driver list
   const fileDrivers: FileDriver<FileCursorBase>[] = [];
 
-  if (claudeExists) fileDrivers.push(claudeSessionDriver);
-  if (codexExists) fileDrivers.push(codexSessionDriver);
-  if (geminiExists) fileDrivers.push(geminiSessionDriver);
-  if (openCodeExists) fileDrivers.push(createOpenCodeJsonDriver(syncCtx));
-  if (activeVscodeDirs.length > 0) {
+  if (claudeExists && allowed("claude-code")) fileDrivers.push(claudeSessionDriver);
+  if (codexExists && allowed("codex")) fileDrivers.push(codexSessionDriver);
+  if (geminiExists && allowed("gemini-cli")) fileDrivers.push(geminiSessionDriver);
+  if (openCodeExists && allowed("opencode")) fileDrivers.push(createOpenCodeJsonDriver(syncCtx));
+  if (activeVscodeDirs.length > 0 && allowed("vscode-copilot")) {
     fileDrivers.push(vscodeCopilotSessionDriver);
   }
 
   return {
     fileDrivers,
-    dbDriversAvailable: openCodeDbExists,
+    dbDriversAvailable: openCodeDbExists && allowed("opencode"),
     discoverOpts,
     paths,
   };

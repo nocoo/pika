@@ -1,7 +1,7 @@
 import { defineCommand } from "citty";
 import { join } from "node:path";
 import consola from "consola";
-import { CONFIG_DIR } from "@pika/core";
+import { CONFIG_DIR, SOURCES } from "@pika/core";
 import { ConfigManager } from "../config/manager";
 import { CursorStore } from "../storage/cursor-store";
 import { buildDriverSet } from "../drivers/registry";
@@ -24,10 +24,28 @@ export default defineCommand({
       default: false,
       description: "Use local dev server",
     },
+    source: {
+      type: "string",
+      description: `Filter sources (comma-separated). Valid: ${SOURCES.join(", ")}`,
+    },
   },
   async run({ args }) {
     const isDev = args.dev as boolean;
     const doUpload = args.upload as boolean;
+
+    // Parse --source filter
+    let sourceFilter: Set<string> | undefined;
+    if (args.source) {
+      const requested = (args.source as string).split(",").map((s) => s.trim());
+      const invalid = requested.filter((s) => !(SOURCES as readonly string[]).includes(s));
+      if (invalid.length > 0) {
+        consola.error(`Unknown source(s): ${invalid.join(", ")}. Valid: ${SOURCES.join(", ")}`);
+        process.exitCode = 1;
+        return;
+      }
+      sourceFilter = new Set(requested);
+      consola.info(`Filtering to source(s): ${requested.join(", ")}`);
+    }
 
     // Load config
     const configDir = join(
@@ -49,7 +67,7 @@ export default defineCommand({
 
     // Build driver set
     const syncCtx: SyncContext = {};
-    const driverSet = await buildDriverSet(undefined, syncCtx);
+    const driverSet = await buildDriverSet(undefined, syncCtx, sourceFilter);
 
     if (driverSet.fileDrivers.length === 0 && !driverSet.dbDriversAvailable) {
       consola.info("No AI tool sessions found");
