@@ -91,12 +91,12 @@ describe("ConfigManager", () => {
   // ── getApiUrl ──────────────────────────────────────────────
 
   it("getApiUrl returns production URL by default", () => {
-    expect(manager.getApiUrl()).toBe("https://pika.nocoo.dev");
+    expect(manager.getApiUrl()).toBe("https://pika.hexly.ai");
   });
 
   it("getApiUrl returns dev URL in dev mode", () => {
     const devManager = new ConfigManager(tempDir, true);
-    expect(devManager.getApiUrl()).toBe("http://localhost:7040");
+    expect(devManager.getApiUrl()).toBe("https://pika.dev.hexly.ai");
   });
 
   // ── getDeviceId ────────────────────────────────────────────

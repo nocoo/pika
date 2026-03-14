@@ -3,8 +3,8 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { CONFIG_FILE, DEV_CONFIG_FILE } from "@pika/core";
 
-const PROD_API_URL = "https://pika.nocoo.dev";
-const DEV_API_URL = "http://localhost:7040";
+const PROD_API_URL = "https://pika.hexly.ai";
+const DEV_API_URL = "https://pika.dev.hexly.ai";
 
 export interface PikaConfig {
   token?: string;
