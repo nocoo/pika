@@ -41,4 +41,4 @@ export const MAX_UPLOAD_RETRIES = 2;
 export const INITIAL_BACKOFF_MS = 1000;
 
 /** Content upload concurrency (number of sessions uploaded in parallel) */
-export const CONTENT_UPLOAD_CONCURRENCY = 16;
+export const CONTENT_UPLOAD_CONCURRENCY = 2;

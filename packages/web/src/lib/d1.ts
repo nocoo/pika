@@ -104,32 +104,44 @@ export class D1Client {
     result?: Array<{ results?: unknown[]; meta?: D1Meta }>;
     errors?: Array<{ message: string }>;
   }> {
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        method: "POST",
-        headers: this.headers,
-        body,
-      });
-    } catch (err) {
-      throw new D1Error(
-        `D1 network error: ${err instanceof Error ? err.message : String(err)}`,
-      );
+    // Retry once on 429 (D1 throttling) with exponential backoff
+    for (let attempt = 0; attempt <= 1; attempt++) {
+      let response: Response;
+      try {
+        response = await fetch(url, {
+          method: "POST",
+          headers: this.headers,
+          body,
+        });
+      } catch (err) {
+        throw new D1Error(
+          `D1 network error: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      const data = (await response.json()) as {
+        success: boolean;
+        result?: Array<{ results?: unknown[]; meta?: D1Meta }>;
+        errors?: Array<{ message: string }>;
+      };
+
+      // 429 throttle — retry once after backoff
+      if (response.status === 429 && attempt < 1) {
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
+
+      if (!response.ok || !data.success) {
+        const msg =
+          data.errors?.[0]?.message ?? `D1 HTTP ${response.status}`;
+        throw new D1Error(msg, response.status, data.errors);
+      }
+
+      return data;
     }
 
-    const data = (await response.json()) as {
-      success: boolean;
-      result?: Array<{ results?: unknown[]; meta?: D1Meta }>;
-      errors?: Array<{ message: string }>;
-    };
-
-    if (!response.ok || !data.success) {
-      const msg =
-        data.errors?.[0]?.message ?? `D1 HTTP ${response.status}`;
-      throw new D1Error(msg, response.status, data.errors);
-    }
-
-    return data;
+    // Unreachable, but TypeScript needs it
+    throw new D1Error("D1 request failed after retries");
   }
 }
 
