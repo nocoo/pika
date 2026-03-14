@@ -13,7 +13,7 @@
     },
     "packages/cli": {
       "name": "@nocoo/pika",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "bin": {
         "pika": "src/bin.ts",
       },
@@ -21,16 +21,15 @@
         "@pika/core": "workspace:*",
         "citty": "^0.2.1",
         "consola": "^3.4.2",
-        "picocolors": "^1.1.1",
       },
     },
     "packages/core": {
       "name": "@pika/core",
-      "version": "0.0.0",
+      "version": "0.1.0",
     },
     "packages/web": {
       "name": "@pika/web",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@auth/core": "^0.34.3",
         "@aws-sdk/client-s3": "^3.1008.0",
@@ -60,7 +59,7 @@
     },
     "packages/worker": {
       "name": "@pika/worker",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@pika/core": "workspace:*",
       },

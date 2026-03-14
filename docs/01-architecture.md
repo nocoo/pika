@@ -12,7 +12,7 @@ Pika is a SaaS for replaying and searching coding agent sessions. Users install 
 |-------|--------|-----------|
 | Monorepo | Bun workspaces | Fast installs, native TS, same as pew |
 | Language | TypeScript (strict) | Full-stack consistency |
-| CLI | `citty` + `consola` + `picocolors` | Lightweight, tree-shakeable, proven in pew |
+| CLI | `citty` + `consola` | Lightweight, tree-shakeable, proven in pew |
 | Web | Next.js 16 (App Router) on Railway | SSR, mature ecosystem, Docker deploy |
 | UI | Tailwind v4 + shadcn/ui + Radix | Shared dashboard theme with pew |
 | Auth | NextAuth v5 (Google OAuth, JWT) | Battle-tested, D1 adapter |
