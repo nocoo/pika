@@ -66,7 +66,25 @@ export type OpenDbFn = (path: string, options?: { readonly: boolean }) => Sqlite
 // ---------------------------------------------------------------------------
 
 interface SessionRow {
-  data: string;
+  id: string;
+  project_id: string;
+  parent_id: string | null;
+  slug: string;
+  directory: string;
+  title: string;
+  version: string;
+  share_url: string | null;
+  summary_additions: number | null;
+  summary_deletions: number | null;
+  summary_files: number | null;
+  summary_diffs: string | null;
+  revert: string | null;
+  permission: string | null;
+  time_created: number;
+  time_updated: number;
+  time_compacting: number | null;
+  time_archived: number | null;
+  workspace_id: string | null;
 }
 
 interface MessageRow {
@@ -116,20 +134,25 @@ function shouldSkipForJson(
 
 function querySessions(db: SqliteDb): { sessions: OcSession[]; rawRows: SessionRow[] } {
   const rows = db
-    .prepare("SELECT data FROM session ORDER BY rowid")
+    .prepare("SELECT * FROM session ORDER BY rowid")
     .all() as SessionRow[];
 
   const sessions: OcSession[] = [];
   const rawRows: SessionRow[] = [];
   for (const row of rows) {
-    try {
-      const data = JSON.parse(row.data) as OcSession;
-      if (!data || !data.id) continue;
-      sessions.push(data);
-      rawRows.push(row);
-    } catch {
-      continue;
-    }
+    if (!row.id) continue;
+    const session: OcSession = {
+      id: row.id,
+      projectID: row.project_id,
+      directory: row.directory,
+      title: row.title,
+      time: {
+        created: row.time_created,
+        updated: row.time_updated,
+      },
+    };
+    sessions.push(session);
+    rawRows.push(row);
   }
   return { sessions, rawRows };
 }
@@ -268,11 +291,11 @@ function buildRawSourceFiles(
 ): RawSourceFile[] {
   const files: RawSourceFile[] = [];
 
-  // Session row
+  // Session row — serialize the structured row as JSON for raw archive
   files.push({
     path: `${dbPath}#session/${session.id}`,
     format: "sqlite-export",
-    content: sessionRow.data,
+    content: JSON.stringify(sessionRow),
   });
 
   // Message rows + their part rows

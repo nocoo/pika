@@ -43,9 +43,42 @@ function createMockDb(tables: {
         all(...params: unknown[]): unknown[] {
           // Route queries based on SQL
           if (sql.includes("FROM session")) {
-            return sessionRows.map((r) => ({
-              data: typeof r.data === "string" ? r.data : JSON.stringify(r.data),
-            }));
+            // Return structured columns matching the new DB schema.
+            // Test fixtures use sessionData() which produces OcSession-shaped objects
+            // (id, projectID, directory, title, time). Map to DB column names.
+            // Handle both { data: "json string" } and { data: {object} } legacy test patterns.
+            return sessionRows.map((r) => {
+              let data: Record<string, unknown>;
+              if (typeof r.data === "string") {
+                data = JSON.parse(r.data as string) as Record<string, unknown>;
+              } else if (typeof r.data === "object" && r.data !== null) {
+                data = r.data as Record<string, unknown>;
+              } else {
+                data = r;
+              }
+              const time = (data.time as Record<string, unknown> | undefined) ?? {};
+              return {
+                id: data.id ?? r.id,
+                project_id: data.projectID ?? data.project_id ?? "",
+                parent_id: null,
+                slug: "",
+                directory: data.directory ?? "",
+                title: data.title ?? "",
+                version: "",
+                share_url: null,
+                summary_additions: null,
+                summary_deletions: null,
+                summary_files: null,
+                summary_diffs: null,
+                revert: null,
+                permission: null,
+                time_created: time.created ?? data.time_created ?? 0,
+                time_updated: time.updated ?? data.time_updated ?? 0,
+                time_compacting: null,
+                time_archived: null,
+                workspace_id: null,
+              };
+            });
           }
 
           if (sql.includes("FROM message")) {
@@ -425,9 +458,9 @@ describe("openCodeSqliteDriver.run", () => {
 
     const mockDb = createMockDb({
       session: [
-        { data: "not valid json {{{" }, // malformed
-        { data: { noId: true } },        // missing id
-        { data: sessionData("ses_valid") }, // valid
+        { data: { id: "", title: "no-id" } },   // empty id — skipped
+        { data: { noId: true } },                // missing id — skipped
+        { data: sessionData("ses_valid") },      // valid
       ],
       message: [
         {
@@ -949,8 +982,12 @@ describe("openCodeSqliteDriver.run", () => {
     const { results } = await driver.run(undefined, ctx);
     const sf = results[0].raw.sourceFiles;
 
-    // Content should be the EXACT original data column string
-    expect(sf[0].content).toBe(sessionJson);
+    // Session content is now a JSON serialization of the structured DB row
+    // (no longer a verbatim data column since session table uses structured columns)
+    const sessionContent = JSON.parse(sf[0].content);
+    expect(sessionContent.id).toBe("ses_verbatim");
+    expect(sessionContent.project_id).toBe("proj_test");
+    // Message and part content should still be the EXACT original data column string
     expect(sf[1].content).toBe(msgJson);
     expect(sf[2].content).toBe(partJson);
   });
