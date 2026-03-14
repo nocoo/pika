@@ -67,7 +67,7 @@ interface CopilotRequest {
   message?: { text?: string };
   response?: ResponseChunk[];
   result?: RequestResult;
-  modelState?: { value?: number; completedAt?: string };
+  modelState?: { value?: number; completedAt?: string | number };
 }
 
 /** A response chunk from the assistant. */
@@ -112,6 +112,21 @@ function toNonNegInt(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0)
     return 0;
   return Math.floor(value);
+}
+
+/**
+ * Normalize a timestamp value (ISO string or numeric epoch ms) to ISO string.
+ * Returns null if the value is not a valid timestamp.
+ */
+function normalizeTimestamp(value: unknown): string | null {
+  if (typeof value === "string") {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : value;
+  }
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return new Date(value).toISOString();
+  }
+  return null;
 }
 
 // ── CRDT Replay ─────────────────────────────────────────────────
@@ -454,8 +469,9 @@ function buildParseResult(
 
   // Find the last request's timestamp or completedAt
   const lastReq = state.requests[state.requests.length - 1];
-  if (lastReq?.modelState?.completedAt) {
-    lastMessageAt = lastReq.modelState.completedAt;
+  const normalizedCompletedAt = normalizeTimestamp(lastReq?.modelState?.completedAt);
+  if (normalizedCompletedAt) {
+    lastMessageAt = normalizedCompletedAt;
   } else if (lastReq?.timestamp) {
     lastMessageAt = new Date(lastReq.timestamp).toISOString();
   } else {

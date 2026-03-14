@@ -831,6 +831,25 @@ describe("parseVscodeCopilotFile", () => {
     expect(result.canonical.durationSeconds).toBe(0);
   });
 
+  it("normalizes numeric epoch ms completedAt to ISO string", async () => {
+    const epochMs = 1772780760849; // ~2026-03-03
+    const filePath = await writeJsonl("session.jsonl", [
+      snapshotOp({ creationDate: "2026-01-01T00:00:00.000Z" }),
+      appendRequestOp({
+        requestId: "r1",
+        message: { text: "Hi" },
+        response: [],
+      }),
+      appendResponseChunkOp(0, { value: "Hello" }),
+      setModelStateOp(0, { value: 1, completedAt: epochMs as unknown as string }),
+    ]);
+
+    const result = await parseVscodeCopilotFile(filePath);
+    expect(result.canonical.lastMessageAt).toBe(new Date(epochMs).toISOString());
+    // Validate it's a proper ISO string
+    expect(new Date(result.canonical.lastMessageAt).getTime()).toBe(epochMs);
+  });
+
   it("uses current time as startedAt when no creationDate and no request timestamps", async () => {
     const before = new Date().toISOString();
     const filePath = await writeJsonl("session.jsonl", [
