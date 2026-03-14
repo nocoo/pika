@@ -26,7 +26,7 @@ export {
   RAW_FORMATS,
 } from "./types";
 
-export { PIKA_VERSION } from "./version.js";
+export { PIKA_VERSION } from "./version";
 
 export {
   PARSER_REVISION,
