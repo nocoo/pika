@@ -43,6 +43,8 @@ export interface SyncPipelineOptions {
   fetch?: typeof globalThis.fetch;
   /** Override sleep for testing */
   sleep?: (ms: number) => Promise<void>;
+  /** Content upload concurrency (default: CONTENT_UPLOAD_CONCURRENCY) */
+  contentConcurrency?: number;
 }
 
 export interface SyncPipelineInput {
@@ -232,6 +234,7 @@ export async function runSyncPipeline(
     contentResult = await uploadContentBatch(
       allResults.map((r) => ({ canonical: r.canonical, raw: r.raw })),
       contentOpts,
+      opts.contentConcurrency,
     );
 
     // ── Rollback cursors for sessions with content upload errors ──

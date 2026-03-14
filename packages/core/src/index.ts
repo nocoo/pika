@@ -41,6 +41,7 @@ export {
   PARSE_ERRORS_FILE,
   MAX_UPLOAD_RETRIES,
   INITIAL_BACKOFF_MS,
+  CONTENT_UPLOAD_CONCURRENCY,
 } from "./constants";
 
 export {

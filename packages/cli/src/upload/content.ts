@@ -17,6 +17,7 @@ import { gzipSync } from "node:zlib";
 import {
   MAX_UPLOAD_RETRIES,
   INITIAL_BACKOFF_MS,
+  CONTENT_UPLOAD_CONCURRENCY,
 } from "@pika/core";
 import type {
   CanonicalSession,
@@ -375,12 +376,14 @@ export interface BatchContentUploadResult {
 
 /**
  * Upload content for multiple sessions.
- * Processes sequentially to avoid overwhelming the server.
+ * Uses a concurrency pool (default 8) to upload sessions in parallel.
  * Continues on error for individual sessions (collects errors).
+ * AuthError propagates immediately and aborts all inflight work.
  */
 export async function uploadContentBatch(
   sessions: Array<{ canonical: CanonicalSession; raw: RawSessionArchive }>,
   opts: ContentUploadOptions,
+  concurrency: number = CONTENT_UPLOAD_CONCURRENCY,
 ): Promise<BatchContentUploadResult> {
   const result: BatchContentUploadResult = {
     uploaded: 0,
@@ -388,24 +391,45 @@ export async function uploadContentBatch(
     errors: [],
   };
 
-  for (const { canonical, raw } of sessions) {
-    try {
-      const contentResult = await uploadSessionContent(canonical, raw, opts);
-      if (contentResult.canonicalUploaded || contentResult.rawUploaded) {
-        result.uploaded++;
-      } else {
-        result.skipped++;
-      }
-    } catch (err) {
-      // AuthError should propagate (not recoverable per-session)
-      if (err instanceof AuthError) throw err;
+  if (sessions.length === 0) return result;
 
-      result.errors.push({
-        sessionKey: canonical.sessionKey,
-        error: err instanceof Error ? err.message : String(err),
-      });
+  // Simple concurrency pool using a shared index counter
+  let nextIndex = 0;
+  let authError: AuthError | null = null;
+
+  async function worker(): Promise<void> {
+    while (!authError) {
+      const idx = nextIndex++;
+      if (idx >= sessions.length) break;
+
+      const { canonical, raw } = sessions[idx];
+      try {
+        const contentResult = await uploadSessionContent(canonical, raw, opts);
+        if (contentResult.canonicalUploaded || contentResult.rawUploaded) {
+          result.uploaded++;
+        } else {
+          result.skipped++;
+        }
+      } catch (err) {
+        if (err instanceof AuthError) {
+          authError = err;
+          return;
+        }
+        result.errors.push({
+          sessionKey: canonical.sessionKey,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
   }
+
+  const workers = Array.from(
+    { length: Math.min(concurrency, sessions.length) },
+    () => worker(),
+  );
+  await Promise.all(workers);
+
+  if (authError) throw authError;
 
   return result;
 }

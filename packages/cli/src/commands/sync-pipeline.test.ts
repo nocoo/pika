@@ -97,6 +97,7 @@ function makeOpts(overrides?: Partial<SyncPipelineOptions>): SyncPipelineOptions
     apiKey: "pk_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     userId: "user-123",
     sleep: vi.fn().mockResolvedValue(undefined),
+    contentConcurrency: 1, // Sequential for ordered mock compatibility
     ...overrides,
   };
 }

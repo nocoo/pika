@@ -443,7 +443,7 @@ describe("uploadContentBatch", () => {
     mockOneSession();
     mockOneSession();
 
-    const result = await uploadContentBatch(sessions, opts());
+    const result = await uploadContentBatch(sessions, opts(), 1);
     expect(result.uploaded).toBe(2);
     expect(result.skipped).toBe(0);
     expect(result.errors).toEqual([]);
@@ -459,7 +459,7 @@ describe("uploadContentBatch", () => {
       .mockResolvedValueOnce(new Response(null, { status: 200 }))
       .mockResolvedValueOnce(confirmOk());
 
-    const result = await uploadContentBatch(sessions, opts());
+    const result = await uploadContentBatch(sessions, opts(), 1);
     // raw was uploaded via presign, so it counts as uploaded (not skipped)
     expect(result.uploaded).toBe(1);
     expect(result.skipped).toBe(0);
@@ -479,7 +479,7 @@ describe("uploadContentBatch", () => {
     // s3: OK (4 calls)
     mockOneSession();
 
-    const result = await uploadContentBatch(sessions, opts());
+    const result = await uploadContentBatch(sessions, opts(), 1);
     expect(result.uploaded).toBe(2);
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0].sessionKey).toBe("claude-code:s2");
@@ -496,7 +496,7 @@ describe("uploadContentBatch", () => {
       // s1: 401 on canonical
       .mockResolvedValueOnce(errorResponse(401));
 
-    await expect(uploadContentBatch(sessions, opts())).rejects.toThrow(AuthError);
+    await expect(uploadContentBatch(sessions, opts(), 1)).rejects.toThrow(AuthError);
     // Should not have attempted s2
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
@@ -515,10 +515,46 @@ describe("uploadContentBatch", () => {
     // s2: OK
     mockOneSession();
 
-    const result = await uploadContentBatch(sessions, opts());
+    const result = await uploadContentBatch(sessions, opts(), 1);
     expect(result.uploaded).toBe(1);
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0].sessionKey).toBe("claude-code:s1");
+  });
+
+  it("uploads concurrently with multiple workers", async () => {
+    // Track concurrent execution via timestamps
+    const callOrder: string[] = [];
+    const sessions = Array.from({ length: 4 }, (_, i) => ({
+      canonical: makeCanonical({ sessionKey: `claude-code:s${i}` }),
+      raw: makeRaw({ sessionKey: `claude-code:s${i}` }),
+    }));
+
+    // Use a custom fetch that records call order and resolves immediately
+    const concurrentFetch = vi.fn().mockImplementation((url: string) => {
+      const path = new URL(url).pathname;
+      callOrder.push(path);
+      if (path.endsWith("/presign")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ url: "https://r2.example.com/p", key: "k" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      if (path.endsWith("/confirm-raw")) {
+        return Promise.resolve(new Response(JSON.stringify({ confirmed: true }), { status: 200 }));
+      }
+      return Promise.resolve(new Response(null, { status: 201 }));
+    });
+
+    const result = await uploadContentBatch(
+      sessions,
+      { apiUrl: "https://pika.test", apiKey: "pk_test", fetch: concurrentFetch, sleep: mockSleep },
+      4,
+    );
+    expect(result.uploaded).toBe(4);
+    expect(result.errors).toEqual([]);
+    expect(concurrentFetch).toHaveBeenCalledTimes(16); // 4 sessions * 4 calls
   });
 });
 
