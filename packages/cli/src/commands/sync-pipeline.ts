@@ -116,6 +116,9 @@ export async function runSyncPipeline(
   // Track sessionKey→filePath and save previous cursors for rollback on content failure
   const sessionKeyToFile = new Map<string, string>();
   const prevCursors = new Map<string, FileCursor | undefined>();
+  // Track DB-sourced session keys for cursor rollback
+  const dbSourcedSessionKeys = new Set<string>();
+  let prevDbCursor: OpenCodeSqliteCursor | undefined;
 
   // ── Stage 1+2: Discover + incremental parse (file drivers) ──
 
@@ -173,9 +176,12 @@ export async function runSyncPipeline(
 
   if (dbDriver) {
     try {
-      const prevDbCursor = cursorState.openCodeSqlite;
+      prevDbCursor = cursorState.openCodeSqlite;
       const dbResult = await dbDriver.run(prevDbCursor, syncCtx);
       allResults.push(...dbResult.results);
+      for (const r of dbResult.results) {
+        dbSourcedSessionKeys.add(r.canonical.sessionKey);
+      }
       cursorState.openCodeSqlite = dbResult.cursor;
     } catch (err) {
       parseErrors.push({
@@ -232,7 +238,9 @@ export async function runSyncPipeline(
     // This ensures next sync will re-parse and re-upload failed sessions.
     if (contentResult.errors.length > 0) {
       const rolledBackFiles = new Set<string>();
+      let rollbackDbCursor = false;
       for (const { sessionKey } of contentResult.errors) {
+        // Check file-sourced sessions
         const filePath = sessionKeyToFile.get(sessionKey);
         if (filePath && !rolledBackFiles.has(filePath)) {
           rolledBackFiles.add(filePath);
@@ -243,6 +251,13 @@ export async function runSyncPipeline(
             cursorState.files[filePath] = prev;
           }
         }
+        // Check DB-sourced sessions
+        if (dbSourcedSessionKeys.has(sessionKey)) {
+          rollbackDbCursor = true;
+        }
+      }
+      if (rollbackDbCursor) {
+        cursorState.openCodeSqlite = prevDbCursor;
       }
     }
   }

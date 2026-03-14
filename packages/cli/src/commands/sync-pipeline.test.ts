@@ -342,6 +342,119 @@ describe("runSyncPipeline: DB driver", () => {
     expect(result.parseErrors[0].source).toBe("opencode");
     expect(result.parseErrors[0].error).toBe("DB connection failed");
   });
+
+  it("rolls back DB cursor when DB-sourced session content upload fails", async () => {
+    const prevDbCursor: OpenCodeSqliteCursor = {
+      inode: 1,
+      lastTimeCreated: "2026-01-01T00:00:00Z",
+      lastMessageIds: ["old-msg-1"],
+      updatedAt: "2026-01-01T00:00:00Z",
+    };
+    const newDbCursor: OpenCodeSqliteCursor = {
+      inode: 1,
+      lastTimeCreated: "2026-01-02T00:00:00Z",
+      lastMessageIds: ["new-msg-1", "new-msg-2"],
+      updatedAt: "2026-01-02T00:00:00Z",
+    };
+    const dbDriver: DbDriver<OpenCodeSqliteCursor> = {
+      source: "opencode",
+      run: vi.fn().mockResolvedValue({
+        results: [makeParseResult("opencode:s1")],
+        cursor: newDbCursor,
+        rowCount: 5,
+      } satisfies DbDriverResult<OpenCodeSqliteCursor>),
+    };
+
+    const cursorState = makeCursorState();
+    cursorState.openCodeSqlite = prevDbCursor;
+
+    const mockFetch = vi.fn();
+    // metadata batch POST — success
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ingested: 1 }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    // content: canonical PUT — 500 error (exhaust retries)
+    mockFetch.mockResolvedValue(new Response("Server Error", { status: 500 }));
+
+    const result = await runSyncPipeline(
+      makeInput({ dbDriver, cursorState }),
+      makeOpts({ upload: true, fetch: mockFetch }),
+    );
+
+    // Content upload should have errors
+    expect(result.contentResult!.errors).toHaveLength(1);
+    expect(result.contentResult!.errors[0].sessionKey).toBe("opencode:s1");
+
+    // DB cursor should be rolled back to previous value
+    expect(result.cursorState.openCodeSqlite).toEqual(prevDbCursor);
+  });
+
+  it("preserves new DB cursor when DB-sourced session content upload succeeds", async () => {
+    const prevDbCursor: OpenCodeSqliteCursor = {
+      inode: 1,
+      lastTimeCreated: "2026-01-01T00:00:00Z",
+      lastMessageIds: ["old-msg-1"],
+      updatedAt: "2026-01-01T00:00:00Z",
+    };
+    const newDbCursor: OpenCodeSqliteCursor = {
+      inode: 1,
+      lastTimeCreated: "2026-01-02T00:00:00Z",
+      lastMessageIds: ["new-msg-1", "new-msg-2"],
+      updatedAt: "2026-01-02T00:00:00Z",
+    };
+    const dbDriver: DbDriver<OpenCodeSqliteCursor> = {
+      source: "opencode",
+      run: vi.fn().mockResolvedValue({
+        results: [makeParseResult("opencode:s1")],
+        cursor: newDbCursor,
+        rowCount: 5,
+      } satisfies DbDriverResult<OpenCodeSqliteCursor>),
+    };
+
+    const cursorState = makeCursorState();
+    cursorState.openCodeSqlite = prevDbCursor;
+
+    const mockFetch = vi.fn();
+    // metadata batch POST — success
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ingested: 1 }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    // content: canonical PUT — success
+    mockFetch.mockResolvedValueOnce(new Response(null, { status: 201 }));
+    // content: presign request
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ url: "https://r2.example.com/presigned", key: "k" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    // content: R2 PUT
+    mockFetch.mockResolvedValueOnce(new Response(null, { status: 200 }));
+    // content: confirm raw
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ confirmed: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const result = await runSyncPipeline(
+      makeInput({ dbDriver, cursorState }),
+      makeOpts({ upload: true, fetch: mockFetch }),
+    );
+
+    // Content upload should succeed
+    expect(result.contentResult!.errors).toHaveLength(0);
+
+    // DB cursor should be the new one
+    expect(result.cursorState.openCodeSqlite).toEqual(newDbCursor);
+  });
 });
 
 // ── SyncContext dirMtimes (removed) ───────────────────────────
