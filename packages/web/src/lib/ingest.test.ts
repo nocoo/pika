@@ -10,6 +10,10 @@ import {
   verifyR2RawExists,
   type ProxyConfig,
 } from "./ingest";
+import {
+  MAX_CONTENT_UPLOAD_BYTES,
+  MAX_METADATA_BODY_BYTES,
+} from "@pika/core";
 
 const cfg: ProxyConfig = {
   workerUrl: "https://worker.example.com",
@@ -467,5 +471,21 @@ describe("verifyR2RawExists", () => {
   it("propagates errors from headObject", async () => {
     const r2 = { headObject: vi.fn().mockRejectedValue(new Error("R2 down")) };
     await expect(verifyR2RawExists(r2, "key")).rejects.toThrow("R2 down");
+  });
+});
+
+// ── Body size limit constants ─────────────────────────────────
+
+describe("body size limit constants", () => {
+  it("MAX_CONTENT_UPLOAD_BYTES is 50 MB", () => {
+    expect(MAX_CONTENT_UPLOAD_BYTES).toBe(50 * 1024 * 1024);
+  });
+
+  it("MAX_METADATA_BODY_BYTES is 2 MB", () => {
+    expect(MAX_METADATA_BODY_BYTES).toBe(2 * 1024 * 1024);
+  });
+
+  it("content limit is larger than metadata limit", () => {
+    expect(MAX_CONTENT_UPLOAD_BYTES).toBeGreaterThan(MAX_METADATA_BODY_BYTES);
   });
 });

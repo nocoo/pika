@@ -4,8 +4,24 @@ import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
 import { getD1Client } from "@/lib/d1";
 import { auth } from "@/lib/auth";
 import { proxyToWorker, getProxyConfig } from "@/lib/ingest";
+import { MAX_METADATA_BODY_BYTES } from "@pika/core";
 
 export async function POST(request: Request) {
+  // Validate Content-Length before auth to fail fast on oversized payloads
+  const contentLength = parseInt(request.headers.get("Content-Length") ?? "", 10);
+  if (!Number.isFinite(contentLength)) {
+    return NextResponse.json(
+      { error: "Content-Length header is required" },
+      { status: 411 },
+    );
+  }
+  if (contentLength > MAX_METADATA_BODY_BYTES) {
+    return NextResponse.json(
+      { error: "Payload too large" },
+      { status: 413 },
+    );
+  }
+
   const d1 = getD1Client();
   const db = new D1CliAuthDb(d1);
 

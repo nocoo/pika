@@ -42,3 +42,9 @@ export const INITIAL_BACKOFF_MS = 1000;
 
 /** Content upload concurrency (number of sessions uploaded in parallel) */
 export const CONTENT_UPLOAD_CONCURRENCY = 2;
+
+/** Maximum compressed content upload size in bytes (50 MB) */
+export const MAX_CONTENT_UPLOAD_BYTES = 50 * 1024 * 1024;
+
+/** Maximum metadata body size in bytes (2 MB) */
+export const MAX_METADATA_BODY_BYTES = 2 * 1024 * 1024;
