@@ -60,7 +60,7 @@ export function performLogin(deps: LoginDeps): Promise<LoginResult> {
         return;
       }
 
-      const callbackUrl = `http://localhost:${addr.port}/callback`;
+      const callbackUrl = `http://127.0.0.1:${addr.port}/callback`;
       const loginUrl = `${apiUrl}/api/auth/cli?callback=${encodeURIComponent(callbackUrl)}`;
 
       openBrowser(loginUrl).catch(() => {
@@ -69,6 +69,11 @@ export function performLogin(deps: LoginDeps): Promise<LoginResult> {
           log(`Could not open browser. Open this URL manually:\n  ${loginUrl}`);
         }
       });
+    });
+
+    server.on("error", (err) => {
+      cleanup();
+      resolve({ success: false, error: `Local server error: ${err.message}` });
     });
 
     // Timeout

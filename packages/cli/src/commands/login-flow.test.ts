@@ -147,6 +147,29 @@ describe("login flow", () => {
     await loginPromise;
   });
 
+  it("uses 127.0.0.1 in callback URL (not localhost)", async () => {
+    const deps: LoginDeps = {
+      openBrowser: vi.fn().mockResolvedValue(undefined),
+      config,
+      apiUrl: "http://localhost:9999",
+      timeoutMs: 5000,
+    };
+
+    const loginPromise = performLogin(deps);
+    await new Promise((r) => setTimeout(r, 100));
+
+    const browserUrl = (deps.openBrowser as any).mock.calls[0][0] as string;
+    const url = new URL(browserUrl);
+    const cliCallback = url.searchParams.get("callback")!;
+
+    // Callback URL must use 127.0.0.1 (matches server.listen bind address)
+    expect(cliCallback).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/callback$/);
+
+    // Complete the flow
+    await fetch(`${cliCallback}?api_key=pk_${"e".repeat(32)}&email=t@t.com`);
+    await loginPromise;
+  });
+
   it("handles non-callback paths with 404", async () => {
     const deps: LoginDeps = {
       openBrowser: vi.fn().mockResolvedValue(undefined),
