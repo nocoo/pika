@@ -26,6 +26,8 @@ export {
   RAW_FORMATS,
 } from "./types";
 
+export { PIKA_VERSION } from "./version.js";
+
 export {
   PARSER_REVISION,
   SCHEMA_VERSION,
