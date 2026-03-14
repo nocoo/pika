@@ -16,7 +16,7 @@ The `pika` CLI parses local coding agent session files, extracts full conversati
 | `pika login` | Connect CLI to dashboard via browser OAuth | `--force`, `--dev` |
 | `pika status` | Show sync status and session stats | -- |
 
-**Supported sources**: `claude-code`, `codex`, `gemini-cli`, `opencode`, `vscode-copilot`
+**Supported sources**: `claude-code`, `codex`, `gemini-cli`, `opencode` (SQLite primary + JSON fallback), `vscode-copilot`
 
 ## CLI Source Layout
 
@@ -51,10 +51,10 @@ Identical pattern to pew, adapted for pika's API:
 ```
 1. Check ~/.config/pika/config.json for existing token
 2. Start http.createServer() on port 0 (OS picks random)
-3. Open browser: {apiUrl}/api/auth/cli?callback=http://localhost:{port}/callback
+3. Open browser: {apiUrl}/api/auth/cli?callback=http://127.0.0.1:{port}/callback
 4. Server authenticates user (Google OAuth via NextAuth)
 5. Server generates api_key: "pk_" + crypto.getRandomValues(32 hex)
-6. Redirects to: http://localhost:{port}/callback?api_key={key}&email={email}
+6. Redirects to: http://127.0.0.1:{port}/callback?api_key={key}&email={email}
 7. CLI saves api_key to config.json, displays success
 8. Timeout: 120 seconds
 ```
@@ -64,24 +64,32 @@ Identical pattern to pew, adapted for pika's API:
 ```
 pika sync
   │
-  ├── 1. Discovery: find source files on disk
-  │     (recursive walk of known directories)
+  ├── 1. File Drivers: discover + incremental parse
+  │     ├── For each file-based source (Claude, Codex, Gemini, OpenCode JSON, VSCode Copilot):
+  │     │   ├── Discover candidate files on disk
+  │     │   ├── Check cursor (inode + mtime + size)
+  │     │   ├── Skip unchanged files
+  │     │   ├── Resume from cursor position
+  │     │   └── Collect ParseResult[] (CanonicalSession + RawSessionArchive)
+  │     └── Track sessionKey→filePath for cursor rollback
   │
-  ├── 2. Incremental Parse: for each source
-  │     ├── Check cursor (inode + mtime + size)
-  │     ├── Skip unchanged files
-  │     ├── Resume from cursor position
-  │     └── Collect CanonicalSession[] + RawSessionArchive[] in memory
+  ├── 2. DB Drivers: query + full canonical parse
+  │     ├── OpenCode SQLite (primary OpenCode path, highest local volume):
+  │     │   ├── Check DB inode (reset watermark if DB replaced)
+  │     │   ├── Watermark-filtered change detection (new messages since last sync)
+  │     │   ├── Full canonical build (ALL messages, not just new ones)
+  │     │   ├── Faithful raw: per-row RawSourceFile from original DB data
+  │     │   └── Cross-source dedup via SyncContext (skip if JSON already has newer data)
+  │     └── Track DB-sourced session keys for cursor rollback
   │
-  ├── 3. Upload Metadata
+  ├── 3. Upload Metadata (all results, file + DB, mixed together)
   │     ├── Transform to SessionSnapshot[] (content_hash + raw_hash via SHA-256)
   │     ├── Batch: 50 records per POST
   │     ├── POST /api/ingest/sessions
   │     ├── Auth: Authorization: Bearer pk_...
   │     └── Retry: 5xx → 2 retries (1s, 2s backoff); 429 → Retry-After
   │
-  ├── 4. Upload Content (versioned idempotent)
-  │     ├── For each parsed session
+  ├── 4. Upload Content (versioned idempotent, per-session)
   │     ├── Canonical: PUT /api/ingest/content/{session_key}/canonical
   │     │   Headers: Content-Encoding: gzip, X-Content-Hash, X-Parser-Revision, X-Schema-Version
   │     ├── Raw: presigned PUT directly to R2 (bypasses API double-hop)
@@ -93,7 +101,11 @@ pika sync
   │           only raw differs → append raw archive only,
   │           older revision → 409 reject
   │
-  └── 5. Update Cursors
+  └── 5. Cursor Rollback + Save
+        ├── On content upload failure for file-sourced sessions:
+        │   rollback file cursor to previous value
+        ├── On content upload failure for DB-sourced sessions:
+        │   rollback openCodeSqlite cursor to previous value
         └── Save cursor state AFTER successful upload
 ```
 

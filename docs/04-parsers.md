@@ -162,20 +162,64 @@ This dual-layer approach means parser bugs can be fixed and sessions re-parsed f
 
 ### OpenCode
 
-**File**: `packages/cli/src/parsers/opencode.ts`
+**Files**: `packages/cli/src/parsers/opencode.ts`, `packages/cli/src/drivers/session/opencode-sqlite.ts`, `packages/cli/src/drivers/session/opencode.ts`
+
+OpenCode has the highest local usage volume among all sources. It supports two data paths, with **SQLite as the primary (preferred) path** and JSON files as a fallback:
+
+| Path | Driver | Parser | Priority |
+|------|--------|--------|----------|
+| **SQLite DB** (primary) | `opencode-sqlite.ts` (DbDriver) | `parseOpenCodeSqliteSession()` | Runs second; authoritative when data overlaps with JSON |
+| JSON files (fallback) | `opencode.ts` (FileDriver) | `parseOpenCodeJsonSession()` | Runs first; used when DB is unavailable |
+
+#### Why SQLite is the primary path
+
+1. **Atomic reads**: SQLite provides transactional consistency across session/message/part tables — JSON files can be partially written
+2. **Single-file source**: One DB file vs. thousands of JSON files across three directory trees
+3. **Efficient change detection**: Watermark-based cursor on `time_created` column vs. stat-ing every file
+4. **Faithful raw preservation**: Each DB row's `data` column is captured as an individual `RawSourceFile` with virtual paths (`{dbPath}#session/{id}`, `{dbPath}#message/{id}`, `{dbPath}#part/{msgId}/{index}`)
+5. **Full canonical snapshots**: Change detection uses watermark-filtered queries, but canonical output always queries ALL messages to produce complete snapshots (never partial fragments)
+
+#### SQLite path (primary)
+
+| Field | Value |
+|-------|-------|
+| DB path | `~/.local/share/opencode/opencode.db` |
+| Tables | `session`, `message`, `part` — each with `data` JSON blob column |
+| Session key | `opencode:{sessionID}` |
+| Project ref | SHA-256 hash of `session.projectID` |
+| Cursor | `OpenCodeSqliteCursor`: inode + `lastTimeCreated` watermark + `lastMessageIds` boundary dedup |
+
+**Sync cycle**:
+1. **DB existence check** — stat the DB file; if missing, return empty
+2. **Inode check** — if inode changed (DB replaced), reset watermark to scan from scratch
+3. **For each session in DB**:
+   a. **Change detection**: watermark-filtered query (`time_created >= ?`) with `lastMessageIds` dedup to find new messages
+   b. **Skip if no new messages** since watermark
+   c. **Full canonical build**: query ALL messages (no watermark, no dedup) to produce a complete snapshot
+   d. **Raw fidelity**: query each row's `data` column as-is, build per-row `RawSourceFile` entries
+   e. **Cross-source dedup**: if JSON driver already produced equal-or-newer data, skip
+4. **Watermark advance**: track max `time_created` from new messages; collect boundary message IDs for next-run dedup
+
+**Cross-source dedup**:
+- JSON driver runs first and deposits `{ lastMessageAt, totalMessages }` per session into `SyncContext.openCodeSessionState`
+- SQLite driver reads this state: skip if JSON `lastMessageAt >= sqlite` AND JSON `totalMessages >= sqlite`
+- If SQLite has newer data (which is the common case), the SQLite version wins
+
+**Cursor rollback on upload failure**:
+- If content upload fails for any DB-sourced session, `cursorState.openCodeSqlite` is rolled back to `prevDbCursor`
+- Next sync will re-query and re-process those sessions
+
+#### JSON path (fallback)
 
 | Field | Value |
 |-------|-------|
 | Session dir | `~/.local/share/opencode/storage/session/{projectID}/ses_*.json` |
 | Message dir | `~/.local/share/opencode/storage/message/ses_*/msg_*.json` |
 | Part dir | `~/.local/share/opencode/storage/part/msg_*/prt_*.json` |
-| DB path | `~/.local/share/opencode/opencode.db` |
 | Session key | `opencode:{sessionID}` |
-| Project ref | SHA-256 hash of `session.projectID` |
-| Project name | `session.directory` (full path) |
-| Cursor | Dir mtime optimization + file-level triple-check |
+| Cursor | File-level triple-check (inode + mtime + size) + message dir mtime tracking |
 
-**Three-layer data model:**
+**Three-layer data model** (same structure as SQLite `data` column contents):
 - **Session JSON**: Metadata only (`id`, `projectID`, `directory`, `title`, `time.created/updated`)
 - **Message JSON**: Metadata only (`id`, `sessionID`, `role`, `time`, `modelID`, `tokens`)
   - Tokens per assistant message: `{input, output, reasoning, cache: {read, write}}`
@@ -190,13 +234,8 @@ This dual-layer approach means parser bugs can be fixed and sessions re-parsed f
   - `"compaction"`: Context compaction markers (skipped)
 
 **Dual parsing strategy:**
-1. **JSON files**: Three-dir reads (session + message + part per message)
-   - Dir-level mtime check to skip unchanged session dirs
-   - Messages sorted by `time.created`
-2. **SQLite DB**: `session` + `message` + `part` tables
-   - `message.data` and `part.data` are JSON blobs
-   - Watermark-based cursor (`lastTimeCreated`)
-   - Cross-source dedup via `SyncContext.messageKeys`
+
+Both paths produce the same canonical and raw formats. The SQLite path is preferred (see above). When both produce data for the same session, cross-source dedup ensures only the more complete version is uploaded. In practice, the SQLite DB is always present when OpenCode has been used, so the JSON path primarily serves as a redundancy mechanism.
 
 ### VSCode Copilot
 
@@ -218,55 +257,81 @@ This dual-layer approach means parser bugs can be fixed and sessions re-parsed f
 
 ## Driver Architecture
 
+The pipeline supports two driver kinds with **equal status** in the sync pipeline:
+
+- **FileDriver**: For sources stored as flat files (JSONL, JSON). The pipeline orchestrates: discover → stat → shouldSkip → resumeState → parse → buildCursor.
+- **DbDriver**: For sources stored in databases. The driver manages its own DB lifecycle, cursor, and dedup. Currently used by OpenCode SQLite — the highest-volume local source.
+
+Both driver kinds produce the same `ParseResult` (canonical + raw), go through the same upload pipeline, and have the same cursor rollback guarantees on upload failure.
+
 ```
 packages/cli/src/drivers/
-+-- registry.ts         # Factory: construct active drivers from detected sources
-+-- types.ts            # Driver interfaces
-+-- session/            # Per-source session drivers
-    +-- claude.ts
-    +-- codex.ts
-    +-- gemini.ts
-    +-- opencode.ts
-    +-- opencode-sqlite.ts
-    +-- vscode-copilot.ts
++-- registry.ts             # Factory: construct active drivers from detected sources
++-- types.ts                # FileDriver + DbDriver interfaces (equal status)
++-- session/
+    +-- claude.ts            # FileDriver
+    +-- codex.ts             # FileDriver
+    +-- gemini.ts            # FileDriver
+    +-- opencode.ts          # FileDriver (JSON fallback)
+    +-- opencode-sqlite.ts   # DbDriver (primary OpenCode path)
+    +-- vscode-copilot.ts    # FileDriver
 ```
 
-### Driver Interface
+### Driver Interfaces
 
 ```typescript
-// Parse result contains both canonical and raw layers
+// Both drivers produce the same output
 interface ParseResult {
   canonical: CanonicalSession;
   raw: RawSessionArchive;
 }
 
-// File-based driver
+// File-based driver — for JSONL/JSON sources
 interface FileDriver {
   source: Source;
   discover(): Promise<string[]>;
   shouldSkip(cursor: FileCursor, fp: Fingerprint): boolean;
   resumeState(cursor: FileCursor, fp: Fingerprint): ResumeState;
-  parse(filePath: string, resume: ResumeState): Promise<ParseResult>;
-  buildCursor(fp: Fingerprint, result: ParseResult): FileCursor;
+  parse(filePath: string, resume: ResumeState): Promise<ParseResult[]>;
+  buildCursor(fp: Fingerprint, results: ParseResult[]): FileCursor;
 }
 
-// DB-based driver (OpenCode SQLite)
-interface DbDriver {
+// DB-based driver — for database sources (OpenCode SQLite)
+// Equal citizen: same upload path, same cursor rollback guarantees
+interface DbDriver<TCursor> {
   source: Source;
-  run(prevCursor: DbCursor, ctx: DriverContext): Promise<DbResult>;
+  run(prevCursor: TCursor | undefined, ctx: SyncContext): Promise<DbDriverResult<TCursor>>;
 }
+
+interface DbDriverResult<TCursor> {
+  results: ParseResult[];
+  cursor: TCursor;
+  rowCount: number;
+}
+```
+
+### Pipeline Execution Order
+
+```
+1. File drivers (sequential, each discovers + parses its files)
+   └─ OpenCode JSON runs here, deposits session state into SyncContext
+2. DB drivers (after all file drivers)
+   └─ OpenCode SQLite reads SyncContext for cross-source dedup
+3. Upload metadata (batch POST, all results mixed)
+4. Upload content (per-session PUT, all results mixed)
+5. Cursor rollback on failure (both file cursors AND DB cursors)
 ```
 
 ### Incremental Sync
 
-| Source | Mechanism | Change Detection |
-|--------|-----------|-----------------|
-| Claude Code | Byte-offset JSONL | inode + mtime + size |
-| Codex CLI | Byte-offset + cumulative diff | inode + mtime + size |
-| Gemini CLI | Array-index JSON | inode + mtime + size |
-| OpenCode (JSON) | Dir mtime + file triple-check | Two-level optimization |
-| OpenCode (SQLite) | Watermark (`lastTimeCreated`) | inode check |
-| VSCode Copilot | Byte-offset + CRDT state | inode + mtime + size |
+| Source | Driver Kind | Mechanism | Change Detection |
+|--------|------------|-----------|-----------------|
+| **OpenCode (SQLite)** | **DbDriver** | **Watermark (`lastTimeCreated`) + boundary dedup** | **DB inode; full canonical on any change** |
+| Claude Code | FileDriver | Byte-offset JSONL | inode + mtime + size |
+| Codex CLI | FileDriver | Byte-offset + cumulative diff | inode + mtime + size |
+| Gemini CLI | FileDriver | Array-index JSON | inode + mtime + size |
+| OpenCode (JSON) | FileDriver | File triple-check + msg dir mtime | inode + mtime + size |
+| VSCode Copilot | FileDriver | Byte-offset + CRDT state | inode + mtime + size |
 
 ### File Change Detection
 
@@ -281,12 +346,13 @@ A file is **unchanged** only when ALL THREE match:
 
 Resolved in `packages/cli/src/utils/paths.ts` (platform-aware):
 
-| Source | macOS Path |
-|--------|-----------|
-| Claude Code | `~/.claude/projects/` |
-| Codex CLI | `~/.codex/sessions/` |
-| Gemini CLI | `~/.gemini/tmp/*/chats/` |
-| OpenCode | `~/.local/share/opencode/` |
-| VSCode Copilot | `~/Library/Application Support/Code/User/` |
+| Source | macOS Path | Driver Kind |
+|--------|-----------|-------------|
+| **OpenCode (SQLite)** | `~/.local/share/opencode/opencode.db` | DbDriver |
+| Claude Code | `~/.claude/projects/` | FileDriver |
+| Codex CLI | `~/.codex/sessions/` | FileDriver |
+| Gemini CLI | `~/.gemini/tmp/*/chats/` | FileDriver |
+| OpenCode (JSON) | `~/.local/share/opencode/storage/` | FileDriver |
+| VSCode Copilot | `~/Library/Application Support/Code/User/` | FileDriver |
 
-The driver registry (`registry.ts`) only activates drivers for sources that exist on disk.
+The driver registry (`registry.ts`) only activates drivers for sources that exist on disk. For OpenCode, both drivers activate independently — the SQLite driver when the DB file exists, the JSON driver when the storage directories exist.

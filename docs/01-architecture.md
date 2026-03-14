@@ -52,11 +52,17 @@ pika/
 ```
 User's Machine                          Cloud
 ───────────────────                     ─────────────────────────────────
+
+File sources (FileDriver):
 ~/.claude/projects/**/*.jsonl   ─┐
 ~/.codex/sessions/**/*.jsonl    ─┤
 ~/.gemini/tmp/*/chats/*.json    ─┼─► pika CLI ──► parse ──► compress
-~/.local/share/opencode/        ─┤   (session     + split
+~/.local/share/opencode/*.json  ─┤   (session     + split
 ~/Library/.../Code/User/...     ─┘    parsers)
+                                        ▲
+DB sources (DbDriver):                 │
+~/.local/share/opencode/        ───────┘
+  opencode.db (SQLite, primary)
                                         │
 ~/.config/pika/                         │ metadata batch (JSON, 50/batch)
   config.json  (API key)                │ content upload (canonical + raw gzip, per-session)
@@ -98,14 +104,14 @@ User's Machine                          Cloud
 
 ### CLI
 1. `pika login` starts a local HTTP server on a random port
-2. Opens browser to `{apiUrl}/api/auth/cli?callback=http://localhost:{port}/callback`
+2. Opens browser to `{apiUrl}/api/auth/cli?callback=http://127.0.0.1:{port}/callback`
 3. Server-side: if user is authenticated, generates/retrieves `api_key` (`pk_` + 32 hex)
 4. Redirects back to CLI's local server with `api_key` in query params
 5. CLI saves `api_key` to `~/.config/pika/config.json`
 6. All subsequent CLI requests use `Authorization: Bearer pk_...`
 
 ### Security constraints
-- CLI callback URL must be `localhost` or `127.0.0.1` (server-validated)
+- CLI callback URL must be `127.0.0.1` (server-validated)
 - Login timeout: 120 seconds
 - WORKER_SECRET shared secret between Next.js and CF Worker
 
