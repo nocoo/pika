@@ -1,5 +1,29 @@
 import { API_KEY_PREFIX, API_KEY_HEX_LENGTH } from "@pika/core";
 
+// ── Public origin resolution ───────────────────────────────────
+
+/**
+ * Resolve the public-facing origin from a request.
+ *
+ * Behind a TLS-terminating reverse proxy, `request.url` contains the internal
+ * container URL (e.g. `http://localhost:7040`). We must use the forwarded
+ * headers or AUTH_URL to construct the correct public origin so that redirects
+ * and cookies work correctly.
+ */
+export function getPublicOrigin(request: Request): string {
+  const fwdHost = request.headers.get("x-forwarded-host");
+  if (fwdHost) {
+    const fwdProto = request.headers.get("x-forwarded-proto") || "https";
+    return `${fwdProto}://${fwdHost}`;
+  }
+
+  if (process.env.AUTH_URL) {
+    return process.env.AUTH_URL;
+  }
+
+  return new URL(request.url).origin;
+}
+
 /**
  * Generate a random API key: "pk_" + 32 hex characters.
  * Accepts an optional randomBytes function for testability.
@@ -52,7 +76,9 @@ export async function handleCliAuth(
   params: CliAuthParams,
   deps: {
     signInUrl: string;
-    currentUrl: string;
+    /** Relative path (pathname + search) — never a full URL to avoid leaking
+     *  internal origins behind reverse proxies. */
+    returnPath: string;
     db: CliAuthDb;
     generateKey?: () => string;
   },
@@ -65,7 +91,7 @@ export async function handleCliAuth(
     if (!callback) {
       return { redirectUrl: deps.signInUrl, error: "Missing callback parameter" };
     }
-    const returnUrl = encodeURIComponent(deps.currentUrl);
+    const returnUrl = encodeURIComponent(deps.returnPath);
     return {
       redirectUrl: `${deps.signInUrl}?callbackUrl=${returnUrl}`,
     };

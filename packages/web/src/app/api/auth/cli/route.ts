@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { handleCliAuth } from "@/lib/cli-auth";
+import { handleCliAuth, getPublicOrigin } from "@/lib/cli-auth";
 import { getD1Client } from "@/lib/d1";
 import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
-  const callback = request.nextUrl.searchParams.get("callback");
+  const url = new URL(request.url);
+  const callback = url.searchParams.get("callback");
   const db = new D1CliAuthDb(getD1Client());
 
   const result = await handleCliAuth(
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
     },
     {
       signInUrl: "/login",
-      currentUrl: request.url,
+      returnPath: url.pathname + url.search,
       db,
     },
   );
@@ -29,5 +30,6 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  return NextResponse.redirect(new URL(result.redirectUrl!, request.url));
+  const origin = getPublicOrigin(request);
+  return NextResponse.redirect(new URL(result.redirectUrl!, origin));
 }

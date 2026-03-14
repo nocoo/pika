@@ -26,6 +26,7 @@ function restoreEnv() {
 }
 import {
   generateApiKey,
+  getPublicOrigin,
   handleCliAuth,
   resolveUser,
   E2E_TEST_USER_ID,
@@ -76,11 +77,11 @@ describe("generateApiKey", () => {
 
 describe("handleCliAuth", () => {
   const signInUrl = "/login";
-  const currentUrl =
-    "http://localhost:7040/api/auth/cli?callback=http://localhost:12345/callback";
+  const returnPath =
+    "/api/auth/cli?callback=http://localhost:12345/callback";
 
   function defaultDeps(dbOverrides?: Partial<CliAuthDb>) {
-    return { signInUrl, currentUrl, db: createMockDb(dbOverrides) };
+    return { signInUrl, returnPath, db: createMockDb(dbOverrides) };
   }
 
   it("redirects to sign-in with missing callback when unauthenticated", async () => {
@@ -101,7 +102,7 @@ describe("handleCliAuth", () => {
     expect(result.error).toBeUndefined();
     expect(result.redirectUrl).toContain(signInUrl);
     expect(result.redirectUrl).toContain("callbackUrl=");
-    expect(result.redirectUrl).toContain(encodeURIComponent(currentUrl));
+    expect(result.redirectUrl).toContain(encodeURIComponent(returnPath));
   });
 
   it("returns error when authenticated but callback is missing", async () => {
@@ -315,5 +316,56 @@ describe("resolveUser", () => {
     });
 
     expect(result).toBeNull();
+  });
+});
+
+// ── getPublicOrigin ────────────────────────────────────────────
+
+describe("getPublicOrigin", () => {
+  beforeEach(() => {
+    setEnv("AUTH_URL", undefined);
+  });
+
+  afterEach(() => {
+    restoreEnv();
+  });
+
+  it("uses x-forwarded-host and x-forwarded-proto when present", () => {
+    const request = new Request("http://localhost:7040/api/auth/cli", {
+      headers: {
+        "x-forwarded-host": "pika.dev.hexly.ai",
+        "x-forwarded-proto": "https",
+      },
+    });
+    expect(getPublicOrigin(request)).toBe("https://pika.dev.hexly.ai");
+  });
+
+  it("defaults to https when x-forwarded-proto is absent", () => {
+    const request = new Request("http://localhost:7040/api/auth/cli", {
+      headers: { "x-forwarded-host": "pika.dev.hexly.ai" },
+    });
+    expect(getPublicOrigin(request)).toBe("https://pika.dev.hexly.ai");
+  });
+
+  it("falls back to AUTH_URL when no forwarded headers", () => {
+    setEnv("AUTH_URL", "https://pika.hexly.ai");
+    const request = new Request("http://localhost:7040/api/auth/cli");
+    expect(getPublicOrigin(request)).toBe("https://pika.hexly.ai");
+  });
+
+  it("falls back to request origin when no headers or AUTH_URL", () => {
+    const request = new Request("http://localhost:7040/api/auth/cli");
+    expect(getPublicOrigin(request)).toBe("http://localhost:7040");
+  });
+
+  it("prefers x-forwarded-host over AUTH_URL", () => {
+    setEnv("AUTH_URL", "https://pika.hexly.ai");
+    const request = new Request("http://localhost:7040/api/auth/cli", {
+      headers: {
+        "x-forwarded-host": "pika.dev.hexly.ai",
+        "x-forwarded-proto": "https",
+      },
+    });
+    expect(getPublicOrigin(request)).toBe("https://pika.dev.hexly.ai");
   });
 });
