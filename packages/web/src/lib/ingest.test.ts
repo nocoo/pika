@@ -13,6 +13,7 @@ import {
 import {
   MAX_CONTENT_UPLOAD_BYTES,
   MAX_METADATA_BODY_BYTES,
+  MAX_DECOMPRESSED_CONTENT_BYTES,
 } from "@pika/core";
 
 const cfg: ProxyConfig = {
@@ -487,5 +488,13 @@ describe("body size limit constants", () => {
 
   it("content limit is larger than metadata limit", () => {
     expect(MAX_CONTENT_UPLOAD_BYTES).toBeGreaterThan(MAX_METADATA_BODY_BYTES);
+  });
+
+  it("MAX_DECOMPRESSED_CONTENT_BYTES is 256 MB", () => {
+    expect(MAX_DECOMPRESSED_CONTENT_BYTES).toBe(256 * 1024 * 1024);
+  });
+
+  it("decompressed limit is larger than compressed limit", () => {
+    expect(MAX_DECOMPRESSED_CONTENT_BYTES).toBeGreaterThan(MAX_CONTENT_UPLOAD_BYTES);
   });
 });

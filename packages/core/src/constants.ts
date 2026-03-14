@@ -48,3 +48,6 @@ export const MAX_CONTENT_UPLOAD_BYTES = 50 * 1024 * 1024;
 
 /** Maximum metadata body size in bytes (2 MB) */
 export const MAX_METADATA_BODY_BYTES = 2 * 1024 * 1024;
+
+/** Maximum decompressed content size in bytes (256 MB) — gzip bomb defense */
+export const MAX_DECOMPRESSED_CONTENT_BYTES = 256 * 1024 * 1024;

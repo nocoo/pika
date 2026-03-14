@@ -19,6 +19,7 @@
 import {
   METADATA_BATCH_SIZE,
   PIKA_VERSION,
+  MAX_DECOMPRESSED_CONTENT_BYTES,
   validateSessionSnapshot,
   chunkMessages,
 } from "@pika/core";
@@ -305,24 +306,47 @@ export async function handleSessionIngest(
 // ── Helper: decompress gzip body ───────────────────────────────
 
 /**
- * Decompress a gzip-compressed request body.
- * Uses the DecompressionStream API available in Workers runtime.
+ * Error thrown when decompressed content exceeds the size limit.
+ * Defends against gzip bombs that decompress to enormous payloads.
  */
-export async function decompressBody(body: ReadableStream<Uint8Array>): Promise<string> {
+export class DecompressionLimitError extends Error {
+  constructor(limit: number) {
+    super(`Decompressed content exceeds ${limit} byte limit`);
+    this.name = "DecompressionLimitError";
+  }
+}
+
+/**
+ * Decompress a gzip-compressed request body with size limit enforcement.
+ * Uses the DecompressionStream API available in Workers runtime.
+ *
+ * @param maxBytes - Maximum allowed decompressed size. Defaults to MAX_DECOMPRESSED_CONTENT_BYTES.
+ * @throws {DecompressionLimitError} if the decompressed data exceeds maxBytes.
+ */
+export async function decompressBody(
+  body: ReadableStream<Uint8Array>,
+  maxBytes: number = MAX_DECOMPRESSED_CONTENT_BYTES,
+): Promise<string> {
   const ds = new DecompressionStream("gzip");
   const decompressed = body.pipeThrough(ds);
   const reader = decompressed.getReader();
   const chunks: Uint8Array[] = [];
+  let totalLength = 0;
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
+    totalLength += value.length;
+    if (totalLength > maxBytes) {
+      // Cancel the stream to release resources
+      await reader.cancel();
+      throw new DecompressionLimitError(maxBytes);
+    }
     chunks.push(value);
   }
 
   // Concatenate and decode
-  const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
   const combined = new Uint8Array(totalLength);
   let offset = 0;
   for (const chunk of chunks) {
@@ -418,9 +442,20 @@ export async function handleCanonicalUpload(
     const compressedBytes = await request.arrayBuffer();
     const compressedSize = compressedBytes.byteLength;
 
-    // Decompress to get canonical JSON
+    // Decompress to get canonical JSON (with gzip bomb protection)
     const decompressStream = new Blob([compressedBytes]).stream();
-    const canonicalJson = await decompressBody(decompressStream);
+    let canonicalJson: string;
+    try {
+      canonicalJson = await decompressBody(decompressStream);
+    } catch (err) {
+      if (err instanceof DecompressionLimitError) {
+        return Response.json(
+          { error: "Decompressed payload too large" },
+          { status: 413 },
+        );
+      }
+      throw err;
+    }
     const canonical: CanonicalSession = JSON.parse(canonicalJson);
 
     // 5. Chunk messages and build D1 batch

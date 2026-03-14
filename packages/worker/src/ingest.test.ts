@@ -8,6 +8,7 @@ import {
   handleLive,
   parseContentPath,
   decompressBody,
+  DecompressionLimitError,
   checkVersionConflicts,
   type IngestSessionPayload,
   type Env,
@@ -492,6 +493,22 @@ describe("decompressBody", () => {
     const compressed = await gzipCompress(original);
     const stream = new Blob([compressed]).stream();
     const result = await decompressBody(stream);
+    expect(result).toBe(original);
+  });
+
+  it("throws DecompressionLimitError when decompressed size exceeds limit", async () => {
+    // 10 KB of data compressed — set limit to 100 bytes to trigger
+    const original = "y".repeat(10_000);
+    const compressed = await gzipCompress(original);
+    const stream = new Blob([compressed]).stream();
+    await expect(decompressBody(stream, 100)).rejects.toThrow(DecompressionLimitError);
+  });
+
+  it("allows data within the specified limit", async () => {
+    const original = "z".repeat(500);
+    const compressed = await gzipCompress(original);
+    const stream = new Blob([compressed]).stream();
+    const result = await decompressBody(stream, 1024);
     expect(result).toBe(original);
   });
 });
