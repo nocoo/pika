@@ -40,6 +40,11 @@ export async function POST(request: Request) {
     contentType: request.headers.get("Content-Type") ?? "application/json",
   });
 
+  // 204 No Content must not have a body per HTTP spec
+  if (result.status === 204) {
+    return new NextResponse(null, { status: 204 });
+  }
+
   return new NextResponse(result.body, {
     status: result.status,
     headers: { "Content-Type": "application/json" },
