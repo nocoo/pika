@@ -61,8 +61,12 @@ const useSecureCookies = shouldUseSecureCookies();
 export const { handlers, signIn, signOut, auth } = NextAuth(() => ({
   adapter: D1AuthAdapter(getD1Client()),
   trustHost: true,
-  // Bare Google provider — auto-detects AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET
-  providers: [Google],
+  providers: [
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
+  ],
   session: {
     strategy: "jwt",
   },
