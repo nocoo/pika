@@ -6,6 +6,8 @@ import {
   validatePresignRequest,
   validateConfirmRawRequest,
   buildConfirmRawUpdate,
+  buildRawR2Key,
+  verifyR2RawExists,
   type ProxyConfig,
 } from "./ingest";
 
@@ -423,5 +425,47 @@ describe("buildConfirmRawUpdate", () => {
     // Should only update if raw_hash differs (idempotent)
     expect(result.sql).toContain("user_id = ?");
     expect(result.sql).toContain("session_key = ?");
+  });
+});
+
+// ── buildRawR2Key ─────────────────────────────────────────────
+
+describe("buildRawR2Key", () => {
+  it("builds correct key pattern", () => {
+    const key = buildRawR2Key("user-1", "claude:abc123", "deadbeef01234567");
+    expect(key).toBe("user-1/claude:abc123/raw/deadbeef01234567.json.gz");
+  });
+
+  it("matches the key used by buildConfirmRawUpdate", () => {
+    const update = buildConfirmRawUpdate({
+      userId: "u1",
+      sessionKey: "opencode:xyz",
+      rawHash: "aabbccdd",
+      rawSize: 512,
+    });
+    const key = buildRawR2Key("u1", "opencode:xyz", "aabbccdd");
+    expect(update.params[0]).toBe(key);
+  });
+});
+
+// ── verifyR2RawExists ─────────────────────────────────────────
+
+describe("verifyR2RawExists", () => {
+  it("returns true when R2 object exists", async () => {
+    const r2 = { headObject: vi.fn().mockResolvedValue(true) };
+    const result = await verifyR2RawExists(r2, "u/k/raw/h.json.gz");
+    expect(result).toBe(true);
+    expect(r2.headObject).toHaveBeenCalledWith("u/k/raw/h.json.gz");
+  });
+
+  it("returns false when R2 object does not exist", async () => {
+    const r2 = { headObject: vi.fn().mockResolvedValue(false) };
+    const result = await verifyR2RawExists(r2, "u/k/raw/h.json.gz");
+    expect(result).toBe(false);
+  });
+
+  it("propagates errors from headObject", async () => {
+    const r2 = { headObject: vi.fn().mockRejectedValue(new Error("R2 down")) };
+    await expect(verifyR2RawExists(r2, "key")).rejects.toThrow("R2 down");
   });
 });

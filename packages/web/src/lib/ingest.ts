@@ -236,6 +236,29 @@ export interface ConfirmRawUpdateParams {
 }
 
 /**
+ * Build the R2 key for a raw session archive.
+ * Key pattern: `{userId}/{sessionKey}/raw/{rawHash}.json.gz`
+ */
+export function buildRawR2Key(userId: string, sessionKey: string, rawHash: string): string {
+  return `${userId}/${sessionKey}/raw/${rawHash}.json.gz`;
+}
+
+/**
+ * Verify that a raw upload exists in R2 before updating D1 metadata.
+ * Prevents D1 from pointing to a non-existent R2 object.
+ *
+ * @param r2 - Object with a headObject method (R2Client or test double)
+ * @param r2Key - Full R2 object key to check
+ * @returns true if the object exists
+ */
+export async function verifyR2RawExists(
+  r2: { headObject(key: string): Promise<boolean> },
+  r2Key: string,
+): Promise<boolean> {
+  return r2.headObject(r2Key);
+}
+
+/**
  * Build the D1 SQL update for confirming a direct-to-R2 raw upload.
  * Updates raw_key, raw_size, raw_hash, and updated_at.
  * Only updates if the session belongs to the user.
@@ -244,7 +267,7 @@ export function buildConfirmRawUpdate(params: ConfirmRawUpdateParams): {
   sql: string;
   params: unknown[];
 } {
-  const r2Key = `${params.userId}/${params.sessionKey}/raw/${params.rawHash}.json.gz`;
+  const r2Key = buildRawR2Key(params.userId, params.sessionKey, params.rawHash);
 
   return {
     sql: `UPDATE sessions

@@ -3,7 +3,8 @@ import { resolveUser } from "@/lib/cli-auth";
 import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
 import { getD1Client } from "@/lib/d1";
 import { auth } from "@/lib/auth";
-import { validateConfirmRawRequest, buildConfirmRawUpdate } from "@/lib/ingest";
+import { validateConfirmRawRequest, buildConfirmRawUpdate, buildRawR2Key, verifyR2RawExists } from "@/lib/ingest";
+import { getR2Client } from "@/lib/r2";
 
 /**
  * POST /api/ingest/confirm-raw
@@ -41,6 +42,26 @@ export async function POST(request: Request) {
   const validation = validateConfirmRawRequest(body);
   if (!validation.valid) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
+  }
+
+  const r2Key = buildRawR2Key(user.userId, validation.sessionKey, validation.rawHash);
+
+  // Verify R2 object exists before updating D1 metadata
+  const r2 = getR2Client();
+  let exists: boolean;
+  try {
+    exists = await verifyR2RawExists(r2, r2Key);
+  } catch (err) {
+    return NextResponse.json(
+      { error: `R2 HEAD check failed: ${err instanceof Error ? err.message : String(err)}` },
+      { status: 502 },
+    );
+  }
+  if (!exists) {
+    return NextResponse.json(
+      { error: `R2 object not found: raw upload not verified` },
+      { status: 409 },
+    );
   }
 
   const update = buildConfirmRawUpdate({

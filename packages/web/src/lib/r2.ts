@@ -7,7 +7,7 @@
  * Uses S3-compatible SDK since R2 exposes an S3 API.
  */
 
-import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand, PutObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -128,6 +128,29 @@ export class R2Client {
       "application/gzip",
       expiresIn,
     );
+  }
+
+  // ── HEAD check ──────────────────────────────────────────────────
+
+  /**
+   * Check if an R2 object exists.
+   * @param key - Full R2 object key
+   * @returns true if the object exists, false otherwise
+   */
+  async headObject(key: string): Promise<boolean> {
+    try {
+      await this.s3.send(new HeadObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+      }));
+      return true;
+    } catch (err: unknown) {
+      const code = (err as { name?: string }).name;
+      if (code === "NotFound" || code === "NoSuchKey") {
+        return false;
+      }
+      throw err;
+    }
   }
 }
 

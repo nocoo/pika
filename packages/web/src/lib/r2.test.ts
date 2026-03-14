@@ -3,11 +3,16 @@ import { R2Client, getR2Client, resetR2Client } from "./r2";
 
 // ── Mock AWS SDK ───────────────────────────────────────────────
 
-vi.mock("@aws-sdk/client-s3", () => ({
-  S3Client: vi.fn().mockImplementation(() => ({})),
-  GetObjectCommand: vi.fn().mockImplementation((input) => ({ input })),
-  PutObjectCommand: vi.fn().mockImplementation((input) => ({ input })),
-}));
+vi.mock("@aws-sdk/client-s3", () => {
+  const sendFn = vi.fn();
+  return {
+    S3Client: vi.fn().mockImplementation(() => ({ send: sendFn })),
+    GetObjectCommand: vi.fn().mockImplementation((input) => ({ input })),
+    PutObjectCommand: vi.fn().mockImplementation((input) => ({ input })),
+    HeadObjectCommand: vi.fn().mockImplementation((input) => ({ _type: "HeadObject", input })),
+    __mockSend: sendFn,
+  };
+});
 
 vi.mock("@aws-sdk/s3-request-presigner", () => ({
   getSignedUrl: vi.fn().mockImplementation(
@@ -246,5 +251,67 @@ describe("getR2Client", () => {
     delete process.env.CF_R2_SECRET_ACCESS_KEY;
     delete process.env.CF_R2_ENDPOINT;
     delete process.env.CF_R2_BUCKET;
+  });
+});
+
+// ── headObject() ───────────────────────────────────────────────
+
+describe("R2Client.headObject", () => {
+  it("returns true when object exists", async () => {
+    const { __mockSend } = await import("@aws-sdk/client-s3") as unknown as { __mockSend: ReturnType<typeof vi.fn> };
+    __mockSend.mockResolvedValueOnce({});
+
+    const client = new R2Client(cfg);
+    const result = await client.headObject("user/session/raw/hash.json.gz");
+
+    expect(result).toBe(true);
+  });
+
+  it("returns false for NotFound error", async () => {
+    const { __mockSend } = await import("@aws-sdk/client-s3") as unknown as { __mockSend: ReturnType<typeof vi.fn> };
+    const err = new Error("Not Found");
+    err.name = "NotFound";
+    __mockSend.mockRejectedValueOnce(err);
+
+    const client = new R2Client(cfg);
+    const result = await client.headObject("nonexistent/key");
+
+    expect(result).toBe(false);
+  });
+
+  it("returns false for NoSuchKey error", async () => {
+    const { __mockSend } = await import("@aws-sdk/client-s3") as unknown as { __mockSend: ReturnType<typeof vi.fn> };
+    const err = new Error("No such key");
+    err.name = "NoSuchKey";
+    __mockSend.mockRejectedValueOnce(err);
+
+    const client = new R2Client(cfg);
+    const result = await client.headObject("missing/key");
+
+    expect(result).toBe(false);
+  });
+
+  it("rethrows unexpected errors", async () => {
+    const { __mockSend } = await import("@aws-sdk/client-s3") as unknown as { __mockSend: ReturnType<typeof vi.fn> };
+    __mockSend.mockRejectedValueOnce(new Error("NetworkError"));
+
+    const client = new R2Client(cfg);
+    await expect(client.headObject("some/key")).rejects.toThrow("NetworkError");
+  });
+
+  it("passes correct Bucket and Key to HeadObjectCommand", async () => {
+    const { HeadObjectCommand, __mockSend } = await import("@aws-sdk/client-s3") as unknown as {
+      HeadObjectCommand: ReturnType<typeof vi.fn>;
+      __mockSend: ReturnType<typeof vi.fn>;
+    };
+    __mockSend.mockResolvedValueOnce({});
+
+    const client = new R2Client(cfg);
+    await client.headObject("my/obj.gz");
+
+    expect(HeadObjectCommand).toHaveBeenCalledWith({
+      Bucket: "pika-sessions",
+      Key: "my/obj.gz",
+    });
   });
 });
