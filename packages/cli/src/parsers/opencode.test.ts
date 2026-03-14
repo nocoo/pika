@@ -1098,6 +1098,68 @@ describe("parseOpenCodeJsonSession", () => {
     expect(result.canonical.messages[1].content).toBe("Hello! How can I help?");
     expect(result.canonical.totalInputTokens).toBe(100);
     expect(result.canonical.model).toBe("claude-sonnet-4-20250514");
+
+    // Bug #5: raw archive should contain individual source files, not synthetic JSON
+    const sf = result.raw.sourceFiles;
+    // 1 session + 2 messages + 2 parts = 5 source files
+    expect(sf).toHaveLength(5);
+    // All entries have format "json"
+    expect(sf.every((f) => f.format === "json")).toBe(true);
+    // First entry is the session file
+    expect(sf[0].path).toBe(sessionPath);
+    expect(JSON.parse(sf[0].content).id).toBe("ses_abc");
+    // For each message: message file then its parts (interleaved)
+    expect(sf[1].path).toContain("msg_1.json");
+    expect(JSON.parse(sf[1].content).role).toBe("user");
+    expect(sf[2].path).toContain("prt_1.json");
+    expect(JSON.parse(sf[2].content).text).toBe("Hello from user");
+    expect(sf[3].path).toContain("msg_2.json");
+    expect(JSON.parse(sf[3].content).role).toBe("assistant");
+    expect(sf[4].path).toContain("prt_2.json");
+    expect(JSON.parse(sf[4].content).text).toBe("Hello! How can I help?");
+    // No entry should be a synthetic JSON.stringify of the messages array
+    for (const f of sf) {
+      const parsed = JSON.parse(f.content);
+      expect(Array.isArray(parsed)).toBe(false);
+    }
+  });
+
+  it("raw archive preserves original file content verbatim", async () => {
+    // Write session with extra whitespace to verify content is preserved as-is
+    const sessionContent = JSON.stringify(
+      { id: "ses_raw", projectID: "proj_raw", title: "Raw Test", time: { created: 1700000000000, updated: 1700000001000 } },
+      null,
+      2,
+    );
+    const sessionPath = join(sessionDir, "ses_raw.json");
+    await writeFile(sessionPath, sessionContent);
+
+    const msgDir = join(messageDir, "ses_raw");
+    await mkdir(msgDir, { recursive: true });
+    const msgContent = JSON.stringify(
+      { id: "msg_r1", sessionID: "ses_raw", role: "user", time: { created: 1700000000000 } },
+      null,
+      2,
+    );
+    await writeFile(join(msgDir, "msg_r1.json"), msgContent);
+
+    const pDir = join(partDir, "msg_r1");
+    await mkdir(pDir, { recursive: true });
+    const partContent = JSON.stringify(
+      { id: "prt_r1", type: "text", text: "verbatim check", messageID: "msg_r1", sessionID: "ses_raw" },
+      null,
+      2,
+    );
+    await writeFile(join(pDir, "prt_r1.json"), partContent);
+
+    const result = await parseOpenCodeJsonSession(sessionPath, messageDir, partDir);
+
+    // 1 session + 1 message + 1 part = 3 source files
+    expect(result.raw.sourceFiles).toHaveLength(3);
+    // Content should be the EXACT original string (pretty-printed), not re-serialized
+    expect(result.raw.sourceFiles[0].content).toBe(sessionContent);
+    expect(result.raw.sourceFiles[1].content).toBe(msgContent);
+    expect(result.raw.sourceFiles[2].content).toBe(partContent);
   });
 
   it("returns empty result for non-existent session file", async () => {

@@ -31,6 +31,7 @@ import type {
   CanonicalMessage,
   CanonicalSession,
   RawSessionArchive,
+  RawSourceFile,
   ParseResult,
 } from "@pika/core";
 import { hashProjectRef } from "../utils/hash-project-ref";
@@ -343,36 +344,49 @@ function buildEmptyResult(
 
 // ── JSON file loading ───────────────────────────────────────────
 
-async function loadJsonFile<T>(filePath: string): Promise<T | null> {
+/**
+ * Load a JSON file and return both the parsed object and the raw string.
+ * Used by the JSON driver path to preserve original source content.
+ */
+async function loadJsonFileWithRaw<T>(
+  filePath: string,
+): Promise<{ parsed: T; raw: string } | null> {
   try {
     const raw = await readFile(filePath, "utf8");
-    return JSON.parse(raw) as T;
+    return { parsed: JSON.parse(raw) as T, raw };
   } catch {
     return null;
   }
 }
 
-async function loadPartsForMessage(
+/**
+ * Load parts for a message and also collect raw file contents.
+ * Returns both the parsed parts and RawSourceFile entries.
+ */
+async function loadPartsForMessageWithRaw(
   partDir: string,
   messageId: string,
-): Promise<OcPart[]> {
+): Promise<{ parts: OcPart[]; sourceFiles: RawSourceFile[] }> {
   const msgPartDir = join(partDir, messageId);
   let entries: string[];
   try {
     entries = await readdir(msgPartDir);
   } catch {
-    return [];
+    return { parts: [], sourceFiles: [] };
   }
 
   const parts: OcPart[] = [];
+  const sourceFiles: RawSourceFile[] = [];
   for (const entry of entries.sort()) {
     if (!entry.endsWith(".json")) continue;
-    const part = await loadJsonFile<OcPart>(join(msgPartDir, entry));
-    if (part && typeof part.type === "string") {
-      parts.push(part);
+    const filePath = join(msgPartDir, entry);
+    const loaded = await loadJsonFileWithRaw<OcPart>(filePath);
+    if (loaded && typeof loaded.parsed.type === "string") {
+      parts.push(loaded.parsed);
+      sourceFiles.push({ path: filePath, format: "json", content: loaded.raw });
     }
   }
-  return parts;
+  return { parts, sourceFiles };
 }
 
 // ── Public API ──────────────────────────────────────────────────
@@ -439,11 +453,16 @@ export async function parseOpenCodeJsonSession(
   messageDir: string,
   partDir: string,
 ): Promise<ParseResult> {
-  // Load session metadata
-  const session = await loadJsonFile<OcSession>(sessionJsonPath);
-  if (!session || typeof session !== "object" || !session.id) {
+  // Load session metadata (with raw content for archive)
+  const sessionLoaded = await loadJsonFileWithRaw<OcSession>(sessionJsonPath);
+  if (!sessionLoaded || typeof sessionLoaded.parsed !== "object" || !sessionLoaded.parsed.id) {
     return buildEmptyResult("unknown", sessionJsonPath);
   }
+
+  const session = sessionLoaded.parsed;
+  const rawSourceFiles: RawSourceFile[] = [
+    { path: sessionJsonPath, format: "json", content: sessionLoaded.raw },
+  ];
 
   // Discover message files for this session
   const sessionMsgDir = join(messageDir, session.id);
@@ -454,16 +473,22 @@ export async function parseOpenCodeJsonSession(
     return buildEmptyResult(session.id, sessionJsonPath);
   }
 
-  // Load messages with their parts
+  // Load messages with their parts, collecting raw source files
   const messages: OcMessage[] = [];
   for (const entry of msgEntries.sort()) {
     if (!entry.endsWith(".json")) continue;
     const msgPath = join(sessionMsgDir, entry);
-    const msg = await loadJsonFile<OcMessage>(msgPath);
-    if (!msg || typeof msg.role !== "string") continue;
+    const msgLoaded = await loadJsonFileWithRaw<OcMessage>(msgPath);
+    if (!msgLoaded || typeof msgLoaded.parsed.role !== "string") continue;
 
-    // Load parts for this message
-    msg.parts = await loadPartsForMessage(partDir, msg.id);
+    const msg = msgLoaded.parsed;
+    rawSourceFiles.push({ path: msgPath, format: "json", content: msgLoaded.raw });
+
+    // Load parts for this message (with raw content)
+    const partsResult = await loadPartsForMessageWithRaw(partDir, msg.id);
+    msg.parts = partsResult.parts;
+    rawSourceFiles.push(...partsResult.sourceFiles);
+
     messages.push(msg);
   }
 
@@ -472,7 +497,13 @@ export async function parseOpenCodeJsonSession(
     (a, b) => (a.time?.created ?? 0) - (b.time?.created ?? 0),
   );
 
-  return parseOpenCodeMessages(session, messages, "json", sessionJsonPath);
+  // Parse using shared logic
+  const result = parseOpenCodeMessages(session, messages, "json", sessionJsonPath);
+
+  // Override the raw archive with real source files (not synthetic JSON)
+  result.raw.sourceFiles = rawSourceFiles;
+
+  return result;
 }
 
 /**
