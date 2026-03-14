@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
@@ -169,7 +170,7 @@ export function Sidebar() {
           <div className="flex h-screen w-[68px] flex-col items-center">
             {/* Logo */}
             <div className="flex h-14 w-full items-center justify-center">
-              <span className="text-lg font-bold text-primary">P</span>
+              <Image src="/logo-24.png" alt="Pika" width={24} height={24} />
             </div>
 
             {/* Expand toggle */}
@@ -254,6 +255,7 @@ export function Sidebar() {
             <div className="px-3 h-14 flex items-center">
               <div className="flex w-full items-center justify-between px-3">
                 <div className="flex items-center gap-3">
+                  <Image src="/logo-24.png" alt="Pika" width={24} height={24} className="shrink-0" />
                   <span className="text-lg font-bold text-primary">Pika</span>
                   <Badge variant="secondary" className="px-1.5 py-0 text-[10px] font-normal text-muted-foreground">
                     v{APP_VERSION}

@@ -92,7 +92,7 @@ function LoginContent() {
                 }}
               />
               <div className="flex items-center gap-2">
-                <Image src="/logo-24.svg" alt="Pika" width={16} height={16} className="brightness-0 invert" />
+                <Image src="/logo-24.png" alt="Pika" width={16} height={16} className="brightness-0 invert" />
                 <span className="text-sm font-semibold font-handwriting text-primary-foreground">Pika</span>
               </div>
               <span className="text-[10px] font-medium uppercase tracking-widest text-primary-foreground/60">
@@ -114,7 +114,7 @@ function LoginContent() {
           <div className="flex flex-1 flex-col items-center px-6 pt-6 pb-5">
             {/* Avatar placeholder */}
             <div className="h-24 w-24 overflow-hidden rounded-full bg-secondary dark:bg-[#171717] ring-1 ring-border flex items-center justify-center">
-              <Image src="/logo-80.svg" alt="Pika" width={80} height={80} />
+              <Image src="/logo-80.png" alt="Pika" width={80} height={80} />
             </div>
 
             <p className="mt-5 text-lg font-semibold text-foreground">Replay your sessions</p>
