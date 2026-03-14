@@ -70,6 +70,7 @@ describe("R2Client constructor", () => {
     expect(S3Client).toHaveBeenCalledWith({
       region: "auto",
       endpoint: "https://r2.example.com",
+      forcePathStyle: true,
       credentials: {
         accessKeyId: "ak-1",
         secretAccessKey: "sk-1",

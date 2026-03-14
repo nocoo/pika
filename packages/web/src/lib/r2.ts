@@ -38,6 +38,7 @@ export class R2Client {
     this.s3 = new S3Client({
       region: "auto",
       endpoint: config.endpoint,
+      forcePathStyle: true,
       credentials: {
         accessKeyId: config.accessKeyId,
         secretAccessKey: config.secretAccessKey,
@@ -90,6 +91,26 @@ export class R2Client {
       `${userId}/${sessionKey}/raw/${rawHash}.json.gz`,
       expiresIn,
     );
+  }
+
+  // ── Direct GET ──────────────────────────────────────────────────
+
+  /**
+   * Download an R2 object directly via the S3 SDK.
+   * Returns the raw body bytes, or null if not found.
+   */
+  async getObject(key: string): Promise<Uint8Array | null> {
+    try {
+      const res = await this.s3.send(
+        new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      );
+      if (!res.Body) return null;
+      return res.Body.transformToByteArray();
+    } catch (err: unknown) {
+      const code = (err as { name?: string }).name;
+      if (code === "NoSuchKey" || code === "NotFound") return null;
+      throw err;
+    }
   }
 
   // ── Presigned PUT URLs ────────────────────────────────────────
