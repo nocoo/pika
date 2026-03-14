@@ -1,10 +1,12 @@
 import { defineCommand } from "citty";
 import { join } from "node:path";
+import { Database } from "bun:sqlite";
 import consola from "consola";
 import { CONFIG_DIR, SOURCES } from "@pika/core";
 import { ConfigManager } from "../config/manager";
 import { CursorStore } from "../storage/cursor-store";
 import { buildDriverSet } from "../drivers/registry";
+import { createOpenCodeSqliteDriver } from "../drivers/session/opencode-sqlite";
 import type { SyncContext } from "../drivers/types";
 import { runSyncPipeline } from "./sync-pipeline";
 
@@ -74,14 +76,24 @@ export default defineCommand({
       return;
     }
 
+    // Construct SQLite driver when DB is available
+    let dbDriver;
+    if (driverSet.dbDriversAvailable && driverSet.discoverOpts.openCodeDbPath) {
+      const openDb = (path: string, opts?: { readonly: boolean }) =>
+        new Database(path, { readonly: opts?.readonly ?? true });
+      dbDriver = createOpenCodeSqliteDriver(openDb, driverSet.discoverOpts.openCodeDbPath);
+    }
+
+    const sourceCount = driverSet.fileDrivers.length + (dbDriver ? 1 : 0);
     consola.start(
-      `Syncing ${driverSet.fileDrivers.length} source(s)...`,
+      `Syncing ${sourceCount} source(s)...`,
     );
 
     // Run pipeline
     const result = await runSyncPipeline(
       {
         fileDrivers: driverSet.fileDrivers,
+        dbDriver,
         discoverOpts: driverSet.discoverOpts,
         cursorState,
         syncCtx,
