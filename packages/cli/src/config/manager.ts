@@ -40,7 +40,9 @@ export class ConfigManager {
     }
     const existing = this.read();
     const merged = { ...existing, ...partial };
-    writeFileSync(this.configPath, JSON.stringify(merged, null, 2) + "\n");
+    writeFileSync(this.configPath, JSON.stringify(merged, null, 2) + "\n", {
+      mode: 0o600,
+    });
   }
 
   getToken(): string | undefined {

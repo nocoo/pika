@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, readFileSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { ConfigManager } from "./manager";
@@ -44,6 +44,13 @@ describe("ConfigManager", () => {
     mgr.write({ token: "pk_" + "c".repeat(32) });
     const config = mgr.read();
     expect(config.token).toBe("pk_" + "c".repeat(32));
+  });
+
+  it("writes config file with 0600 permissions", () => {
+    manager.write({ token: "pk_" + "x".repeat(32) });
+    const configPath = join(tempDir, "config.json");
+    const mode = statSync(configPath).mode & 0o777;
+    expect(mode).toBe(0o600);
   });
 
   // ── dev mode ───────────────────────────────────────────────
