@@ -10,3 +10,4 @@
 | 04 | [Parsers](./04-parsers.md) | Per-source session parsers, driver architecture |
 | 05 | [Dashboard](./05-dashboard.md) | Web UI, search, session replay |
 | 06 | [Implementation Plan](./06-implementation-plan.md) | Atomic commits, four-layer testing, phased rollout |
+| 07 | [E2E Test Plan](./07-e2e-test-plan.md) | Manual per-source upload validation, D1/R2/dashboard checks |
