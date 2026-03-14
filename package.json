@@ -21,5 +21,9 @@
     "husky": "^9.1.7",
     "typescript": "^5.8.2",
     "vitest": "^3.1.1"
+  },
+  "overrides": {
+    "undici": ">=7.24.0",
+    "cookie": ">=0.7.0"
   }
 }
