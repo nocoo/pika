@@ -49,7 +49,8 @@ export interface SyncPipelineOptions {
 
 export interface SyncPipelineInput {
   fileDrivers: FileDriver<FileCursorBase>[];
-  dbDriver?: DbDriver<OpenCodeSqliteCursor>;
+  /** DB driver for SQLite-based sources. Pass `undefined` explicitly when no DB driver exists. */
+  dbDriver: DbDriver<OpenCodeSqliteCursor> | undefined;
   discoverOpts: DiscoverOpts;
   cursorState: CursorState;
   syncCtx: SyncContext;

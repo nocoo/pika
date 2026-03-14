@@ -1,14 +1,48 @@
 import { defineCommand } from "citty";
 import { join } from "node:path";
-import { Database } from "bun:sqlite";
 import consola from "consola";
 import { CONFIG_DIR, SOURCES } from "@pika/core";
+import type { OpenCodeSqliteCursor } from "@pika/core";
 import { ConfigManager } from "../config/manager";
 import { CursorStore } from "../storage/cursor-store";
 import { buildDriverSet } from "../drivers/registry";
+import type { DriverSet } from "../drivers/registry";
 import { createOpenCodeSqliteDriver } from "../drivers/session/opencode-sqlite";
-import type { SyncContext } from "../drivers/types";
+import type { OpenDbFn } from "../drivers/session/opencode-sqlite";
+import type { DbDriver, SyncContext } from "../drivers/types";
 import { runSyncPipeline } from "./sync-pipeline";
+
+// ── DB driver construction (extracted for testability) ────────
+
+/**
+ * Construct the OpenCode SQLite DB driver when available.
+ *
+ * Extracted from the command handler so the wiring decision is testable
+ * independently of the full CLI lifecycle (citty, config, cursors, etc.).
+ *
+ * @param openDbOverride — inject OpenDbFn for testing (avoids bun:sqlite import)
+ */
+export async function buildDbDriver(
+  driverSet: DriverSet,
+  openDbOverride?: OpenDbFn,
+): Promise<DbDriver<OpenCodeSqliteCursor> | undefined> {
+  if (!driverSet.dbDriversAvailable || !driverSet.discoverOpts.openCodeDbPath) {
+    return undefined;
+  }
+
+  let openDb: OpenDbFn;
+  if (openDbOverride) {
+    openDb = openDbOverride;
+  } else {
+    // Dynamic import: bun:sqlite is a Bun built-in with no TS declarations.
+    // Runtime type safety enforced by OpenDbFn contract from opencode-sqlite.ts.
+    const bunSqlite = await import(/* @vite-ignore */ "bun:sqlite");
+    openDb = (path, opts) =>
+      new bunSqlite.Database(path, { readonly: opts?.readonly ?? true });
+  }
+
+  return createOpenCodeSqliteDriver(openDb, driverSet.discoverOpts.openCodeDbPath);
+}
 
 export default defineCommand({
   meta: {
@@ -77,12 +111,7 @@ export default defineCommand({
     }
 
     // Construct SQLite driver when DB is available
-    let dbDriver;
-    if (driverSet.dbDriversAvailable && driverSet.discoverOpts.openCodeDbPath) {
-      const openDb = (path: string, opts?: { readonly: boolean }) =>
-        new Database(path, { readonly: opts?.readonly ?? true });
-      dbDriver = createOpenCodeSqliteDriver(openDb, driverSet.discoverOpts.openCodeDbPath);
-    }
+    const dbDriver = await buildDbDriver(driverSet);
 
     const sourceCount = driverSet.fileDrivers.length + (dbDriver ? 1 : 0);
     consola.start(

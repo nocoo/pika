@@ -105,6 +105,7 @@ function makeOpts(overrides?: Partial<SyncPipelineOptions>): SyncPipelineOptions
 function makeInput(overrides?: Partial<SyncPipelineInput>): SyncPipelineInput {
   return {
     fileDrivers: [],
+    dbDriver: undefined,
     discoverOpts: {},
     cursorState: makeCursorState(),
     syncCtx: {},
