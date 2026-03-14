@@ -12,51 +12,19 @@ function createMockD1Client(overrides?: Partial<D1Client>): D1Client {
 }
 
 describe("D1CliAuthDb", () => {
-  describe("getApiKey", () => {
-    it("returns api_key when user has one", async () => {
-      const client = createMockD1Client({
-        firstOrNull: vi.fn().mockResolvedValue({ api_key: "pk_abc123" }),
-      });
-      const db = new D1CliAuthDb(client);
-
-      const key = await db.getApiKey("user-1");
-
-      expect(key).toBe("pk_abc123");
-      expect(client.firstOrNull).toHaveBeenCalledWith(
-        "SELECT api_key FROM users WHERE id = ?",
-        ["user-1"],
-      );
-    });
-
-    it("returns null when user has no api_key", async () => {
-      const client = createMockD1Client({
-        firstOrNull: vi.fn().mockResolvedValue({ api_key: null }),
-      });
-      const db = new D1CliAuthDb(client);
-
-      expect(await db.getApiKey("user-1")).toBeNull();
-    });
-
-    it("returns null when user not found", async () => {
-      const client = createMockD1Client();
-      const db = new D1CliAuthDb(client);
-
-      expect(await db.getApiKey("nonexistent")).toBeNull();
-    });
-  });
-
   describe("setApiKey", () => {
-    it("executes UPDATE with correct params", async () => {
+    it("executes UPDATE with correct params (stores hashed key)", async () => {
       const client = createMockD1Client({
         execute: vi.fn().mockResolvedValue({ changes: 1, duration: 0 }),
       });
       const db = new D1CliAuthDb(client);
 
-      await db.setApiKey("user-1", "pk_newkey");
+      const hashedKey = "a".repeat(64); // SHA-256 hex digest
+      await db.setApiKey("user-1", hashedKey);
 
       expect(client.execute).toHaveBeenCalledWith(
         "UPDATE users SET api_key = ?, updated_at = datetime('now') WHERE id = ?",
-        ["pk_newkey", "user-1"],
+        [hashedKey, "user-1"],
       );
     });
 
@@ -66,14 +34,14 @@ describe("D1CliAuthDb", () => {
       });
       const db = new D1CliAuthDb(client);
 
-      await expect(db.setApiKey("missing-user", "pk_key")).rejects.toThrow(
+      await expect(db.setApiKey("missing-user", "a".repeat(64))).rejects.toThrow(
         /user missing-user not found in D1/,
       );
     });
   });
 
   describe("getUserByApiKey", () => {
-    it("returns user when api_key matches", async () => {
+    it("returns user when hashed api_key matches", async () => {
       const client = createMockD1Client({
         firstOrNull: vi
           .fn()
@@ -81,20 +49,21 @@ describe("D1CliAuthDb", () => {
       });
       const db = new D1CliAuthDb(client);
 
-      const user = await db.getUserByApiKey("pk_abc123");
+      const hashedKey = "b".repeat(64);
+      const user = await db.getUserByApiKey(hashedKey);
 
       expect(user).toEqual({ id: "user-1", email: "u@e.com" });
       expect(client.firstOrNull).toHaveBeenCalledWith(
         "SELECT id, email FROM users WHERE api_key = ?",
-        ["pk_abc123"],
+        [hashedKey],
       );
     });
 
-    it("returns null when api_key not found", async () => {
+    it("returns null when hashed api_key not found", async () => {
       const client = createMockD1Client();
       const db = new D1CliAuthDb(client);
 
-      expect(await db.getUserByApiKey("pk_invalid")).toBeNull();
+      expect(await db.getUserByApiKey("c".repeat(64))).toBeNull();
     });
   });
 });

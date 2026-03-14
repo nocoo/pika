@@ -28,6 +28,7 @@ import {
   generateApiKey,
   getPublicOrigin,
   handleCliAuth,
+  hashApiKey,
   resolveUser,
   E2E_TEST_USER_ID,
   E2E_TEST_USER_EMAIL,
@@ -40,7 +41,6 @@ import { isValidApiKey } from "@pika/core";
 
 function createMockDb(overrides?: Partial<CliAuthDb>): CliAuthDb {
   return {
-    getApiKey: vi.fn().mockResolvedValue(null),
     setApiKey: vi.fn().mockResolvedValue(undefined),
     getUserByApiKey: vi.fn().mockResolvedValue(null),
     ...overrides,
@@ -136,25 +136,7 @@ describe("handleCliAuth", () => {
     expect(result.status).toBe(400);
   });
 
-  it("fetches existing API key from DB (no generation)", async () => {
-    const existingKey = "pk_" + "e".repeat(32);
-    const deps = defaultDeps({ getApiKey: vi.fn().mockResolvedValue(existingKey) });
-
-    const result = await handleCliAuth(
-      {
-        callback: "http://localhost:12345/callback",
-        userEmail: "user@example.com",
-        userId: "u1",
-      },
-      deps,
-    );
-
-    expect(result.apiKey).toBe(existingKey);
-    expect(deps.db.getApiKey).toHaveBeenCalledWith("u1");
-    expect(deps.db.setApiKey).not.toHaveBeenCalled();
-  });
-
-  it("generates and persists API key when none exists in DB", async () => {
+  it("always generates a fresh key and stores its hash in DB", async () => {
     const callback = "http://localhost:12345/callback";
     const fixedKey = "pk_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const deps = defaultDeps();
@@ -166,8 +148,9 @@ describe("handleCliAuth", () => {
 
     expect(result.apiKey).toBe(fixedKey);
     expect(result.error).toBeUndefined();
-    expect(deps.db.getApiKey).toHaveBeenCalledWith("u1");
-    expect(deps.db.setApiKey).toHaveBeenCalledWith("u1", fixedKey);
+    // setApiKey should receive the SHA-256 hash, not the plaintext key
+    const expectedHash = await hashApiKey(fixedKey);
+    expect(deps.db.setApiKey).toHaveBeenCalledWith("u1", expectedHash);
 
     const url = new URL(result.redirectUrl!);
     expect(url.hostname).toBe("localhost");
@@ -255,22 +238,25 @@ describe("resolveUser", () => {
     expect(result).toEqual({ userId: "sess-user", email: "sess@e.com" });
   });
 
-  it("returns user from Bearer api_key when no session", async () => {
+  it("hashes Bearer api_key before DB lookup", async () => {
     const apiKey = "pk_" + "f".repeat(32);
+    const expectedHash = await hashApiKey(apiKey);
     const request = new Request("http://localhost:7040/api/sessions", {
       headers: { Authorization: `Bearer ${apiKey}` },
     });
 
+    const getUserByApiKey = vi
+      .fn()
+      .mockResolvedValue({ id: "api-user", email: "api@e.com" });
+
     const result = await resolveUser(request, {
       getSession: vi.fn().mockResolvedValue(null),
-      db: createMockDb({
-        getUserByApiKey: vi
-          .fn()
-          .mockResolvedValue({ id: "api-user", email: "api@e.com" }),
-      }),
+      db: createMockDb({ getUserByApiKey }),
     });
 
     expect(result).toEqual({ userId: "api-user", email: "api@e.com" });
+    // Must pass the hash, not the raw key
+    expect(getUserByApiKey).toHaveBeenCalledWith(expectedHash);
   });
 
   it("returns null when api_key lookup finds nothing", async () => {

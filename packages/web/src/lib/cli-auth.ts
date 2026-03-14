@@ -41,12 +41,23 @@ export function generateApiKey(
   return `${API_KEY_PREFIX}${hex}`;
 }
 
+/**
+ * Hash an API key with SHA-256 for storage.
+ * Returns a lowercase hex digest.
+ */
+export async function hashApiKey(key: string): Promise<string> {
+  const data = new TextEncoder().encode(key);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 // ── DB interface (injectable for testability) ──────────────────
 
 export interface CliAuthDb {
-  getApiKey(userId: string): Promise<string | null>;
-  setApiKey(userId: string, apiKey: string): Promise<void>;
-  getUserByApiKey(apiKey: string): Promise<{ id: string; email: string } | null>;
+  setApiKey(userId: string, hashedKey: string): Promise<void>;
+  getUserByApiKey(hashedKey: string): Promise<{ id: string; email: string } | null>;
 }
 
 // ── CLI auth handler ───────────────────────────────────────────
@@ -70,7 +81,8 @@ export interface CliAuthResult {
  * Flow:
  * 1. Validate callback param (must be localhost)
  * 2. If not authenticated → redirect to sign-in
- * 3. If authenticated → fetch or generate API key, persist to DB, redirect to callback
+ * 3. If authenticated → generate fresh API key, store SHA-256 hash in DB,
+ *    redirect to callback with plaintext key (shown once)
  */
 export async function handleCliAuth(
   params: CliAuthParams,
@@ -117,12 +129,10 @@ export async function handleCliAuth(
     return { error: "Callback must be localhost", status: 400 };
   }
 
-  // Fetch existing or generate new API key, persisting to DB
-  let apiKey = await deps.db.getApiKey(userId);
-  if (!apiKey) {
-    apiKey = deps.generateKey ? deps.generateKey() : generateApiKey();
-    await deps.db.setApiKey(userId, apiKey);
-  }
+  // Always generate a fresh API key on each login — show once to user, store hash in DB
+  const apiKey = deps.generateKey ? deps.generateKey() : generateApiKey();
+  const hashedKey = await hashApiKey(apiKey);
+  await deps.db.setApiKey(userId, hashedKey);
 
   callbackUrl.searchParams.set("api_key", apiKey);
   callbackUrl.searchParams.set("email", userEmail);
@@ -177,11 +187,12 @@ export async function resolveUser(
     return { userId: session.userId, email: session.email };
   }
 
-  // 3. Bearer api_key auth (CLI uploads)
+  // 3. Bearer api_key auth (CLI uploads) — hash before lookup since DB stores hash
   const authHeader = request.headers.get("Authorization");
   if (authHeader?.startsWith("Bearer ")) {
     const apiKey = authHeader.slice(7);
-    const user = await deps.db.getUserByApiKey(apiKey);
+    const hashedKey = await hashApiKey(apiKey);
+    const user = await deps.db.getUserByApiKey(hashedKey);
     if (user) {
       return { userId: user.id, email: user.email };
     }
