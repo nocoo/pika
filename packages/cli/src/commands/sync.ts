@@ -34,9 +34,11 @@ export async function buildDbDriver(
   if (openDbOverride) {
     openDb = openDbOverride;
   } else {
-    // Dynamic import: bun:sqlite is a Bun built-in with no TS declarations.
-    // Runtime type safety enforced by OpenDbFn contract from opencode-sqlite.ts.
-    const bunSqlite = await import(/* @vite-ignore */ "bun:sqlite");
+    // bun:sqlite is a Bun built-in with no TS type declarations.
+    // Use a variable so tsc doesn't try to resolve the module specifier.
+    // Runtime type safety is enforced by the OpenDbFn contract.
+    const modId = "bun:sqlite";
+    const bunSqlite = await import(modId);
     openDb = (path, opts) =>
       new bunSqlite.Database(path, { readonly: opts?.readonly ?? true });
   }
