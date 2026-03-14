@@ -1,9 +1,10 @@
 import { defineCommand } from "citty";
+import { PIKA_VERSION } from "@pika/core";
 
 export const main = defineCommand({
   meta: {
     name: "pika",
-    version: "0.0.0",
+    version: PIKA_VERSION,
     description: "Replay and search coding agent sessions",
   },
   subCommands: {

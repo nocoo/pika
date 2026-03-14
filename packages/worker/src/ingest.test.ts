@@ -12,6 +12,7 @@ import {
   type IngestSessionPayload,
   type Env,
 } from "./index";
+import { PIKA_VERSION } from "@pika/core";
 
 // ── Test data ──────────────────────────────────────────────────
 
@@ -1143,7 +1144,7 @@ describe("worker fetch handler", () => {
     expect(res.status).toBe(200);
     const body = await res.json() as { status: string; version: string; uptime: number; timestamp: string };
     expect(body.status).toBe("ok");
-    expect(body.version).toBe("0.1.0");
+    expect(body.version).toBe(PIKA_VERSION);
     expect(body.uptime).toBeGreaterThanOrEqual(0);
     expect(body.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
@@ -1164,7 +1165,7 @@ describe("handleLive", () => {
 
     const body = await res.json() as { status: string; version: string; uptime: number; timestamp: string; d1: { latencyMs: number } };
     expect(body.status).toBe("ok");
-    expect(body.version).toBe("0.1.0");
+    expect(body.version).toBe(PIKA_VERSION);
     expect(body.d1.latencyMs).toBeGreaterThanOrEqual(0);
     expect(body.uptime).toBeGreaterThanOrEqual(0);
     expect(Number.isInteger(body.uptime)).toBe(true);

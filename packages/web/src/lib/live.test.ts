@@ -8,6 +8,9 @@ vi.mock("./version", () => ({
   APP_VERSION: "0.1.0",
 }));
 
+// Use a matching constant for assertions (avoids hardcoding in every expect())
+const MOCK_VERSION = "0.1.0";
+
 // ── Helpers ───────────────────────────────────────────────────
 
 function mockD1(overrides: Partial<D1Client> = {}): D1Client {
@@ -31,7 +34,7 @@ describe("checkHealth", () => {
     const result = await checkHealth(db);
 
     expect(result.status).toBe("ok");
-    expect(result.version).toBe("0.1.0");
+    expect(result.version).toBe(MOCK_VERSION);
     expect(result).toHaveProperty("d1.latencyMs");
     expect((result as { d1: { latencyMs: number } }).d1.latencyMs).toBeGreaterThanOrEqual(0);
     expect(db.query).toHaveBeenCalledWith("SELECT 1");
@@ -45,7 +48,7 @@ describe("checkHealth", () => {
     const result = await checkHealth(db);
 
     expect(result.status).toBe("error");
-    expect(result.version).toBe("0.1.0");
+    expect(result.version).toBe(MOCK_VERSION);
     expect((result as { d1: { error: string } }).d1.error).toBe(
       "D1 network error: timeout",
     );

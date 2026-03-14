@@ -10,6 +10,7 @@
  * - POST /ingest/sessions — session metadata upsert
  * - PUT  /ingest/content/:sessionKey/canonical — canonical content upload
  * - PUT  /ingest/content/:sessionKey/raw — raw content upload
+ * - GET  /content/:key — read content from R2 (decompressed)
  *
  * Auth: shared secret (WORKER_SECRET) via Authorization: Bearer header.
  * Limit: max 50 sessions per request (METADATA_BATCH_SIZE).
@@ -17,6 +18,7 @@
 
 import {
   METADATA_BATCH_SIZE,
+  PIKA_VERSION,
   validateSessionSnapshot,
   chunkMessages,
 } from "@pika/core";
@@ -596,7 +598,7 @@ const bootTime = Date.now();
  */
 export async function handleLive(env: Env): Promise<Response> {
   const start = Date.now();
-  const version = "0.1.0"; // synced with root package.json
+  const version = PIKA_VERSION;
   const uptime = Math.round((Date.now() - bootTime) / 1000);
   const timestamp = new Date().toISOString();
 
@@ -642,6 +644,49 @@ export function parseContentPath(
   };
 }
 
+// ── Content read ─────────────────────────────────────────────────
+
+/**
+ * GET /content/:key — Read an R2 object and return decompressed JSON.
+ *
+ * The key is the full R2 object path (e.g. `{userId}/{sessionKey}/canonical.json.gz`).
+ * Access is scoped by X-User-Id: the key must start with the authenticated user's ID.
+ */
+async function handleContentRead(
+  key: string,
+  userId: string,
+  env: Env,
+): Promise<Response> {
+  // Security: ensure the requested key belongs to the authenticated user
+  if (!key.startsWith(`${userId}/`)) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const obj = await env.BUCKET.get(key);
+  if (!obj) {
+    return Response.json({ error: "Not found" }, { status: 404 });
+  }
+
+  // R2 stores canonical/raw files with contentEncoding: "gzip".
+  // The body is raw gzip bytes — decompress via DecompressionStream.
+  const isGzip = obj.httpMetadata?.contentEncoding === "gzip" || key.endsWith(".gz");
+
+  let body: ReadableStream | ArrayBuffer;
+  if (isGzip) {
+    body = obj.body.pipeThrough(new DecompressionStream("gzip") as unknown as TransformStream<Uint8Array, Uint8Array>);
+  } else {
+    body = obj.body;
+  }
+
+  return new Response(body, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "private, max-age=300",
+    },
+  });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -676,7 +721,17 @@ export default {
       return handleSessionIngest(payload, env);
     }
 
-    // 3. PUT /ingest/content/:sessionKey/:type — content upload
+    // 3. GET /content/* — read content from R2
+    if (request.method === "GET" && url.pathname.startsWith("/content/")) {
+      const userId = request.headers.get("X-User-Id");
+      if (!userId) {
+        return Response.json({ error: "Missing X-User-Id header" }, { status: 400 });
+      }
+      const key = decodeURIComponent(url.pathname.slice("/content/".length));
+      return handleContentRead(key, userId, env);
+    }
+
+    // 4. PUT /ingest/content/:sessionKey/:type — content upload
     if (request.method === "PUT") {
       const parsed = parseContentPath(url.pathname);
       if (parsed) {

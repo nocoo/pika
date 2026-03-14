@@ -15,8 +15,10 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { APP_VERSION } from "@/lib/version";
 import { NAV_GROUPS, type NavGroupDef } from "@/lib/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
   TooltipContent,
@@ -253,6 +255,9 @@ export function Sidebar() {
               <div className="flex w-full items-center justify-between px-3">
                 <div className="flex items-center gap-3">
                   <span className="text-lg font-bold text-primary">Pika</span>
+                  <Badge variant="secondary" className="px-1.5 py-0 text-[10px] font-normal text-muted-foreground">
+                    v{APP_VERSION}
+                  </Badge>
                 </div>
                 <button
                   onClick={toggle}
