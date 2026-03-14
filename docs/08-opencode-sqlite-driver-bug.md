@@ -44,7 +44,7 @@ sync-pipeline.ts L179:
 
 1. `SyncPipelineInput.dbDriver` is typed as `optional` — TypeScript doesn't flag the omission
 2. The pipeline silently skips Stage 2b when `dbDriver` is undefined — no warning logged
-3. `pika status` only shows cursor-tracked files, not DB driver state
+3. `pika status` can show whether SQLite sync has previously run successfully (via `cursorState.openCodeSqlite`), but cannot detect that a usable DB exists when the driver has never been wired — the absence is invisible
 4. The JSON driver covers legacy OpenCode sessions, masking the gap
 
 ## Fix
@@ -56,7 +56,8 @@ sync-pipeline.ts L179:
 | File | Change |
 |------|--------|
 | `packages/cli/src/commands/sync.ts` | Import `createOpenCodeSqliteDriver`, construct instance, pass as `dbDriver` |
-| `packages/cli/src/drivers/registry.ts` | Return DB path in `DriverSet` so `sync.ts` knows where to open |
+
+> **Note:** `registry.ts` already exposes the DB path via `discoverOpts.openCodeDbPath` (L152-154). No changes needed there.
 
 ### Implementation
 
@@ -66,9 +67,9 @@ import { Database } from "bun:sqlite";
 import { createOpenCodeSqliteDriver } from "../drivers/session/opencode-sqlite";
 
 let dbDriver;
-if (driverSet.dbDriversAvailable && driverSet.paths?.openCodeDbPath) {
+if (driverSet.dbDriversAvailable && driverSet.discoverOpts.openCodeDbPath) {
   const openDb = (path: string) => new Database(path, { readonly: true });
-  dbDriver = createOpenCodeSqliteDriver(openDb, driverSet.paths.openCodeDbPath);
+  dbDriver = createOpenCodeSqliteDriver(openDb, driverSet.discoverOpts.openCodeDbPath);
 }
 
 const result = await runSyncPipeline(
@@ -98,8 +99,10 @@ After fix, run `pika sync --dev` and confirm:
 ## Atomic Commits
 
 1. `fix: wire opencode sqlite driver in sync command` — construct and pass dbDriver
-2. `test: verify opencode sqlite sessions uploaded` — if needed
+2. `test: add integration test for sqlite driver wiring` — verify sync.ts passes dbDriver when DB exists
 
 ## Prevention
 
-Consider making `SyncPipelineInput.dbDriver` required (not optional) and explicitly passing `undefined` when no DB driver exists. This forces callers to consciously decide rather than silently omitting.
+1. **Required integration test**: The bug pattern is "bottom layer implemented, top layer never wires it". Unit tests for `opencode-sqlite.ts` all pass, but `sync.ts` never calls it. Add a command-layer integration test that asserts: when `buildDriverSet()` returns `dbDriversAvailable: true`, `runSyncPipeline` receives a non-undefined `dbDriver`.
+
+2. **Make `dbDriver` explicitly required**: Change `SyncPipelineInput.dbDriver` from optional to required, forcing callers to pass `undefined` explicitly when no DB driver exists. This turns silent omission into a conscious decision.
