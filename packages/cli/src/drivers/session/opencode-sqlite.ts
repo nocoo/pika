@@ -21,7 +21,7 @@
  */
 
 import { stat } from "node:fs/promises";
-import type { OpenCodeSqliteCursor, ParseResult } from "@pika/core";
+import type { OpenCodeSqliteCursor, ParseResult, RawSourceFile } from "@pika/core";
 import {
   parseOpenCodeSqliteSession,
   type OcSession,
@@ -114,22 +114,24 @@ function shouldSkipForJson(
 // Query helpers
 // ---------------------------------------------------------------------------
 
-function querySessions(db: SqliteDb): OcSession[] {
+function querySessions(db: SqliteDb): { sessions: OcSession[]; rawRows: SessionRow[] } {
   const rows = db
     .prepare("SELECT data FROM session ORDER BY rowid")
     .all() as SessionRow[];
 
   const sessions: OcSession[] = [];
+  const rawRows: SessionRow[] = [];
   for (const row of rows) {
     try {
       const data = JSON.parse(row.data) as OcSession;
       if (!data || !data.id) continue;
       sessions.push(data);
+      rawRows.push(row);
     } catch {
       continue;
     }
   }
-  return sessions;
+  return { sessions, rawRows };
 }
 
 function queryMessagesForSession(
@@ -172,6 +174,37 @@ function queryMessagesForSession(
   return messages;
 }
 
+/**
+ * Query ALL messages for a session (no watermark, no dedup).
+ * Used to build a full canonical snapshot once change detection has
+ * confirmed new messages exist.
+ */
+function queryAllMessagesForSession(
+  db: SqliteDb,
+  sessionId: string,
+): { messages: OcMessage[]; rawDataStrings: string[] } {
+  const rows = db
+    .prepare(
+      "SELECT id, session_id, data, time_created FROM message WHERE session_id = ? ORDER BY time_created",
+    )
+    .all(sessionId) as MessageRow[];
+
+  const messages: OcMessage[] = [];
+  const rawDataStrings: string[] = [];
+  for (const row of rows) {
+    try {
+      const data = JSON.parse(row.data) as OcMessage;
+      if (!data || typeof data.role !== "string") continue;
+      if (!data.id) data.id = row.id;
+      messages.push(data);
+      rawDataStrings.push(row.data);
+    } catch {
+      continue;
+    }
+  }
+  return { messages, rawDataStrings };
+}
+
 function queryPartsForMessage(
   db: SqliteDb,
   messageId: string,
@@ -191,6 +224,79 @@ function queryPartsForMessage(
     }
   }
   return parts;
+}
+
+/**
+ * Query parts for a message and also return raw `data` column strings.
+ * Used to build faithful raw source files from the original DB data.
+ */
+function queryPartsForMessageWithRaw(
+  db: SqliteDb,
+  messageId: string,
+): { parts: OcPart[]; rawDataStrings: string[] } {
+  const rows = db
+    .prepare("SELECT data, message_id FROM part WHERE message_id = ? ORDER BY rowid")
+    .all(messageId) as PartRow[];
+
+  const parts: OcPart[] = [];
+  const rawDataStrings: string[] = [];
+  for (const row of rows) {
+    try {
+      const data = JSON.parse(row.data) as OcPart;
+      if (!data || typeof data.type !== "string") continue;
+      parts.push(data);
+      rawDataStrings.push(row.data);
+    } catch {
+      continue;
+    }
+  }
+  return { parts, rawDataStrings };
+}
+
+/**
+ * Build faithful RawSourceFile entries from original DB row data.
+ * Each row's `data` column becomes a separate source file entry
+ * with a virtual path like `sqlite://session/{id}`, `sqlite://message/{id}`, etc.
+ */
+function buildRawSourceFiles(
+  session: OcSession,
+  sessionRow: SessionRow,
+  messageRawStrings: string[],
+  messageIds: string[],
+  partRawStrings: Map<string, string[]>,
+  dbPath: string,
+): RawSourceFile[] {
+  const files: RawSourceFile[] = [];
+
+  // Session row
+  files.push({
+    path: `${dbPath}#session/${session.id}`,
+    format: "sqlite-export",
+    content: sessionRow.data,
+  });
+
+  // Message rows + their part rows
+  for (let i = 0; i < messageIds.length; i++) {
+    const msgId = messageIds[i];
+    files.push({
+      path: `${dbPath}#message/${msgId}`,
+      format: "sqlite-export",
+      content: messageRawStrings[i],
+    });
+
+    const partStrings = partRawStrings.get(msgId);
+    if (partStrings) {
+      for (let j = 0; j < partStrings.length; j++) {
+        files.push({
+          path: `${dbPath}#part/${msgId}/${j}`,
+          format: "sqlite-export",
+          content: partStrings[j],
+        });
+      }
+    }
+  }
+
+  return files;
 }
 
 // ---------------------------------------------------------------------------
@@ -257,34 +363,62 @@ export function createOpenCodeSqliteDriver(
       }
 
       try {
-        const sessions = querySessions(db);
+        const { sessions, rawRows: sessionRawRows } = querySessions(db);
         const results: ParseResult[] = [];
         let totalRows = 0;
         let maxTimeCreated = watermark ?? "";
 
-        for (const session of sessions) {
-          const messages = queryMessagesForSession(
+        for (let si = 0; si < sessions.length; si++) {
+          const session = sessions[si];
+          const sessionRawRow = sessionRawRows[si];
+
+          // Change detection: use watermark-filtered query to see if new messages exist
+          const newMessages = queryMessagesForSession(
             db,
             session.id,
             watermark,
             prevMessageIds,
           );
-          totalRows += messages.length;
+          totalRows += newMessages.length;
 
-          if (messages.length === 0 && watermark) {
+          if (newMessages.length === 0 && watermark) {
             // No new messages since watermark — skip
             continue;
           }
 
-          // Load parts for each message
-          for (const msg of messages) {
-            msg.parts = queryPartsForMessage(db, msg.id);
+          // Full canonical: query ALL messages (no watermark, no dedup)
+          // to produce a complete canonical snapshot, not a partial fragment
+          const { messages: allMessages, rawDataStrings: messageRawStrings } =
+            queryAllMessagesForSession(db, session.id);
+
+          // Load parts for each message (with raw data for fidelity)
+          const messageIds: string[] = [];
+          const partRawMap = new Map<string, string[]>();
+          for (const msg of allMessages) {
+            const { parts, rawDataStrings: partRawStrings } =
+              queryPartsForMessageWithRaw(db, msg.id);
+            msg.parts = parts;
+            messageIds.push(msg.id);
+            if (partRawStrings.length > 0) {
+              partRawMap.set(msg.id, partRawStrings);
+            }
           }
+
+          // Build faithful raw source files from original DB row data
+          const rawSourceFiles = buildRawSourceFiles(
+            session,
+            sessionRawRow,
+            messageRawStrings,
+            messageIds,
+            partRawMap,
+            dbPath,
+          );
 
           const result = parseOpenCodeSqliteSession(
             session,
-            messages,
+            allMessages,
             dbPath,
+            rawSourceFiles,
           );
 
           // Cross-source dedup: skip if JSON already has equal-or-newer data
@@ -311,8 +445,9 @@ export function createOpenCodeSqliteDriver(
             totalMessages: result.canonical.messages.length,
           });
 
-          // Track watermark: latest message time_created
-          for (const msg of messages) {
+          // Track watermark: latest message time_created from new messages
+          // (only new messages advance the watermark)
+          for (const msg of newMessages) {
             const tc = msg.time?.created;
             if (typeof tc === "number" && tc > 0) {
               const iso = new Date(tc).toISOString();

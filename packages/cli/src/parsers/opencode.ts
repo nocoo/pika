@@ -510,16 +510,26 @@ export async function parseOpenCodeJsonSession(
  * Parse OpenCode session from pre-queried SQLite rows.
  *
  * The driver queries the DB and passes structured data here.
- * This function just wraps parseOpenCodeMessages with sqlite-export format.
+ * When rawSourceFiles are provided (original DB row data), they replace
+ * the synthetic JSON.stringify output in the raw archive for fidelity.
  *
  * @param session - Session metadata from SQLite
  * @param messages - Messages with parts pre-loaded
  * @param dbPath - Path to the SQLite DB file
+ * @param rawSourceFiles - Original row data as source files (optional; overrides synthetic raw)
  */
 export function parseOpenCodeSqliteSession(
   session: OcSession,
   messages: OcMessage[],
   dbPath: string,
+  rawSourceFiles?: RawSourceFile[],
 ): ParseResult {
-  return parseOpenCodeMessages(session, messages, "sqlite-export", dbPath);
+  const result = parseOpenCodeMessages(session, messages, "sqlite-export", dbPath);
+
+  // Override synthetic raw with faithful DB row data when provided
+  if (rawSourceFiles && rawSourceFiles.length > 0) {
+    result.raw.sourceFiles = rawSourceFiles;
+  }
+
+  return result;
 }

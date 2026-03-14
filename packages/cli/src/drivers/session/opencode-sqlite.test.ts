@@ -727,7 +727,7 @@ describe("openCodeSqliteDriver.run", () => {
     expect(cursor.lastMessageIds).toHaveLength(2);
   });
 
-  it("deduplicates messages via lastMessageIds on >= watermark", async () => {
+  it("deduplicates messages via lastMessageIds on >= watermark but produces full canonical", async () => {
     const dbPath = join(tmpDir, "test.db");
     await writeFile(dbPath, "dummy");
 
@@ -784,11 +784,12 @@ describe("openCodeSqliteDriver.run", () => {
     const ctx: SyncContext = {};
     const { results } = await driver.run(prevCursor, ctx);
 
-    // Should produce results (new message found) but only the new message
+    // Should produce results (new message detected via watermark)
     expect(results).toHaveLength(1);
-    // The session should contain only the new message (msg_old was deduped)
-    expect(results[0].canonical.messages).toHaveLength(1);
-    expect(results[0].canonical.messages[0].content).toBe("Brand new");
+    // Full canonical: ALL messages appear (not just new ones)
+    expect(results[0].canonical.messages).toHaveLength(2);
+    expect(results[0].canonical.messages[0].content).toBe("Already seen");
+    expect(results[0].canonical.messages[1].content).toBe("Brand new");
   });
 
   it("does not skip SQLite session when JSON has fewer messages", async () => {
@@ -845,5 +846,183 @@ describe("openCodeSqliteDriver.run", () => {
     const { results } = await driver.run(undefined, ctx);
     expect(results).toHaveLength(1);
     expect(results[0].canonical.messages).toHaveLength(2);
+  });
+
+  it("produces faithful raw source files from original DB row data", async () => {
+    const dbPath = join(tmpDir, "test.db");
+    await writeFile(dbPath, "dummy");
+
+    const sessionObj = sessionData("ses_raw");
+    const msgObj = messageData("msg_r1", "ses_raw", "user", 1700000001000);
+    const partObj = partData("prt_r1", "text", { text: "Raw fidelity" });
+
+    const mockDb = createMockDb({
+      session: [{ data: sessionObj }],
+      message: [
+        {
+          id: "msg_r1",
+          session_id: "ses_raw",
+          data: msgObj,
+          time_created: "2023-11-14T16:53:21.000Z",
+        },
+      ],
+      part: [
+        {
+          message_id: "msg_r1",
+          data: partObj,
+        },
+      ],
+    });
+
+    const openDb: OpenDbFn = () => mockDb;
+    const driver = createOpenCodeSqliteDriver(openDb, dbPath);
+    const ctx: SyncContext = {};
+
+    const { results } = await driver.run(undefined, ctx);
+    expect(results).toHaveLength(1);
+
+    const sf = results[0].raw.sourceFiles;
+    // 1 session + 1 message + 1 part = 3 source files
+    expect(sf).toHaveLength(3);
+
+    // All entries have sqlite-export format
+    expect(sf.every((f) => f.format === "sqlite-export")).toBe(true);
+
+    // Session row
+    expect(sf[0].path).toBe(`${dbPath}#session/ses_raw`);
+    expect(JSON.parse(sf[0].content).id).toBe("ses_raw");
+
+    // Message row
+    expect(sf[1].path).toBe(`${dbPath}#message/msg_r1`);
+    expect(JSON.parse(sf[1].content).role).toBe("user");
+
+    // Part row
+    expect(sf[2].path).toBe(`${dbPath}#part/msg_r1/0`);
+    expect(JSON.parse(sf[2].content).text).toBe("Raw fidelity");
+
+    // No source file should be a synthetic JSON.stringify of the messages array
+    for (const f of sf) {
+      const parsed = JSON.parse(f.content);
+      expect(Array.isArray(parsed)).toBe(false);
+    }
+  });
+
+  it("raw source files preserve original data column content verbatim", async () => {
+    const dbPath = join(tmpDir, "test.db");
+    await writeFile(dbPath, "dummy");
+
+    // Use a specific JSON string format (pretty-printed) to verify verbatim preservation
+    const sessionJson = JSON.stringify(sessionData("ses_verbatim"), null, 2);
+    const msgJson = JSON.stringify(
+      messageData("msg_v1", "ses_verbatim", "user", 1700000001000),
+      null,
+      2,
+    );
+    const partJson = JSON.stringify(
+      partData("prt_v1", "text", { text: "Verbatim check" }),
+      null,
+      2,
+    );
+
+    const mockDb = createMockDb({
+      session: [{ data: sessionJson }],
+      message: [
+        {
+          id: "msg_v1",
+          session_id: "ses_verbatim",
+          data: msgJson,
+          time_created: "2023-11-14T16:53:21.000Z",
+        },
+      ],
+      part: [
+        {
+          message_id: "msg_v1",
+          data: partJson,
+        },
+      ],
+    });
+
+    const openDb: OpenDbFn = () => mockDb;
+    const driver = createOpenCodeSqliteDriver(openDb, dbPath);
+    const ctx: SyncContext = {};
+
+    const { results } = await driver.run(undefined, ctx);
+    const sf = results[0].raw.sourceFiles;
+
+    // Content should be the EXACT original data column string
+    expect(sf[0].content).toBe(sessionJson);
+    expect(sf[1].content).toBe(msgJson);
+    expect(sf[2].content).toBe(partJson);
+  });
+
+  it("full canonical snapshot includes all messages even with watermark", async () => {
+    const dbPath = join(tmpDir, "test.db");
+    await writeFile(dbPath, "dummy");
+
+    const { stat: statFn } = await import("node:fs/promises");
+    const dbStat = await statFn(dbPath);
+
+    // 3 messages: old, boundary, and new
+    const oldEpoch = 1700000001000;
+    const boundaryEpoch = 1700000002000;
+    const newEpoch = 1700000003000;
+    const oldIso = new Date(oldEpoch).toISOString();
+    const boundaryIso = new Date(boundaryEpoch).toISOString();
+    const newIso = new Date(newEpoch).toISOString();
+
+    const mockDb = createMockDb({
+      session: [{ data: sessionData("ses_full") }],
+      message: [
+        {
+          id: "msg_old",
+          session_id: "ses_full",
+          data: messageData("msg_old", "ses_full", "user", oldEpoch),
+          time_created: oldIso,
+        },
+        {
+          id: "msg_boundary",
+          session_id: "ses_full",
+          data: messageData("msg_boundary", "ses_full", "assistant", boundaryEpoch, {
+            modelID: "test-model",
+          }),
+          time_created: boundaryIso,
+        },
+        {
+          id: "msg_new",
+          session_id: "ses_full",
+          data: messageData("msg_new", "ses_full", "user", newEpoch),
+          time_created: newIso,
+        },
+      ],
+      part: [
+        { message_id: "msg_old", data: partData("p1", "text", { text: "Old msg" }) },
+        { message_id: "msg_boundary", data: partData("p2", "text", { text: "Boundary msg" }) },
+        { message_id: "msg_new", data: partData("p3", "text", { text: "New msg" }) },
+      ],
+    });
+
+    const openDb: OpenDbFn = () => mockDb;
+    const driver = createOpenCodeSqliteDriver(openDb, dbPath);
+
+    // Watermark at boundary — msg_old is before watermark, msg_boundary was already seen
+    const prevCursor: OpenCodeSqliteCursor = {
+      inode: dbStat.ino,
+      lastTimeCreated: boundaryIso,
+      lastMessageIds: ["msg_boundary"],
+      updatedAt: "2024-01-01T00:00:00.000Z",
+    };
+
+    const ctx: SyncContext = {};
+    const { results } = await driver.run(prevCursor, ctx);
+
+    expect(results).toHaveLength(1);
+    // Full canonical: ALL 3 messages appear, not just msg_new
+    expect(results[0].canonical.messages).toHaveLength(3);
+    expect(results[0].canonical.messages[0].content).toBe("Old msg");
+    expect(results[0].canonical.messages[1].content).toBe("Boundary msg");
+    expect(results[0].canonical.messages[2].content).toBe("New msg");
+
+    // Raw also includes all 3 messages + 3 parts + 1 session = 7 source files
+    expect(results[0].raw.sourceFiles).toHaveLength(7);
   });
 });

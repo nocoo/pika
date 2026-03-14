@@ -1489,6 +1489,74 @@ describe("parseOpenCodeSqliteSession", () => {
     const result = parseOpenCodeSqliteSession(session, [], "/path/to/db");
     expect(result.canonical.messages).toHaveLength(0);
   });
+
+  it("overrides synthetic raw with provided rawSourceFiles", () => {
+    const session = buildSession();
+    const messages = [
+      userMsg("msg_1", "Hello", 1700000000000),
+      assistantMsg("msg_2", "Hi!", 1700000001000),
+    ];
+
+    const rawSourceFiles = [
+      { path: "/db.sqlite#session/ses_test123", format: "sqlite-export" as const, content: '{"id":"ses_test123"}' },
+      { path: "/db.sqlite#message/msg_1", format: "sqlite-export" as const, content: '{"id":"msg_1","role":"user"}' },
+      { path: "/db.sqlite#message/msg_2", format: "sqlite-export" as const, content: '{"id":"msg_2","role":"assistant"}' },
+    ];
+
+    const result = parseOpenCodeSqliteSession(
+      session,
+      messages,
+      "/db.sqlite",
+      rawSourceFiles,
+    );
+
+    expect(result.raw.sourceFiles).toHaveLength(3);
+    expect(result.raw.sourceFiles[0].path).toBe("/db.sqlite#session/ses_test123");
+    expect(result.raw.sourceFiles[0].content).toBe('{"id":"ses_test123"}');
+    // Not a synthetic JSON.stringify of messages array
+    for (const f of result.raw.sourceFiles) {
+      const parsed = JSON.parse(f.content);
+      expect(Array.isArray(parsed)).toBe(false);
+    }
+  });
+
+  it("uses synthetic raw when rawSourceFiles is empty", () => {
+    const session = buildSession();
+    const messages = [
+      userMsg("msg_1", "Hello", 1700000000000),
+      assistantMsg("msg_2", "Hi!", 1700000001000),
+    ];
+
+    const result = parseOpenCodeSqliteSession(
+      session,
+      messages,
+      "/path/to/opencode.db",
+      [], // empty array → does not override
+    );
+
+    // Falls back to synthetic single-entry raw
+    expect(result.raw.sourceFiles).toHaveLength(1);
+    expect(result.raw.sourceFiles[0].path).toBe("/path/to/opencode.db");
+  });
+
+  it("uses synthetic raw when rawSourceFiles is undefined", () => {
+    const session = buildSession();
+    const messages = [
+      userMsg("msg_1", "Hello", 1700000000000),
+      assistantMsg("msg_2", "Hi!", 1700000001000),
+    ];
+
+    const result = parseOpenCodeSqliteSession(
+      session,
+      messages,
+      "/path/to/opencode.db",
+      undefined,
+    );
+
+    // Falls back to synthetic single-entry raw
+    expect(result.raw.sourceFiles).toHaveLength(1);
+    expect(result.raw.sourceFiles[0].format).toBe("sqlite-export");
+  });
 });
 
 // ---------------------------------------------------------------------------
