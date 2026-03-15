@@ -40,6 +40,7 @@ export const NAV_GROUPS: NavGroupDef[] = [
     items: [
       { href: "/dashboard/sessions", label: "Sessions", icon: "MessagesSquare" },
       { href: "/dashboard/search", label: "Search", icon: "Search" },
+      { href: "/dashboard/trash", label: "Trash", icon: "Trash2" },
     ],
   },
   {
@@ -59,6 +60,7 @@ export const ROUTE_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
   sessions: "Sessions",
   search: "Search",
+  trash: "Trash",
   settings: "Settings",
   tags: "Tags",
 };

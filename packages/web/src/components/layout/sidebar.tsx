@@ -11,6 +11,7 @@ import {
   MessagesSquare,
   Search,
   Tags,
+  Trash2,
   PanelLeft,
   LogOut,
   ChevronUp,
@@ -39,6 +40,7 @@ const ICON_MAP: Record<string, ElementType> = {
   MessagesSquare,
   Search,
   Tags,
+  Trash2,
 };
 
 interface NavItem {
