@@ -1,55 +1,153 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { SessionCard, type SessionCardData } from "@/components/sessions/session-card";
+import {
+  useReactTable,
+  getCoreRowModel,
+  type SortingState,
+} from "@tanstack/react-table";
+import { DataTable } from "@/components/ui/data-table";
+import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { SessionFilters } from "@/components/sessions/session-filters";
+import { getSessionColumns } from "@/components/sessions/session-columns";
+import type { SessionCardData } from "@/components/sessions/session-card";
 import type { Source } from "@pika/core";
-import type { SessionSort } from "@/lib/sessions";
+import type { SessionSort, SessionListResponse } from "@/lib/sessions";
+
+// ── Sort mapping ─────────────────────────────────────────────
+
+/** Map TanStack column IDs to API sort params */
+const COLUMN_TO_SORT: Record<string, SessionSort> = {
+  total_messages: "total_messages",
+  total_input_tokens: "total_input_tokens",
+  duration_seconds: "duration_seconds",
+  last_message_at: "last_message_at",
+  started_at: "started_at",
+};
+
+const SORT_TO_COLUMN: Record<SessionSort, string> = {
+  total_messages: "total_messages",
+  total_input_tokens: "total_input_tokens",
+  duration_seconds: "duration_seconds",
+  last_message_at: "last_message_at",
+  started_at: "started_at",
+};
+
+// ── Page component ───────────────────────────────────────────
 
 export default function SessionsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // Read initial filter values from URL
+  // Read initial values from URL
   const initialSource = (searchParams.get("source") ?? "") as Source | "";
   const initialSort = (searchParams.get("sort") ?? "last_message_at") as SessionSort;
+  const initialModel = searchParams.get("model") ?? "";
+  const initialStarred = searchParams.get("starred") === "true";
+  const initialPage = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
+  const initialPageSize = Math.min(100, Math.max(1, parseInt(searchParams.get("pageSize") ?? "50", 10) || 50));
 
+  // State
   const [source, setSource] = useState<Source | "">(initialSource);
   const [sort, setSort] = useState<SessionSort>(initialSort);
+  const [model, setModel] = useState(initialModel);
+  const [starred, setStarred] = useState(initialStarred);
+  const [page, setPage] = useState(initialPage);
+  const [pageSize, setPageSize] = useState(initialPageSize);
   const [sessions, setSessions] = useState<SessionCardData[]>([]);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Build API URL from filters
-  const buildUrl = useCallback(
-    (cursorParam?: string) => {
-      const params = new URLSearchParams();
-      if (source) params.set("source", source);
-      params.set("sort", sort);
-      params.set("limit", "20");
-      if (cursorParam) params.set("cursor", cursorParam);
-      return `/api/sessions?${params.toString()}`;
+  // Star state (optimistic)
+  const [starredMap, setStarredMap] = useState<Map<string, boolean>>(new Map());
+
+  // Sorting state for TanStack
+  const sorting: SortingState = useMemo(() => {
+    const columnId = SORT_TO_COLUMN[sort];
+    return columnId ? [{ id: columnId, desc: true }] : [];
+  }, [sort]);
+
+  // Handle sorting change from table header clicks
+  const onSortingChange = useCallback(
+    (updaterOrValue: SortingState | ((old: SortingState) => SortingState)) => {
+      const newSorting =
+        typeof updaterOrValue === "function"
+          ? updaterOrValue(sorting)
+          : updaterOrValue;
+
+      if (newSorting.length > 0) {
+        const apiSort = COLUMN_TO_SORT[newSorting[0]!.id];
+        if (apiSort) {
+          setSort(apiSort);
+          setPage(1);
+        }
+      }
     },
-    [source, sort],
+    [sorting],
   );
 
-  // Fetch sessions (reset)
+  // Star toggle
+  const handleToggleStar = useCallback(
+    async (sessionId: string, newStarred: boolean) => {
+      setStarredMap((prev) => new Map(prev).set(sessionId, newStarred));
+
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}/star`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ starred: newStarred }),
+        });
+        if (!res.ok) {
+          setStarredMap((prev) => new Map(prev).set(sessionId, !newStarred));
+        }
+      } catch {
+        setStarredMap((prev) => new Map(prev).set(sessionId, !newStarred));
+      }
+    },
+    [],
+  );
+
+  // Column definitions
+  const columns = useMemo(
+    () => getSessionColumns(starredMap, handleToggleStar),
+    [starredMap, handleToggleStar],
+  );
+
+  // TanStack table instance
+  const table = useReactTable({
+    data: sessions,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    manualSorting: true,
+    state: { sorting },
+    onSortingChange,
+    enableSortingRemoval: false,
+  });
+
+  // Build API URL from state
+  const buildUrl = useCallback(() => {
+    const params = new URLSearchParams();
+    if (source) params.set("source", source);
+    if (model) params.set("model", model);
+    if (starred) params.set("starred", "true");
+    params.set("sort", sort);
+    params.set("page", String(page));
+    params.set("limit", String(pageSize));
+    return `/api/sessions?${params.toString()}`;
+  }, [source, model, starred, sort, page, pageSize]);
+
+  // Fetch sessions
   const fetchSessions = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(buildUrl());
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setSessions(data.sessions);
-      setCursor(data.cursor);
-      setHasMore(data.hasMore);
+      const data: SessionListResponse = await res.json();
+      setSessions(data.sessions as unknown as SessionCardData[]);
+      setTotalCount(data.totalCount ?? 0);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load sessions");
     } finally {
@@ -57,40 +155,49 @@ export default function SessionsPage() {
     }
   }, [buildUrl]);
 
-  // Fetch more (append)
-  const loadMore = useCallback(async () => {
-    if (!cursor || loadingMore) return;
-    setLoadingMore(true);
-    try {
-      const res = await fetch(buildUrl(cursor));
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setSessions((prev) => [...prev, ...data.sessions]);
-      setCursor(data.cursor);
-      setHasMore(data.hasMore);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load more");
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [cursor, loadingMore, buildUrl]);
-
-  // Re-fetch when filters change
+  // Re-fetch when dependencies change
   useEffect(() => {
     fetchSessions();
   }, [fetchSessions]);
 
-  // Sync filters to URL
+  // Sync state to URL
   useEffect(() => {
     const params = new URLSearchParams();
     if (source) params.set("source", source);
+    if (model) params.set("model", model);
+    if (starred) params.set("starred", "true");
     if (sort !== "last_message_at") params.set("sort", sort);
+    if (page > 1) params.set("page", String(page));
+    if (pageSize !== 50) params.set("pageSize", String(pageSize));
     const query = params.toString();
-    router.replace(`/dashboard/sessions${query ? `?${query}` : ""}`, { scroll: false });
-  }, [source, sort, router]);
+    router.replace(`/dashboard/sessions${query ? `?${query}` : ""}`, {
+      scroll: false,
+    });
+  }, [source, model, starred, sort, page, pageSize, router]);
+
+  // Reset to page 1 when filters change
+  const handleSourceChange = useCallback((s: Source | "") => {
+    setSource(s);
+    setPage(1);
+  }, []);
+
+  const handleModelChange = useCallback((m: string) => {
+    setModel(m);
+    setPage(1);
+  }, []);
+
+  const handleStarredChange = useCallback((s: boolean) => {
+    setStarred(s);
+    setPage(1);
+  }, []);
+
+  const handleSortChange = useCallback((s: SessionSort) => {
+    setSort(s);
+    setPage(1);
+  }, []);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -104,8 +211,12 @@ export default function SessionsPage() {
         <SessionFilters
           source={source}
           sort={sort}
-          onSourceChange={setSource}
-          onSortChange={setSort}
+          model={model}
+          starred={starred}
+          onSourceChange={handleSourceChange}
+          onSortChange={handleSortChange}
+          onModelChange={handleModelChange}
+          onStarredChange={handleStarredChange}
         />
       </div>
 
@@ -114,44 +225,23 @@ export default function SessionsPage() {
         <div className="text-sm text-destructive py-4">{error}</div>
       )}
 
-      {/* Loading skeleton */}
-      {loading && (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-40 rounded-xl" />
-          ))}
-        </div>
-      )}
+      {/* Data table */}
+      <DataTable
+        table={table}
+        columns={columns}
+        loading={loading}
+        emptyMessage="No sessions found. Try adjusting your filters."
+      />
 
-      {/* Session list */}
-      {!loading && sessions.length === 0 && (
-        <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">
-          No sessions found. Try adjusting your filters.
-        </div>
-      )}
-
-      {!loading && sessions.length > 0 && (
-        <>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {sessions.map((session) => (
-              <SessionCard key={session.id} session={session} />
-            ))}
-          </div>
-
-          {/* Load more */}
-          {hasMore && (
-            <div className="flex justify-center pt-2">
-              <Button
-                variant="outline"
-                onClick={loadMore}
-                disabled={loadingMore}
-              >
-                {loadingMore ? "Loading..." : "Load more"}
-              </Button>
-            </div>
-          )}
-        </>
-      )}
+      {/* Pagination */}
+      <DataTablePagination
+        page={page}
+        pageSize={pageSize}
+        totalCount={totalCount}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        loading={loading}
+      />
     </div>
   );
 }

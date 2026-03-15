@@ -138,8 +138,12 @@ export default function SearchPage() {
         <SessionFilters
           source={source}
           sort="last_message_at"
+          model=""
+          starred={false}
           onSourceChange={setSource}
           onSortChange={() => {}}
+          onModelChange={() => {}}
+          onStarredChange={() => {}}
           hideSort
         />
       </div>
