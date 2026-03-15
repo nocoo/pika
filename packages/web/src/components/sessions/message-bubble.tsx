@@ -46,9 +46,15 @@ export const MessageBubble = memo(function MessageBubble({
     });
   }, [message.timestamp]);
 
+  // Stagger animation delay based on index (cap at 20 to avoid long waits)
+  const animDelay = Math.min(index, 20) * 30;
+
   return (
-    <div className={cn("flex flex-col", className)} id={`msg-${index}`}>
-      {/* Timestamp separator — centered line with time label */}
+    <div
+      className={cn("flex flex-col animate-message-in", className)}
+      style={{ animationDelay: `${animDelay}ms` }}
+      id={`msg-${index}`}
+    >      {/* Timestamp separator — centered line with time label */}
       {showTimestamp && timeLabel && (
         <div className="flex items-center gap-3 py-3">
           <div className="h-px flex-1 bg-border" />

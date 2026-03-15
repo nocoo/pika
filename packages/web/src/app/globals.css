@@ -291,3 +291,20 @@
     opacity: 1 !important;
   }
 }
+
+/* Message bubble entrance animation */
+@keyframes message-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@utility animate-message-in {
+  animation: message-in 0.3s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-message-in {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+}
