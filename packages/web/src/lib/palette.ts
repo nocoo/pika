@@ -15,7 +15,7 @@ export const withAlpha = (token: string, alpha: number) =>
 // -- 8 sequential chart colors --
 
 export const chart = {
-  teal:      v("chart-1"),  // Brand teal (= --primary)
+  gold:      v("chart-1"),  // Brand gold (= --primary)
   sky:       v("chart-2"),
   jade:      v("chart-3"),
   green:     v("chart-4"),
@@ -43,7 +43,7 @@ export const chartPositive = chart.green;
 export const chartNegative = v("destructive");
 
 /** Primary chart accent (most-used single color) */
-export const chartPrimary = chart.teal;
+export const chartPrimary = chart.gold;
 
 // ---------------------------------------------------------------------------
 // Stable color mapping — deterministic colors for agents & models
@@ -61,7 +61,7 @@ export interface ChartColor {
  * Every agent always renders the same color across all charts.
  */
 const AGENT_COLOR_MAP: Record<string, ChartColor> = {
-  "claude-code":    { color: chart.teal,      token: "chart-1" },
+  "claude-code":    { color: chart.gold,      token: "chart-1" },
   "codex":          { color: chart.sky,        token: "chart-2" },
   "gemini-cli":     { color: chart.jade,       token: "chart-3" },
   "opencode":       { color: chart.green,      token: "chart-4" },

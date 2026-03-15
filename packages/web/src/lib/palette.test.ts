@@ -22,7 +22,7 @@ describe("palette constants", () => {
 
   it("CHART_COLORS has 8 entries matching chart values", () => {
     expect(CHART_COLORS).toHaveLength(8);
-    expect(CHART_COLORS[0]).toBe(chart.teal);
+    expect(CHART_COLORS[0]).toBe(chart.gold);
     expect(CHART_COLORS[7]).toBe(chart.vermilion);
   });
 
@@ -33,7 +33,7 @@ describe("palette constants", () => {
   });
 
   it("chart values are hsl(var(--chart-N)) format", () => {
-    expect(chart.teal).toBe("hsl(var(--chart-1))");
+    expect(chart.gold).toBe("hsl(var(--chart-1))");
     expect(chart.vermilion).toBe("hsl(var(--chart-8))");
   });
 
@@ -42,7 +42,7 @@ describe("palette constants", () => {
     expect(chartMuted).toBe("hsl(var(--chart-muted))");
     expect(chartPositive).toBe(chart.green);
     expect(chartNegative).toBe("hsl(var(--destructive))");
-    expect(chartPrimary).toBe(chart.teal);
+    expect(chartPrimary).toBe(chart.gold);
   });
 });
 
