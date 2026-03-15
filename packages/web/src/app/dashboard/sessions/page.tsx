@@ -9,7 +9,10 @@ import {
 } from "@tanstack/react-table";
 import { DataTable } from "@/components/ui/data-table";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
-import { SessionFilters } from "@/components/sessions/session-filters";
+import {
+  SessionFilters,
+  type MessageRange,
+} from "@/components/sessions/session-filters";
 import { getSessionColumns } from "@/components/sessions/session-columns";
 import type { SessionCardData } from "@/components/sessions/session-card";
 import type { Source } from "@pika/core";
@@ -34,6 +37,26 @@ const SORT_TO_COLUMN: Record<SessionSort, string> = {
   started_at: "started_at",
 };
 
+// ── Message range → API params ──────────────────────────────
+
+function messageRangeToParams(range: MessageRange): {
+  minMessages?: string;
+  maxMessages?: string;
+} {
+  switch (range) {
+    case "1-10":
+      return { minMessages: "1", maxMessages: "10" };
+    case "11-50":
+      return { minMessages: "11", maxMessages: "50" };
+    case "51-200":
+      return { minMessages: "51", maxMessages: "200" };
+    case "201+":
+      return { minMessages: "201" };
+    default:
+      return {};
+  }
+}
+
 // ── Page component ───────────────────────────────────────────
 
 export default function SessionsPage() {
@@ -45,6 +68,7 @@ export default function SessionsPage() {
   const initialSort = (searchParams.get("sort") ?? "last_message_at") as SessionSort;
   const initialModel = searchParams.get("model") ?? "";
   const initialStarred = searchParams.get("starred") === "true";
+  const initialMessageRange = (searchParams.get("messageRange") ?? "") as MessageRange;
   const initialPage = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const initialPageSize = Math.min(100, Math.max(1, parseInt(searchParams.get("pageSize") ?? "50", 10) || 50));
 
@@ -53,6 +77,7 @@ export default function SessionsPage() {
   const [sort, setSort] = useState<SessionSort>(initialSort);
   const [model, setModel] = useState(initialModel);
   const [starred, setStarred] = useState(initialStarred);
+  const [messageRange, setMessageRange] = useState<MessageRange>(initialMessageRange);
   const [page, setPage] = useState(initialPage);
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [sessions, setSessions] = useState<SessionCardData[]>([]);
@@ -135,8 +160,13 @@ export default function SessionsPage() {
     params.set("sort", sort);
     params.set("page", String(page));
     params.set("limit", String(pageSize));
+
+    const msgParams = messageRangeToParams(messageRange);
+    if (msgParams.minMessages) params.set("minMessages", msgParams.minMessages);
+    if (msgParams.maxMessages) params.set("maxMessages", msgParams.maxMessages);
+
     return `/api/sessions?${params.toString()}`;
-  }, [source, model, starred, sort, page, pageSize]);
+  }, [source, model, starred, sort, page, pageSize, messageRange]);
 
   // Fetch sessions
   const fetchSessions = useCallback(async () => {
@@ -167,13 +197,14 @@ export default function SessionsPage() {
     if (model) params.set("model", model);
     if (starred) params.set("starred", "true");
     if (sort !== "last_message_at") params.set("sort", sort);
+    if (messageRange) params.set("messageRange", messageRange);
     if (page > 1) params.set("page", String(page));
     if (pageSize !== 50) params.set("pageSize", String(pageSize));
     const query = params.toString();
     router.replace(`/dashboard/sessions${query ? `?${query}` : ""}`, {
       scroll: false,
     });
-  }, [source, model, starred, sort, page, pageSize, router]);
+  }, [source, model, starred, sort, messageRange, page, pageSize, router]);
 
   // Reset to page 1 when filters change
   const handleSourceChange = useCallback((s: Source | "") => {
@@ -196,6 +227,11 @@ export default function SessionsPage() {
     setPage(1);
   }, []);
 
+  const handleMessageRangeChange = useCallback((r: MessageRange) => {
+    setMessageRange(r);
+    setPage(1);
+  }, []);
+
   return (
     <div className="flex flex-col gap-4">
       {/* Header */}
@@ -213,10 +249,12 @@ export default function SessionsPage() {
           sort={sort}
           model={model}
           starred={starred}
+          messageRange={messageRange}
           onSourceChange={handleSourceChange}
           onSortChange={handleSortChange}
           onModelChange={handleModelChange}
           onStarredChange={handleStarredChange}
+          onMessageRangeChange={handleMessageRangeChange}
         />
       </div>
 

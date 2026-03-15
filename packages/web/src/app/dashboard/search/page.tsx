@@ -140,10 +140,12 @@ export default function SearchPage() {
           sort="last_message_at"
           model=""
           starred={false}
+          messageRange=""
           onSourceChange={setSource}
           onSortChange={() => {}}
           onModelChange={() => {}}
           onStarredChange={() => {}}
+          onMessageRangeChange={() => {}}
           hideSort
         />
       </div>

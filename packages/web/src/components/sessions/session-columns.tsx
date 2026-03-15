@@ -14,9 +14,9 @@ import {
 import { agentColor } from "@/lib/palette";
 import type { SessionCardData } from "./session-card";
 
-// ── Star cell ────────────────────────────────────────────────
+// ── Title + Star cell ────────────────────────────────────────
 
-function StarCell({
+function TitleStarCell({
   session,
   starred,
   onToggle,
@@ -26,24 +26,35 @@ function StarCell({
   onToggle: (sessionId: string, starred: boolean) => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onToggle(session.id, !starred);
-      }}
-      className={cn(
-        "p-0.5 rounded transition-colors hover:text-amber-500",
-        starred ? "text-amber-500" : "text-muted-foreground/40",
-      )}
-      aria-label={starred ? "Unstar session" : "Star session"}
-    >
-      <Star
-        className="h-3.5 w-3.5"
-        fill={starred ? "currentColor" : "none"}
-      />
-    </button>
+    <div className="group flex items-center gap-1.5 min-w-0">
+      <Link
+        href={`/dashboard/sessions/${session.id}`}
+        className="text-sm font-medium text-foreground hover:underline truncate block max-w-[300px] xl:max-w-[400px]"
+        title={session.title ?? "Untitled session"}
+      >
+        {session.title ?? "Untitled session"}
+      </Link>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onToggle(session.id, !starred);
+        }}
+        className={cn(
+          "shrink-0 p-0.5 rounded transition-colors hover:text-amber-500",
+          starred
+            ? "text-amber-500"
+            : "text-muted-foreground/40 opacity-0 group-hover:opacity-100",
+        )}
+        aria-label={starred ? "Unstar session" : "Star session"}
+      >
+        <Star
+          className="h-3.5 w-3.5"
+          fill={starred ? "currentColor" : "none"}
+        />
+      </button>
+    </div>
   );
 }
 
@@ -54,30 +65,11 @@ export function getSessionColumns(
   onToggleStar: (sessionId: string, starred: boolean) => void,
 ): ColumnDef<SessionCardData, unknown>[] {
   return [
-    // Star
-    {
-      id: "star",
-      size: 40,
-      enableSorting: false,
-      header: () => null,
-      cell: ({ row }) => {
-        const session = row.original;
-        const starred = starredMap.get(session.id) ?? session.is_starred === 1;
-        return (
-          <StarCell
-            session={session}
-            starred={starred}
-            onToggle={onToggleStar}
-          />
-        );
-      },
-    },
-
-    // Source
+    // Agent (was "Source")
     {
       id: "source",
       enableSorting: false,
-      header: "Source",
+      header: "Agent",
       size: 130,
       cell: ({ row }) => {
         const agent = agentColor(row.original.source);
@@ -93,32 +85,31 @@ export function getSessionColumns(
       },
     },
 
-    // Title
+    // Title (with inline star on hover)
     {
       accessorKey: "title",
       header: "Title",
       enableSorting: false,
       cell: ({ row }) => {
         const session = row.original;
+        const starred = starredMap.get(session.id) ?? session.is_starred === 1;
         return (
-          <Link
-            href={`/dashboard/sessions/${session.id}`}
-            className="text-sm font-medium text-foreground hover:underline truncate block max-w-[300px] xl:max-w-[400px]"
-            title={session.title ?? "Untitled session"}
-          >
-            {session.title ?? "Untitled session"}
-          </Link>
+          <TitleStarCell
+            session={session}
+            starred={starred}
+            onToggle={onToggleStar}
+          />
         );
       },
     },
 
-    // Model
+    // Model (full width, no truncation)
     {
       accessorKey: "model",
       header: "Model",
       enableSorting: false,
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground truncate block max-w-[120px]">
+        <span className="text-sm text-muted-foreground whitespace-nowrap">
           {row.original.model ?? "—"}
         </span>
       ),
