@@ -71,3 +71,8 @@ export {
   chunkMessage,
   chunkMessages,
 } from "./chunking";
+
+export {
+  generateTitle,
+  getFirstUserMessage,
+} from "./title";

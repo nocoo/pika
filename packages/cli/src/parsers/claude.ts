@@ -20,7 +20,7 @@
 import { createReadStream } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { createInterface } from "node:readline";
-import { PARSER_REVISION, SCHEMA_VERSION } from "@pika/core";
+import { PARSER_REVISION, SCHEMA_VERSION, generateTitle, getFirstUserMessage } from "@pika/core";
 import type {
   CanonicalMessage,
   CanonicalSession,
@@ -310,7 +310,7 @@ function buildParseResult(
     projectRef: extractProjectRef(filePath),
     projectName: extractProjectName(filePath),
     model: accum.lastModel,
-    title: null,
+    title: generateTitle(extractProjectName(filePath), getFirstUserMessage(accum.messages)),
     messages: accum.messages,
     totalInputTokens: accum.totalInputTokens,
     totalOutputTokens: accum.totalOutputTokens,

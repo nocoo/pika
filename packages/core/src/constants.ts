@@ -1,5 +1,5 @@
 /** Monotonic integer, bumped on parser bug fixes */
-export const PARSER_REVISION = 1;
+export const PARSER_REVISION = 2;
 
 /** Canonical schema version */
 export const SCHEMA_VERSION = 1;

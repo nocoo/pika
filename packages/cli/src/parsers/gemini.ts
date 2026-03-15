@@ -22,7 +22,7 @@
  */
 
 import { readFile, stat } from "node:fs/promises";
-import { PARSER_REVISION, SCHEMA_VERSION } from "@pika/core";
+import { PARSER_REVISION, SCHEMA_VERSION, generateTitle, getFirstUserMessage } from "@pika/core";
 import type {
   CanonicalMessage,
   CanonicalSession,
@@ -261,7 +261,7 @@ function buildParseResult(
     projectRef: extractProjectRef(session.projectHash),
     projectName: extractProjectName(session.projectHash),
     model: accum.lastModel,
-    title: null,
+    title: generateTitle(extractProjectName(session.projectHash), getFirstUserMessage(accum.messages)),
     messages: accum.messages,
     totalInputTokens: accum.totalInputTokens,
     totalOutputTokens: accum.totalOutputTokens,

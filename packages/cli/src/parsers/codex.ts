@@ -24,7 +24,7 @@ import { stat } from "node:fs/promises";
 import { basename } from "node:path";
 import { createInterface } from "node:readline";
 import { createHash } from "node:crypto";
-import { PARSER_REVISION, SCHEMA_VERSION } from "@pika/core";
+import { PARSER_REVISION, SCHEMA_VERSION, generateTitle, getFirstUserMessage } from "@pika/core";
 import type {
   CanonicalMessage,
   CanonicalSession,
@@ -354,7 +354,7 @@ function buildParseResult(
     projectRef: extractProjectRef(accum.cwd),
     projectName: extractProjectName(accum.cwd),
     model: accum.lastModel,
-    title: null,
+    title: generateTitle(extractProjectName(accum.cwd), getFirstUserMessage(accum.messages)),
     messages: accum.messages,
     totalInputTokens: accum.totalInputTokens,
     totalOutputTokens: accum.totalOutputTokens,
