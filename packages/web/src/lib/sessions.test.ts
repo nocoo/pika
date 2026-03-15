@@ -1,11 +1,14 @@
 import { describe, it, expect } from "vitest";
 import {
   buildSessionListQuery,
+  buildSessionCountQuery,
   buildToggleStarQuery,
+  buildFilterOptionsQuery,
   encodeCursor,
   decodeCursor,
   validateSort,
   shapeSessionListResponse,
+  shapeOffsetResponse,
   parseSessionListParams,
   type SessionRow,
   type SessionSort,
@@ -26,6 +29,7 @@ describe("validateSort", () => {
     "last_message_at",
     "started_at",
     "total_input_tokens",
+    "total_messages",
     "duration_seconds",
   ] as SessionSort[])("accepts valid sort: %s", (sort) => {
     expect(validateSort(sort)).toBe(sort);
@@ -108,6 +112,16 @@ describe("buildSessionListQuery", () => {
     expect(params).toContain("abc123");
   });
 
+  it("adds model filter", () => {
+    const { sql, params } = buildSessionListQuery({
+      userId: "u1",
+      model: "claude-4",
+    });
+
+    expect(sql).toContain("s.model = ?");
+    expect(params).toContain("claude-4");
+  });
+
   it("adds time range filters", () => {
     const { sql, params } = buildSessionListQuery({
       userId: "u1",
@@ -135,6 +149,19 @@ describe("buildSessionListQuery", () => {
     expect(sql).not.toContain("s.is_starred = 1");
   });
 
+  it("adds message range filters", () => {
+    const { sql, params } = buildSessionListQuery({
+      userId: "u1",
+      minMessages: 5,
+      maxMessages: 100,
+    });
+
+    expect(sql).toContain("s.total_messages >= ?");
+    expect(sql).toContain("s.total_messages <= ?");
+    expect(params).toContain(5);
+    expect(params).toContain(100);
+  });
+
   it("applies keyset cursor pagination", () => {
     const cursor = encodeCursor({ v: "2026-03-01T00:00:00Z", id: "sess-5" });
     const { sql, params } = buildSessionListQuery({
@@ -155,6 +182,15 @@ describe("buildSessionListQuery", () => {
     });
 
     expect(sql).toContain("ORDER BY s.total_input_tokens DESC");
+  });
+
+  it("accepts total_messages sort", () => {
+    const { sql } = buildSessionListQuery({
+      userId: "u1",
+      sort: "total_messages",
+    });
+
+    expect(sql).toContain("ORDER BY s.total_messages DESC");
   });
 
   it("clamps limit to max 100", () => {
@@ -206,6 +242,90 @@ describe("buildSessionListQuery", () => {
     expect(params).toContain("2026-02-01");
     // limit + 1 = 26
     expect(params[params.length - 1]).toBe(26);
+  });
+
+  // ── Offset pagination ──────────────────────────────────────
+
+  it("uses LIMIT/OFFSET when page is specified", () => {
+    const { sql, params } = buildSessionListQuery({
+      userId: "u1",
+      page: 2,
+      limit: 25,
+    });
+
+    expect(sql).toContain("LIMIT ? OFFSET ?");
+    expect(sql).not.toContain("LIMIT ?\n"); // no standalone LIMIT
+    // Last two params: limit=25, offset=25 (page 2, 0-indexed)
+    expect(params[params.length - 2]).toBe(25);
+    expect(params[params.length - 1]).toBe(25);
+  });
+
+  it("offset is 0 for page 1", () => {
+    const { params } = buildSessionListQuery({
+      userId: "u1",
+      page: 1,
+      limit: 50,
+    });
+
+    // limit=50, offset=0
+    expect(params[params.length - 2]).toBe(50);
+    expect(params[params.length - 1]).toBe(0);
+  });
+
+  it("ignores cursor when page is specified", () => {
+    const cursor = encodeCursor({ v: "2026-01-01", id: "s1" });
+    const { sql } = buildSessionListQuery({
+      userId: "u1",
+      page: 1,
+      cursor,
+    });
+
+    // Should not have keyset condition
+    expect(sql).not.toContain("s.last_message_at < ?");
+    expect(sql).toContain("LIMIT ? OFFSET ?");
+  });
+});
+
+// ── buildSessionCountQuery ───────────────────────────────────
+
+describe("buildSessionCountQuery", () => {
+  it("builds count query with same WHERE filters", () => {
+    const { sql, params } = buildSessionCountQuery({
+      userId: "u1",
+      source: "claude-code",
+      starred: true,
+    });
+
+    expect(sql).toContain("SELECT COUNT(*) as count");
+    expect(sql).toContain("s.user_id = ?");
+    expect(sql).toContain("s.source = ?");
+    expect(sql).toContain("s.is_starred = 1");
+    expect(sql).not.toContain("ORDER BY");
+    expect(sql).not.toContain("LIMIT");
+    expect(params).toEqual(["u1", "claude-code"]);
+  });
+
+  it("includes model filter in count", () => {
+    const { sql, params } = buildSessionCountQuery({
+      userId: "u1",
+      model: "claude-4",
+    });
+
+    expect(sql).toContain("s.model = ?");
+    expect(params).toContain("claude-4");
+  });
+
+  it("includes message range in count", () => {
+    const { sql, params } = buildSessionCountQuery({
+      userId: "u1",
+      minMessages: 10,
+      maxMessages: 50,
+    });
+
+    expect(sql).toContain("s.total_messages >= ?");
+    expect(sql).toContain("s.total_messages <= ?");
+    expect(params).toContain(10);
+    expect(params).toContain(50);
   });
 });
 
@@ -281,6 +401,40 @@ describe("shapeSessionListResponse", () => {
   });
 });
 
+// ── shapeOffsetResponse ──────────────────────────────────────
+
+describe("shapeOffsetResponse", () => {
+  it("includes pagination metadata", () => {
+    const rows = [makeRow("1"), makeRow("2")];
+    const result = shapeOffsetResponse(rows, 100, 1, 50);
+
+    expect(result.sessions).toHaveLength(2);
+    expect(result.totalCount).toBe(100);
+    expect(result.page).toBe(1);
+    expect(result.pageSize).toBe(50);
+    expect(result.hasMore).toBe(true);
+    expect(result.cursor).toBeNull();
+  });
+
+  it("hasMore is false on last page", () => {
+    const rows = [makeRow("1")];
+    const result = shapeOffsetResponse(rows, 51, 2, 50);
+
+    // page 2, pageSize 50: 2 * 50 = 100 > 51 → no more
+    expect(result.hasMore).toBe(false);
+  });
+
+  it("hasMore is false when total equals page * pageSize", () => {
+    const result = shapeOffsetResponse([], 50, 1, 50);
+    expect(result.hasMore).toBe(false);
+  });
+
+  it("hasMore is true when more rows exist beyond current page", () => {
+    const result = shapeOffsetResponse([makeRow("1")], 100, 1, 50);
+    expect(result.hasMore).toBe(true);
+  });
+});
+
 // ── parseSessionListParams ─────────────────────────────────────
 
 describe("parseSessionListParams", () => {
@@ -289,11 +443,15 @@ describe("parseSessionListParams", () => {
 
     expect(params.source).toBeUndefined();
     expect(params.project).toBeUndefined();
+    expect(params.model).toBeUndefined();
     expect(params.from).toBeUndefined();
     expect(params.to).toBeUndefined();
     expect(params.starred).toBeUndefined();
+    expect(params.minMessages).toBeUndefined();
+    expect(params.maxMessages).toBeUndefined();
     expect(params.sort).toBe("last_message_at");
     expect(params.cursor).toBeUndefined();
+    expect(params.page).toBeUndefined();
     expect(params.limit).toBe(50);
   });
 
@@ -301,24 +459,32 @@ describe("parseSessionListParams", () => {
     const sp = new URLSearchParams({
       source: "claude-code",
       project: "abc",
+      model: "claude-4",
       from: "2026-01-01",
       to: "2026-12-31",
       starred: "true",
       sort: "started_at",
       cursor: "abc123",
+      page: "3",
       limit: "25",
+      minMessages: "5",
+      maxMessages: "100",
     });
 
     const params = parseSessionListParams(sp);
 
     expect(params.source).toBe("claude-code");
     expect(params.project).toBe("abc");
+    expect(params.model).toBe("claude-4");
     expect(params.from).toBe("2026-01-01");
     expect(params.to).toBe("2026-12-31");
     expect(params.starred).toBe(true);
     expect(params.sort).toBe("started_at");
     expect(params.cursor).toBe("abc123");
+    expect(params.page).toBe(3);
     expect(params.limit).toBe(25);
+    expect(params.minMessages).toBe(5);
+    expect(params.maxMessages).toBe(100);
   });
 
   it("ignores invalid source", () => {
@@ -350,6 +516,22 @@ describe("parseSessionListParams", () => {
     const sp = new URLSearchParams({ starred: "false" });
     expect(parseSessionListParams(sp).starred).toBeUndefined();
   });
+
+  it("page is undefined for invalid values", () => {
+    expect(parseSessionListParams(new URLSearchParams({ page: "abc" })).page).toBeUndefined();
+    expect(parseSessionListParams(new URLSearchParams({ page: "0" })).page).toBeUndefined();
+    expect(parseSessionListParams(new URLSearchParams({ page: "-1" })).page).toBeUndefined();
+  });
+
+  it("parses valid page number", () => {
+    expect(parseSessionListParams(new URLSearchParams({ page: "1" })).page).toBe(1);
+    expect(parseSessionListParams(new URLSearchParams({ page: "5" })).page).toBe(5);
+  });
+
+  it("model is undefined for empty string", () => {
+    const sp = new URLSearchParams({ model: "" });
+    expect(parseSessionListParams(sp).model).toBeUndefined();
+  });
 });
 
 // ── buildToggleStarQuery ───────────────────────────────────────
@@ -370,5 +552,25 @@ describe("buildToggleStarQuery", () => {
   it("scopes update to session owner", () => {
     const { sql } = buildToggleStarQuery("sess-1", "u1", true);
     expect(sql).toContain("user_id = ?");
+  });
+});
+
+// ── buildFilterOptionsQuery ──────────────────────────────────
+
+describe("buildFilterOptionsQuery", () => {
+  it("builds models query scoped to user", () => {
+    const { modelsSql, modelsParams } = buildFilterOptionsQuery("u1");
+    expect(modelsSql).toContain("SELECT DISTINCT s.model");
+    expect(modelsSql).toContain("s.user_id = ?");
+    expect(modelsSql).toContain("s.model IS NOT NULL");
+    expect(modelsParams).toEqual(["u1"]);
+  });
+
+  it("builds projects query scoped to user", () => {
+    const { projectsSql, projectsParams } = buildFilterOptionsQuery("u1");
+    expect(projectsSql).toContain("SELECT DISTINCT s.project_ref, s.project_name");
+    expect(projectsSql).toContain("s.user_id = ?");
+    expect(projectsSql).toContain("s.project_ref IS NOT NULL");
+    expect(projectsParams).toEqual(["u1"]);
   });
 });

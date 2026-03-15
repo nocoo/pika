@@ -13,11 +13,15 @@ export interface SessionListParams {
   userId: string;
   source?: Source;
   project?: string;
+  model?: string;
   from?: string; // ISO 8601
   to?: string; // ISO 8601
   starred?: boolean;
+  minMessages?: number;
+  maxMessages?: number;
   sort?: SessionSort;
   cursor?: string; // opaque base64-encoded keyset cursor
+  page?: number; // 1-based page number (offset pagination)
   limit?: number;
 }
 
@@ -25,12 +29,14 @@ export type SessionSort =
   | "last_message_at"
   | "started_at"
   | "total_input_tokens"
+  | "total_messages"
   | "duration_seconds";
 
 const VALID_SORTS: ReadonlySet<string> = new Set<SessionSort>([
   "last_message_at",
   "started_at",
   "total_input_tokens",
+  "total_messages",
   "duration_seconds",
 ]);
 
@@ -70,66 +76,110 @@ export interface BuiltQuery {
   params: unknown[];
 }
 
-// ── Query builder ──────────────────────────────────────────────
+// ── Shared WHERE builder ──────────────────────────────────────
 
-/**
- * Build a paginated, filtered SQL query for the sessions list.
- *
- * Uses keyset pagination: the cursor encodes the sort column value
- * and session id from the last row of the previous page.
- */
-export function buildSessionListQuery(params: SessionListParams): BuiltQuery {
-  const sort = validateSort(params.sort);
-  const limit = Math.min(Math.max(params.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
-  const desc = sort !== "total_input_tokens"; // tokens sort ASC makes no sense, but keep DESC for consistency
-  const dir = "DESC";
-  const op = "<";
-
+function buildWhereClause(params: SessionListParams): {
+  conditions: string[];
+  queryParams: unknown[];
+} {
   const conditions: string[] = ["s.user_id = ?"];
   const queryParams: unknown[] = [params.userId];
 
-  // Source filter
   if (params.source) {
     conditions.push("s.source = ?");
     queryParams.push(params.source);
   }
 
-  // Project filter
   if (params.project) {
     conditions.push("s.project_ref = ?");
     queryParams.push(params.project);
   }
 
-  // Time range
+  if (params.model) {
+    conditions.push("s.model = ?");
+    queryParams.push(params.model);
+  }
+
   if (params.from) {
     conditions.push("s.last_message_at >= ?");
     queryParams.push(params.from);
   }
+
   if (params.to) {
     conditions.push("s.last_message_at <= ?");
     queryParams.push(params.to);
   }
 
-  // Starred filter
   if (params.starred) {
     conditions.push("s.is_starred = 1");
   }
 
-  // Cursor (keyset pagination)
-  const cursor = decodeCursor(params.cursor);
-  if (cursor) {
-    // Keyset: (sort_col < cursor_val) OR (sort_col = cursor_val AND id < cursor_id)
-    conditions.push(`(s.${sort} ${op} ? OR (s.${sort} = ? AND s.id ${op} ?))`);
-    queryParams.push(cursor.v, cursor.v, cursor.id);
+  if (params.minMessages != null) {
+    conditions.push("s.total_messages >= ?");
+    queryParams.push(params.minMessages);
+  }
+
+  if (params.maxMessages != null) {
+    conditions.push("s.total_messages <= ?");
+    queryParams.push(params.maxMessages);
+  }
+
+  return { conditions, queryParams };
+}
+
+// ── Query builder ──────────────────────────────────────────────
+
+/**
+ * Build a paginated, filtered SQL query for the sessions list.
+ *
+ * Supports two pagination modes:
+ * - Keyset (cursor): for infinite scroll — uses cursor token
+ * - Offset (page): for DataTable — uses LIMIT/OFFSET
+ */
+export function buildSessionListQuery(params: SessionListParams): BuiltQuery {
+  const sort = validateSort(params.sort);
+  const limit = Math.min(Math.max(params.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
+  const dir = "DESC";
+  const op = "<";
+
+  const { conditions, queryParams } = buildWhereClause(params);
+
+  // Cursor (keyset pagination) — only when no page is specified
+  if (!params.page) {
+    const cursor = decodeCursor(params.cursor);
+    if (cursor) {
+      conditions.push(`(s.${sort} ${op} ? OR (s.${sort} = ? AND s.id ${op} ?))`);
+      queryParams.push(cursor.v, cursor.v, cursor.id);
+    }
   }
 
   const where = conditions.join(" AND ");
 
-  const sql = [
+  const selectCols = [
     `SELECT s.id, s.session_key, s.source, s.started_at, s.last_message_at,`,
     `  s.duration_seconds, s.user_messages, s.assistant_messages, s.total_messages,`,
     `  s.total_input_tokens, s.total_output_tokens, s.total_cached_tokens,`,
     `  s.project_ref, s.project_name, s.model, s.title, s.is_starred`,
+  ];
+
+  if (params.page && params.page >= 1) {
+    // Offset pagination
+    const offset = (params.page - 1) * limit;
+    const sql = [
+      ...selectCols,
+      `FROM sessions s`,
+      `WHERE ${where}`,
+      `ORDER BY s.${sort} ${dir}, s.id ${dir}`,
+      `LIMIT ? OFFSET ?`,
+    ].join("\n");
+
+    queryParams.push(limit, offset);
+    return { sql, params: queryParams };
+  }
+
+  // Keyset pagination (default)
+  const sql = [
+    ...selectCols,
     `FROM sessions s`,
     `WHERE ${where}`,
     `ORDER BY s.${sort} ${dir}, s.id ${dir}`,
@@ -138,6 +188,20 @@ export function buildSessionListQuery(params: SessionListParams): BuiltQuery {
 
   queryParams.push(limit + 1); // fetch one extra to detect hasMore
 
+  return { sql, params: queryParams };
+}
+
+// ── Count query ───────────────────────────────────────────────
+
+/**
+ * Build a COUNT query with the same WHERE clause as the list query.
+ * Used with offset pagination to calculate total pages.
+ */
+export function buildSessionCountQuery(params: SessionListParams): BuiltQuery {
+  const { conditions, queryParams } = buildWhereClause(params);
+  const where = conditions.join(" AND ");
+
+  const sql = `SELECT COUNT(*) as count FROM sessions s WHERE ${where}`;
   return { sql, params: queryParams };
 }
 
@@ -174,6 +238,12 @@ export interface SessionListResponse {
   sessions: SessionRow[];
   cursor: string | null;
   hasMore: boolean;
+  /** Present only in offset pagination mode */
+  totalCount?: number;
+  /** Present only in offset pagination mode */
+  page?: number;
+  /** Present only in offset pagination mode */
+  pageSize?: number;
 }
 
 /**
@@ -203,16 +273,39 @@ export function shapeSessionListResponse(
   };
 }
 
+/**
+ * Shape response for offset pagination mode.
+ */
+export function shapeOffsetResponse(
+  rows: SessionRow[],
+  totalCount: number,
+  page: number,
+  pageSize: number,
+): SessionListResponse {
+  return {
+    sessions: rows,
+    cursor: null,
+    hasMore: page * pageSize < totalCount,
+    totalCount,
+    page,
+    pageSize,
+  };
+}
+
 // ── Parse request params ───────────────────────────────────────
 
 export interface ParsedSessionListParams {
   source?: Source;
   project?: string;
+  model?: string;
   from?: string;
   to?: string;
   starred?: boolean;
+  minMessages?: number;
+  maxMessages?: number;
   sort: SessionSort;
   cursor?: string;
+  page?: number;
   limit: number;
 }
 
@@ -244,6 +337,7 @@ export function parseSessionListParams(
 ): ParsedSessionListParams {
   const source = searchParams.get("source") ?? undefined;
   const project = searchParams.get("project") ?? undefined;
+  const model = searchParams.get("model") ?? undefined;
   const from = searchParams.get("from") ?? undefined;
   const to = searchParams.get("to") ?? undefined;
   const starredRaw = searchParams.get("starred");
@@ -255,14 +349,48 @@ export function parseSessionListParams(
     ? DEFAULT_LIMIT
     : Math.min(Math.max(parsedLimit, 1), MAX_LIMIT);
 
+  // Offset pagination
+  const pageRaw = searchParams.get("page");
+  const parsedPage = pageRaw ? parseInt(pageRaw, 10) : NaN;
+  const page = Number.isNaN(parsedPage) || parsedPage < 1 ? undefined : parsedPage;
+
+  // Message range filters
+  const minMessagesRaw = searchParams.get("minMessages");
+  const parsedMinMessages = minMessagesRaw ? parseInt(minMessagesRaw, 10) : NaN;
+  const minMessages = Number.isNaN(parsedMinMessages) ? undefined : parsedMinMessages;
+
+  const maxMessagesRaw = searchParams.get("maxMessages");
+  const parsedMaxMessages = maxMessagesRaw ? parseInt(maxMessagesRaw, 10) : NaN;
+  const maxMessages = Number.isNaN(parsedMaxMessages) ? undefined : parsedMaxMessages;
+
   return {
     source: source && VALID_SOURCES.has(source) ? (source as Source) : undefined,
     project,
+    model: model || undefined,
     from,
     to,
     starred: starredRaw === "true" ? true : undefined,
+    minMessages,
+    maxMessages,
     sort,
     cursor,
+    page,
     limit,
+  };
+}
+
+// ── Filter options query ──────────────────────────────────────
+
+export function buildFilterOptionsQuery(userId: string): {
+  modelsSql: string;
+  modelsParams: unknown[];
+  projectsSql: string;
+  projectsParams: unknown[];
+} {
+  return {
+    modelsSql: `SELECT DISTINCT s.model FROM sessions s WHERE s.user_id = ? AND s.model IS NOT NULL ORDER BY s.model`,
+    modelsParams: [userId],
+    projectsSql: `SELECT DISTINCT s.project_ref, s.project_name FROM sessions s WHERE s.user_id = ? AND s.project_ref IS NOT NULL ORDER BY s.project_name`,
+    projectsParams: [userId],
   };
 }

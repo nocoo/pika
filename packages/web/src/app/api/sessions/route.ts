@@ -5,8 +5,10 @@ import { getD1Client } from "@/lib/d1";
 import { auth } from "@/lib/auth";
 import {
   buildSessionListQuery,
+  buildSessionCountQuery,
   parseSessionListParams,
   shapeSessionListResponse,
+  shapeOffsetResponse,
   type SessionRow,
 } from "@/lib/sessions";
 
@@ -30,13 +32,33 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const parsed = parseSessionListParams(searchParams);
 
-  const { sql, params } = buildSessionListQuery({
+  const queryParams = {
     userId: user.userId,
     ...parsed,
-  });
+  };
 
+  const { sql, params } = buildSessionListQuery(queryParams);
   const result = await d1.query<SessionRow>(sql, params);
 
+  // Offset pagination mode — include totalCount
+  if (parsed.page) {
+    const countQuery = buildSessionCountQuery(queryParams);
+    const countResult = await d1.query<{ count: number }>(
+      countQuery.sql,
+      countQuery.params,
+    );
+    const totalCount = countResult.results[0]?.count ?? 0;
+
+    const response = shapeOffsetResponse(
+      result.results,
+      totalCount,
+      parsed.page,
+      parsed.limit,
+    );
+    return NextResponse.json(response);
+  }
+
+  // Keyset pagination mode (default)
   const response = shapeSessionListResponse(
     result.results,
     parsed.sort,
