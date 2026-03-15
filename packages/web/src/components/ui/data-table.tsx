@@ -72,7 +72,12 @@ export function DataTable<TData>({
                     }
                   >
                     {header.isPlaceholder ? null : (
-                      <div className="flex items-center">
+                      <div
+                        className={cn(
+                          "flex items-center",
+                          header.column.columnDef.meta?.headerClassName?.includes("text-right") && "justify-end",
+                        )}
+                      >
                         {flexRender(
                           header.column.columnDef.header,
                           header.getContext(),

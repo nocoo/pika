@@ -115,12 +115,16 @@ export function getSessionColumns(
       ),
     },
 
-    // Messages (sortable)
+    // Messages (sortable, right-aligned)
     {
       accessorKey: "total_messages",
       header: "Msgs",
       enableSorting: true,
       size: 70,
+      meta: {
+        headerClassName: "text-right",
+        cellClassName: "text-right",
+      },
       cell: ({ row }) => (
         <span className="text-sm tabular-nums">
           {row.original.total_messages}
@@ -128,15 +132,15 @@ export function getSessionColumns(
       ),
     },
 
-    // Tokens (sortable, hidden on mobile)
+    // Tokens (sortable, right-aligned, hidden on mobile)
     {
       accessorKey: "total_input_tokens",
       header: "Tokens",
       enableSorting: true,
       size: 80,
       meta: {
-        headerClassName: "hidden lg:table-cell",
-        cellClassName: "hidden lg:table-cell",
+        headerClassName: "hidden lg:table-cell text-right",
+        cellClassName: "hidden lg:table-cell text-right",
       },
       cell: ({ row }) => {
         const total =
@@ -149,12 +153,16 @@ export function getSessionColumns(
       },
     },
 
-    // Duration (sortable)
+    // Duration (sortable, right-aligned)
     {
       accessorKey: "duration_seconds",
       header: "Duration",
       enableSorting: true,
       size: 80,
+      meta: {
+        headerClassName: "text-right",
+        cellClassName: "text-right",
+      },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {formatDuration(row.original.duration_seconds)}
