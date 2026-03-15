@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { formatTokens, formatTokensFull } from "@/lib/utils";
+import { formatTokensFull } from "@/lib/utils";
 import { formatDuration, formatDateTime } from "@/lib/format";
 import { AgentBadge } from "@/components/ui/agent-badge";
 import { ModelBadge } from "@/components/ui/model-badge";
@@ -29,7 +29,7 @@ export function SessionReplay({
   const [messages, setMessages] = useState<CanonicalMessage[]>([]);
   const [loadingContent, setLoadingContent] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
-  const [activeIndex, setActiveIndex] = useState(-1);
+  const [, setActiveIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // ── Phase 2: fetch R2 content ──────────────────────────────

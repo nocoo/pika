@@ -23,7 +23,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { basename } from "node:path";
 import { createInterface } from "node:readline";
-import { createHash } from "node:crypto";
+
 import { PARSER_REVISION, SCHEMA_VERSION, generateTitle, getFirstUserMessage } from "@pika/core";
 import type {
   CanonicalMessage,

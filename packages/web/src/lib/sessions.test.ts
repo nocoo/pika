@@ -550,7 +550,7 @@ describe("buildToggleStarQuery", () => {
   });
 
   it("sets is_starred to 0 when starred is false", () => {
-    const { sql, params } = buildToggleStarQuery("sess-1", "u1", false);
+    const { params } = buildToggleStarQuery("sess-1", "u1", false);
     expect(params).toEqual([0, "sess-1", "u1"]);
   });
 

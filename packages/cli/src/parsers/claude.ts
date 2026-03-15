@@ -18,7 +18,7 @@
  */
 
 import { createReadStream } from "node:fs";
-import { readFile, stat } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import { createInterface } from "node:readline";
 import { PARSER_REVISION, SCHEMA_VERSION, generateTitle, getFirstUserMessage } from "@pika/core";
 import type {
