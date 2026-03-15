@@ -11,7 +11,7 @@ import logo256 from "../../../public/logo-256.png";
 // ---------------------------------------------------------------------------
 
 function InstallCommand() {
-  const command = "npm install -g @nocoo/pika";
+  const command = "bun add -g @nocoo/pika";
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {

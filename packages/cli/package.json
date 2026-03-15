@@ -1,17 +1,32 @@
 {
   "name": "@nocoo/pika",
   "version": "0.2.1",
+  "description": "Replay and search coding agent sessions",
   "type": "module",
   "bin": {
-    "pika": "src/bin.ts"
+    "pika": "dist/bin.js"
   },
+  "files": [
+    "dist/bin.js"
+  ],
   "scripts": {
-    "build": "tsc",
+    "build": "bun build src/bin.ts --target=bun --outfile=dist/bin.js --external citty --external consola",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@pika/core": "workspace:*",
     "citty": "^0.2.1",
     "consola": "^3.4.2"
+  },
+  "devDependencies": {
+    "@pika/core": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": ["cli", "agent", "session", "replay", "search", "claude", "codex", "gemini", "opencode", "copilot"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nicepkg/pika"
   }
 }
