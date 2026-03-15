@@ -23,6 +23,8 @@ export interface SessionListParams {
   cursor?: string; // opaque base64-encoded keyset cursor
   page?: number; // 1-based page number (offset pagination)
   limit?: number;
+  /** true = only deleted (Trash), false/undefined = only active */
+  deleted?: boolean;
 }
 
 export type SessionSort =
@@ -62,6 +64,7 @@ export interface SessionRow {
   model: string | null;
   title: string | null;
   is_starred: number;
+  deleted_at: string | null;
 }
 
 export interface CursorPayload {
@@ -124,6 +127,13 @@ function buildWhereClause(params: SessionListParams): {
     queryParams.push(params.maxMessages);
   }
 
+  // Soft-delete filter: deleted=true → trash only; default → active only
+  if (params.deleted === true) {
+    conditions.push("s.deleted_at IS NOT NULL");
+  } else {
+    conditions.push("s.deleted_at IS NULL");
+  }
+
   return { conditions, queryParams };
 }
 
@@ -159,7 +169,7 @@ export function buildSessionListQuery(params: SessionListParams): BuiltQuery {
     `SELECT s.id, s.session_key, s.source, s.started_at, s.last_message_at,`,
     `  s.duration_seconds, s.user_messages, s.assistant_messages, s.total_messages,`,
     `  s.total_input_tokens, s.total_output_tokens, s.total_cached_tokens,`,
-    `  s.project_ref, s.project_name, s.model, s.title, s.is_starred`,
+    `  s.project_ref, s.project_name, s.model, s.title, s.is_starred, s.deleted_at`,
   ];
 
   if (params.page && params.page >= 1) {
@@ -307,6 +317,7 @@ export interface ParsedSessionListParams {
   cursor?: string;
   page?: number;
   limit: number;
+  deleted?: boolean;
 }
 
 const VALID_SOURCES: ReadonlySet<string> = new Set([
@@ -341,6 +352,7 @@ export function parseSessionListParams(
   const from = searchParams.get("from") ?? undefined;
   const to = searchParams.get("to") ?? undefined;
   const starredRaw = searchParams.get("starred");
+  const deletedRaw = searchParams.get("deleted");
   const sort = validateSort(searchParams.get("sort") ?? undefined);
   const cursor = searchParams.get("cursor") ?? undefined;
   const limitRaw = searchParams.get("limit");
@@ -370,6 +382,7 @@ export function parseSessionListParams(
     from,
     to,
     starred: starredRaw === "true" ? true : undefined,
+    deleted: deletedRaw === "true" ? true : undefined,
     minMessages,
     maxMessages,
     sort,
@@ -388,9 +401,86 @@ export function buildFilterOptionsQuery(userId: string): {
   projectsParams: unknown[];
 } {
   return {
-    modelsSql: `SELECT DISTINCT s.model FROM sessions s WHERE s.user_id = ? AND s.model IS NOT NULL ORDER BY s.model`,
+    modelsSql: `SELECT DISTINCT s.model FROM sessions s WHERE s.user_id = ? AND s.model IS NOT NULL AND s.deleted_at IS NULL ORDER BY s.model`,
     modelsParams: [userId],
-    projectsSql: `SELECT DISTINCT s.project_ref, s.project_name FROM sessions s WHERE s.user_id = ? AND s.project_ref IS NOT NULL ORDER BY s.project_name`,
+    projectsSql: `SELECT DISTINCT s.project_ref, s.project_name FROM sessions s WHERE s.user_id = ? AND s.project_ref IS NOT NULL AND s.deleted_at IS NULL ORDER BY s.project_name`,
     projectsParams: [userId],
+  };
+}
+
+// ── Soft-delete / restore ─────────────────────────────────────
+
+export function buildSoftDeleteQuery(
+  sessionId: string,
+  userId: string,
+): BuiltQuery {
+  return {
+    sql: "UPDATE sessions SET deleted_at = datetime('now') WHERE id = ? AND user_id = ? AND deleted_at IS NULL",
+    params: [sessionId, userId],
+  };
+}
+
+export function buildRestoreQuery(
+  sessionId: string,
+  userId: string,
+): BuiltQuery {
+  return {
+    sql: "UPDATE sessions SET deleted_at = NULL WHERE id = ? AND user_id = ? AND deleted_at IS NOT NULL",
+    params: [sessionId, userId],
+  };
+}
+
+// ── Batch operations ──────────────────────────────────────────
+
+export type BatchAction = "delete" | "restore" | "star" | "unstar";
+
+export interface BatchByIds {
+  action: BatchAction;
+  ids: string[];
+  userId: string;
+}
+
+export interface BatchByFilter {
+  action: BatchAction;
+  filter: SessionListParams;
+}
+
+function batchSetClause(action: BatchAction): string {
+  switch (action) {
+    case "delete":
+      return "deleted_at = datetime('now')";
+    case "restore":
+      return "deleted_at = NULL";
+    case "star":
+      return "is_starred = 1";
+    case "unstar":
+      return "is_starred = 0";
+  }
+}
+
+/**
+ * Build batch update query by explicit IDs.
+ * Caller should chunk ids into batches of ≤50 for D1 parameter limits.
+ */
+export function buildBatchByIdsQuery(batch: BatchByIds): BuiltQuery {
+  const placeholders = batch.ids.map(() => "?").join(", ");
+  const set = batchSetClause(batch.action);
+  return {
+    sql: `UPDATE sessions SET ${set} WHERE id IN (${placeholders}) AND user_id = ?`,
+    params: [...batch.ids, batch.userId],
+  };
+}
+
+/**
+ * Build batch update query using filter conditions.
+ * Reuses buildWhereClause for consistency.
+ */
+export function buildBatchByFilterQuery(batch: BatchByFilter): BuiltQuery {
+  const { conditions, queryParams } = buildWhereClause(batch.filter);
+  const set = batchSetClause(batch.action);
+  const where = conditions.join(" AND ");
+  return {
+    sql: `UPDATE sessions s SET ${set} WHERE ${where}`,
+    params: queryParams,
   };
 }

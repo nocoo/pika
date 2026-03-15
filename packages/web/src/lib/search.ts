@@ -92,6 +92,7 @@ export function buildSearchQuery(params: SearchParams): BuiltQuery {
   const conditions: string[] = [
     "chunks_fts MATCH ?",
     "mc.user_id = ?",
+    "s.deleted_at IS NULL",
   ];
   const queryParams: unknown[] = [params.q, params.userId];
 

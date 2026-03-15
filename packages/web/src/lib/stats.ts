@@ -59,7 +59,7 @@ SELECT
   COALESCE(SUM(total_input_tokens), 0) AS total_input_tokens,
   COALESCE(SUM(total_output_tokens), 0) AS total_output_tokens
 FROM sessions
-WHERE user_id = ?
+WHERE user_id = ? AND deleted_at IS NULL
     `.trim(),
     params: [userId],
   };
@@ -73,7 +73,7 @@ export function buildWeekCountQuery(userId: string): BuiltQuery {
     sql: `
 SELECT COUNT(*) AS count
 FROM sessions
-WHERE user_id = ? AND started_at >= datetime('now', '-7 days')
+WHERE user_id = ? AND deleted_at IS NULL AND started_at >= datetime('now', '-7 days')
     `.trim(),
     params: [userId],
   };
@@ -87,7 +87,7 @@ export function buildSourceDistributionQuery(userId: string): BuiltQuery {
     sql: `
 SELECT source, COUNT(*) AS count
 FROM sessions
-WHERE user_id = ?
+WHERE user_id = ? AND deleted_at IS NULL
 GROUP BY source
 ORDER BY count DESC
     `.trim(),
@@ -106,7 +106,7 @@ export function buildDailyActivityQuery(
     sql: `
 SELECT date(started_at) AS date, COUNT(*) AS count
 FROM sessions
-WHERE user_id = ? AND started_at >= datetime('now', ? || ' days')
+WHERE user_id = ? AND deleted_at IS NULL AND started_at >= datetime('now', ? || ' days')
 GROUP BY date(started_at)
 ORDER BY date ASC
     `.trim(),
@@ -122,7 +122,7 @@ export function buildTopProjectsQuery(userId: string): BuiltQuery {
     sql: `
 SELECT project_ref, project_name, COUNT(*) AS count
 FROM sessions
-WHERE user_id = ? AND project_ref IS NOT NULL
+WHERE user_id = ? AND deleted_at IS NULL AND project_ref IS NOT NULL
 GROUP BY project_ref
 ORDER BY count DESC
 LIMIT 10
