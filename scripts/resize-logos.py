@@ -19,7 +19,7 @@ SOURCE = ROOT / "logo.png"
 PUBLIC = ROOT / "packages" / "web" / "public"
 APP = ROOT / "packages" / "web" / "src" / "app"
 
-BRAND_BG = (14, 116, 144)  # #0e7490 — Tailwind cyan-700
+BRAND_BG = (195, 150, 12)  # #C3960C — deep golden yellow from logo
 
 
 def resize(img: Image.Image, size: int) -> Image.Image:
@@ -60,13 +60,16 @@ def main() -> None:
     APP.mkdir(parents=True, exist_ok=True)
 
     # ── public/ — component <img> references ──────────────────────
+    # Sizes are 2x–3x the CSS display size for Retina sharpness.
+    # logo-64.png:  sidebar (24px CSS) & login header (16px CSS)
+    # logo-256.png: landing hero (128px CSS) & login avatar (80px CSS)
     outputs: list[tuple[Path, Image.Image]] = []
 
-    logo_24 = resize(img, 24)
-    outputs.append((PUBLIC / "logo-24.png", logo_24))
+    logo_64 = resize(img, 64)
+    outputs.append((PUBLIC / "logo-64.png", logo_64))
 
-    logo_80 = resize(img, 80)
-    outputs.append((PUBLIC / "logo-80.png", logo_80))
+    logo_256 = resize(img, 256)
+    outputs.append((PUBLIC / "logo-256.png", logo_256))
 
     # ── src/app/ — Next.js file-based metadata convention ─────────
     icon_32 = resize(img, 32)

@@ -22,7 +22,7 @@ const caveat = Caveat({
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXTAUTH_URL ?? "https://pika.dev",
+    process.env.NEXTAUTH_URL ?? "https://pika.hexly.ai",
   ),
   title: "Pika — replay and search coding agent sessions",
   description: "Replay and search your coding agent sessions",
