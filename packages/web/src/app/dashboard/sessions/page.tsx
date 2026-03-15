@@ -6,9 +6,15 @@ import {
   useReactTable,
   getCoreRowModel,
   type SortingState,
+  type RowSelectionState,
 } from "@tanstack/react-table";
 import { DataTable } from "@/components/ui/data-table";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
+import {
+  DataTableBulkBar,
+  SESSION_BULK_ACTIONS,
+  type BulkAction,
+} from "@/components/ui/data-table-bulk-bar";
 import {
   SessionFilters,
   type MessageRange,
@@ -88,6 +94,11 @@ export default function SessionsPage() {
   // Star state (optimistic)
   const [starredMap, setStarredMap] = useState<Map<string, boolean>>(new Map());
 
+  // Row selection state
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [selectAllMode, setSelectAllMode] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
+
   // Sorting state for TanStack
   const sorting: SortingState = useMemo(() => {
     const columnId = SORT_TO_COLUMN[sort];
@@ -134,11 +145,14 @@ export default function SessionsPage() {
     [],
   );
 
-  // Column definitions
+  // Column definitions (with selection enabled)
   const columns = useMemo(
-    () => getSessionColumns(starredMap, handleToggleStar),
+    () => getSessionColumns(starredMap, handleToggleStar, { enableSelection: true }),
     [starredMap, handleToggleStar],
   );
+
+  // Selected count
+  const selectedCount = Object.keys(rowSelection).length;
 
   // TanStack table instance
   const table = useReactTable({
@@ -146,10 +160,67 @@ export default function SessionsPage() {
     columns,
     getCoreRowModel: getCoreRowModel(),
     manualSorting: true,
-    state: { sorting },
+    state: { sorting, rowSelection },
     onSortingChange,
+    onRowSelectionChange: (updater) => {
+      setSelectAllMode(false);
+      setRowSelection(updater);
+    },
+    enableRowSelection: true,
     enableSortingRemoval: false,
+    getRowId: (row) => row.id,
   });
+
+  // Build current filter for batch API
+  const buildBatchFilter = useCallback(() => {
+    const filter: Record<string, unknown> = {};
+    if (source) filter.source = source;
+    if (model) filter.model = model;
+    if (starred) filter.starred = true;
+    const msgParams = messageRangeToParams(messageRange);
+    if (msgParams.minMessages) filter.minMessages = parseInt(msgParams.minMessages, 10);
+    if (msgParams.maxMessages) filter.maxMessages = parseInt(msgParams.maxMessages, 10);
+    return filter;
+  }, [source, model, starred, messageRange]);
+
+  // Batch action handler
+  const handleBulkAction = useCallback(
+    async (action: BulkAction) => {
+      setBulkLoading(true);
+      try {
+        const body: Record<string, unknown> = { action };
+
+        if (selectAllMode) {
+          body.filter = buildBatchFilter();
+        } else {
+          body.ids = Object.keys(rowSelection);
+        }
+
+        const res = await fetch("/api/sessions/batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: "Unknown error" }));
+          setError((err as { error: string }).error ?? "Batch operation failed");
+          return;
+        }
+
+        // Clear selection and refresh
+        setRowSelection({});
+        setSelectAllMode(false);
+        // Trigger re-fetch by bumping a dependency
+        await fetchSessions();
+      } catch {
+        setError("Batch operation failed");
+      } finally {
+        setBulkLoading(false);
+      }
+    },
+    [selectAllMode, rowSelection, buildBatchFilter], // fetchSessions added below
+  );
 
   // Build API URL from state
   const buildUrl = useCallback(() => {
@@ -189,6 +260,12 @@ export default function SessionsPage() {
   useEffect(() => {
     fetchSessions();
   }, [fetchSessions]);
+
+  // Clear selection when filters/page change
+  useEffect(() => {
+    setRowSelection({});
+    setSelectAllMode(false);
+  }, [source, model, starred, sort, messageRange, page, pageSize]);
 
   // Sync state to URL
   useEffect(() => {
@@ -257,6 +334,21 @@ export default function SessionsPage() {
           onMessageRangeChange={handleMessageRangeChange}
         />
       </div>
+
+      {/* Bulk action bar */}
+      <DataTableBulkBar
+        selectedCount={selectedCount}
+        totalCount={totalCount}
+        selectAllMode={selectAllMode}
+        onSelectAll={() => setSelectAllMode(true)}
+        onClearSelection={() => {
+          setRowSelection({});
+          setSelectAllMode(false);
+        }}
+        onAction={handleBulkAction}
+        actions={SESSION_BULK_ACTIONS}
+        loading={bulkLoading}
+      />
 
       {/* Error state */}
       {error && (
