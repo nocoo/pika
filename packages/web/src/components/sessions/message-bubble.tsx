@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { formatTokens } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ToolCall } from "./tool-call";
+import { MarkdownContent } from "./markdown-content";
 import type { CanonicalMessage } from "@pika/core";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -96,7 +97,7 @@ export const MessageBubble = memo(function MessageBubble({
             )}
           >
             {/* Content */}
-            {content && <MessageContent content={content} isUser={isUser} />}
+            {content && <MarkdownContent content={content} isUser={isUser} />}
 
             {/* Inline tool call on assistant message */}
             {!isTool && toolName && (
@@ -152,86 +153,9 @@ export const MessageBubble = memo(function MessageBubble({
   );
 });
 
-// ── MessageContent ─────────────────────────────────────────────
-
-/** Simple content renderer — handles code blocks and inline code. */
-function MessageContent({
-  content,
-  isUser,
-}: {
-  content: string;
-  isUser: boolean;
-}) {
-  // Split content into segments: code blocks vs text
-  const segments = useMemo(() => parseContentSegments(content), [content]);
-
-  return (
-    <div className="space-y-2">
-      {segments.map((seg, i) =>
-        seg.type === "code" ? (
-          <div key={i} className="relative">
-            {seg.lang && (
-              <div
-                className={cn(
-                  "rounded-t-md px-3 py-1 text-[10px] font-mono",
-                  isUser
-                    ? "bg-primary-foreground/10 text-primary-foreground/70"
-                    : "bg-muted text-muted-foreground",
-                )}
-              >
-                {seg.lang}
-              </div>
-            )}
-            <pre
-              className={cn(
-                "overflow-x-auto p-3 font-mono text-xs leading-relaxed",
-                seg.lang ? "rounded-b-md" : "rounded-md",
-                isUser
-                  ? "bg-primary-foreground/10 text-primary-foreground"
-                  : "bg-muted text-foreground",
-              )}
-            >
-              <code>{seg.content}</code>
-            </pre>
-          </div>
-        ) : (
-          <TextBlock key={i} text={seg.content} isUser={isUser} />
-        ),
-      )}
-    </div>
-  );
-}
-
-// ── TextBlock ──────────────────────────────────────────────────
-
-/** Renders text with inline code highlighted. */
-function TextBlock({ text, isUser }: { text: string; isUser: boolean }) {
-  const parts = useMemo(() => parseInlineCode(text), [text]);
-
-  return (
-    <div className="whitespace-pre-wrap break-words">
-      {parts.map((part, i) =>
-        part.isCode ? (
-          <code
-            key={i}
-            className={cn(
-              "rounded px-1 py-0.5 font-mono text-[13px]",
-              isUser
-                ? "bg-primary-foreground/15"
-                : "bg-muted text-foreground",
-            )}
-          >
-            {part.text}
-          </code>
-        ) : (
-          <span key={i}>{part.text}</span>
-        ),
-      )}
-    </div>
-  );
-}
-
 // ── Parsing helpers ────────────────────────────────────────────
+// Kept as exported pure functions for backward compatibility.
+// Rendering now uses MarkdownContent (react-markdown + shiki).
 
 interface ContentSegment {
   type: "text" | "code";
@@ -242,6 +166,8 @@ interface ContentSegment {
 /**
  * Split content into alternating text / fenced-code-block segments.
  * Handles ```lang\n...\n``` patterns.
+ *
+ * @deprecated Rendering now uses react-markdown. Kept for utility use.
  */
 export function parseContentSegments(content: string): ContentSegment[] {
   const segments: ContentSegment[] = [];
@@ -284,7 +210,11 @@ interface InlinePart {
   isCode: boolean;
 }
 
-/** Split text on backtick-delimited inline code. */
+/**
+ * Split text on backtick-delimited inline code.
+ *
+ * @deprecated Rendering now uses react-markdown. Kept for utility use.
+ */
 export function parseInlineCode(text: string): InlinePart[] {
   const parts: InlinePart[] = [];
   const regex = /`([^`]+)`/g;
