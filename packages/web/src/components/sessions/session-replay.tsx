@@ -249,6 +249,7 @@ export function SessionReplay({
               key={i}
               message={msg}
               index={i}
+              source={session.source}
               showTimestamp={shouldShowTimestamp(i)}
             />
           ))}

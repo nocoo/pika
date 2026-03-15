@@ -6,13 +6,16 @@ import { formatTokens } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ToolCall } from "./tool-call";
 import { MarkdownContent } from "./markdown-content";
-import type { CanonicalMessage } from "@pika/core";
+import { MessageAvatar } from "./message-avatar";
+import type { CanonicalMessage, Source } from "@pika/core";
 
 // ── Types ──────────────────────────────────────────────────────
 
 interface MessageBubbleProps {
   message: CanonicalMessage;
   index: number;
+  /** Session-level source for agent identity. */
+  source: Source;
   /** Show timestamp separator before this message. */
   showTimestamp?: boolean;
   className?: string;
@@ -23,6 +26,7 @@ interface MessageBubbleProps {
 export const MessageBubble = memo(function MessageBubble({
   message,
   index,
+  source,
   showTimestamp,
   className,
 }: MessageBubbleProps) {
@@ -73,15 +77,16 @@ export const MessageBubble = memo(function MessageBubble({
           )}
         >
           {/* Role avatar */}
-          <div
-            className={cn(
-              "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-medium",
-              isUser && "bg-primary text-primary-foreground",
-              !isUser && !isSystem && "bg-secondary text-secondary-foreground",
-              isSystem && "bg-muted text-muted-foreground",
-            )}
-          >
-            {isUser ? "U" : isSystem ? "S" : "A"}
+          <div className="mt-0.5 shrink-0">
+            <MessageAvatar
+              role={role as "user" | "assistant" | "system"}
+              source={source}
+              model={message.model}
+              inputTokens={message.inputTokens}
+              outputTokens={message.outputTokens}
+              cachedTokens={message.cachedTokens}
+              timestamp={message.timestamp}
+            />
           </div>
 
           {/* Content bubble */}
