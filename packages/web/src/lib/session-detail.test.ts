@@ -26,7 +26,7 @@ describe("buildSessionDetailQuery", () => {
       "s.total_input_tokens", "s.total_output_tokens", "s.total_cached_tokens",
       "s.project_ref", "s.project_name", "s.model", "s.title", "s.summary",
       "s.content_key", "s.content_size", "s.raw_key", "s.raw_size",
-      "s.raw_hash", "s.content_hash", "s.is_starred",
+      "s.raw_hash", "s.content_hash", "s.is_starred", "s.deleted_at",
       "s.snapshot_at", "s.ingested_at",
     ];
 

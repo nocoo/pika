@@ -21,6 +21,11 @@ describe("buildOverviewQuery", () => {
     expect(sql).toContain("WHERE user_id = ?");
     expect(params).toEqual(["u1"]);
   });
+
+  it("excludes deleted sessions", () => {
+    const { sql } = buildOverviewQuery("u1");
+    expect(sql).toContain("deleted_at IS NULL");
+  });
 });
 
 // ── buildWeekCountQuery ────────────────────────────────────────
@@ -34,6 +39,11 @@ describe("buildWeekCountQuery", () => {
     expect(sql).toContain("user_id = ?");
     expect(params).toEqual(["u1"]);
   });
+
+  it("excludes deleted sessions", () => {
+    const { sql } = buildWeekCountQuery("u1");
+    expect(sql).toContain("deleted_at IS NULL");
+  });
 });
 
 // ── buildSourceDistributionQuery ───────────────────────────────
@@ -46,6 +56,11 @@ describe("buildSourceDistributionQuery", () => {
     expect(sql).toContain("ORDER BY count DESC");
     expect(sql).toContain("user_id = ?");
     expect(params).toEqual(["u1"]);
+  });
+
+  it("excludes deleted sessions", () => {
+    const { sql } = buildSourceDistributionQuery("u1");
+    expect(sql).toContain("deleted_at IS NULL");
   });
 });
 
@@ -65,6 +80,11 @@ describe("buildDailyActivityQuery", () => {
     const { params } = buildDailyActivityQuery("u1", 30);
     expect(params).toEqual(["u1", "-30"]);
   });
+
+  it("excludes deleted sessions", () => {
+    const { sql } = buildDailyActivityQuery("u1");
+    expect(sql).toContain("deleted_at IS NULL");
+  });
 });
 
 // ── buildTopProjectsQuery ──────────────────────────────────────
@@ -78,6 +98,11 @@ describe("buildTopProjectsQuery", () => {
     expect(sql).toContain("LIMIT 10");
     expect(sql).toContain("project_ref IS NOT NULL");
     expect(params).toEqual(["u1"]);
+  });
+
+  it("excludes deleted sessions", () => {
+    const { sql } = buildTopProjectsQuery("u1");
+    expect(sql).toContain("deleted_at IS NULL");
   });
 });
 

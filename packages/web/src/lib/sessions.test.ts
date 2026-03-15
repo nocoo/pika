@@ -4,6 +4,10 @@ import {
   buildSessionCountQuery,
   buildToggleStarQuery,
   buildFilterOptionsQuery,
+  buildSoftDeleteQuery,
+  buildRestoreQuery,
+  buildBatchByIdsQuery,
+  buildBatchByFilterQuery,
   encodeCursor,
   decodeCursor,
   validateSort,
@@ -350,8 +354,9 @@ function makeRow(id: string, overrides?: Partial<SessionRow>): SessionRow {
     model: "claude-4",
     title: "Test session",
     is_starred: 0,
+    deleted_at: null,
     ...overrides,
-  };
+  } as SessionRow;
 }
 
 describe("shapeSessionListResponse", () => {
@@ -563,6 +568,7 @@ describe("buildFilterOptionsQuery", () => {
     expect(modelsSql).toContain("SELECT DISTINCT s.model");
     expect(modelsSql).toContain("s.user_id = ?");
     expect(modelsSql).toContain("s.model IS NOT NULL");
+    expect(modelsSql).toContain("s.deleted_at IS NULL");
     expect(modelsParams).toEqual(["u1"]);
   });
 
@@ -571,6 +577,175 @@ describe("buildFilterOptionsQuery", () => {
     expect(projectsSql).toContain("SELECT DISTINCT s.project_ref, s.project_name");
     expect(projectsSql).toContain("s.user_id = ?");
     expect(projectsSql).toContain("s.project_ref IS NOT NULL");
+    expect(projectsSql).toContain("s.deleted_at IS NULL");
     expect(projectsParams).toEqual(["u1"]);
+  });
+});
+
+// ── Soft-delete filter in buildWhereClause ─────────────────────
+
+describe("deleted filter", () => {
+  it("excludes deleted sessions by default", () => {
+    const { sql } = buildSessionListQuery({ userId: "u1" });
+    expect(sql).toContain("s.deleted_at IS NULL");
+    expect(sql).not.toContain("s.deleted_at IS NOT NULL");
+  });
+
+  it("includes only deleted sessions when deleted=true", () => {
+    const { sql } = buildSessionListQuery({ userId: "u1", deleted: true });
+    expect(sql).toContain("s.deleted_at IS NOT NULL");
+  });
+
+  it("count query also excludes deleted by default", () => {
+    const { sql } = buildSessionCountQuery({ userId: "u1" });
+    expect(sql).toContain("s.deleted_at IS NULL");
+  });
+
+  it("count query includes only deleted when deleted=true", () => {
+    const { sql } = buildSessionCountQuery({ userId: "u1", deleted: true });
+    expect(sql).toContain("s.deleted_at IS NOT NULL");
+  });
+
+  it("select columns include deleted_at", () => {
+    const { sql } = buildSessionListQuery({ userId: "u1" });
+    expect(sql).toContain("s.deleted_at");
+  });
+});
+
+// ── parseSessionListParams — deleted ──────────────────────────
+
+describe("parseSessionListParams — deleted", () => {
+  it("deleted is undefined by default", () => {
+    const params = parseSessionListParams(new URLSearchParams());
+    expect(params.deleted).toBeUndefined();
+  });
+
+  it("deleted is true when param is 'true'", () => {
+    const params = parseSessionListParams(new URLSearchParams({ deleted: "true" }));
+    expect(params.deleted).toBe(true);
+  });
+
+  it("deleted is undefined when param is 'false'", () => {
+    const params = parseSessionListParams(new URLSearchParams({ deleted: "false" }));
+    expect(params.deleted).toBeUndefined();
+  });
+});
+
+// ── buildSoftDeleteQuery ──────────────────────────────────────
+
+describe("buildSoftDeleteQuery", () => {
+  it("sets deleted_at where session is active", () => {
+    const { sql, params } = buildSoftDeleteQuery("sess-1", "u1");
+    expect(sql).toContain("UPDATE sessions SET deleted_at = datetime('now')");
+    expect(sql).toContain("WHERE id = ? AND user_id = ?");
+    expect(sql).toContain("deleted_at IS NULL");
+    expect(params).toEqual(["sess-1", "u1"]);
+  });
+});
+
+// ── buildRestoreQuery ─────────────────────────────────────────
+
+describe("buildRestoreQuery", () => {
+  it("clears deleted_at where session is deleted", () => {
+    const { sql, params } = buildRestoreQuery("sess-1", "u1");
+    expect(sql).toContain("UPDATE sessions SET deleted_at = NULL");
+    expect(sql).toContain("WHERE id = ? AND user_id = ?");
+    expect(sql).toContain("deleted_at IS NOT NULL");
+    expect(params).toEqual(["sess-1", "u1"]);
+  });
+});
+
+// ── buildBatchByIdsQuery ──────────────────────────────────────
+
+describe("buildBatchByIdsQuery", () => {
+  it("builds delete query with IN clause", () => {
+    const { sql, params } = buildBatchByIdsQuery({
+      action: "delete",
+      ids: ["s1", "s2", "s3"],
+      userId: "u1",
+    });
+    expect(sql).toContain("UPDATE sessions SET deleted_at = datetime('now')");
+    expect(sql).toContain("WHERE id IN (?, ?, ?)");
+    expect(sql).toContain("AND user_id = ?");
+    expect(params).toEqual(["s1", "s2", "s3", "u1"]);
+  });
+
+  it("builds restore query", () => {
+    const { sql } = buildBatchByIdsQuery({
+      action: "restore",
+      ids: ["s1"],
+      userId: "u1",
+    });
+    expect(sql).toContain("SET deleted_at = NULL");
+  });
+
+  it("builds star query", () => {
+    const { sql } = buildBatchByIdsQuery({
+      action: "star",
+      ids: ["s1", "s2"],
+      userId: "u1",
+    });
+    expect(sql).toContain("SET is_starred = 1");
+  });
+
+  it("builds unstar query", () => {
+    const { sql } = buildBatchByIdsQuery({
+      action: "unstar",
+      ids: ["s1"],
+      userId: "u1",
+    });
+    expect(sql).toContain("SET is_starred = 0");
+  });
+
+  it.each(["delete", "restore", "star", "unstar"] as const)(
+    "action %s produces valid SQL",
+    (action) => {
+      const { sql, params } = buildBatchByIdsQuery({
+        action,
+        ids: ["s1"],
+        userId: "u1",
+      });
+      expect(sql).toContain("UPDATE sessions");
+      expect(sql).toContain("WHERE id IN (?)");
+      expect(params).toEqual(["s1", "u1"]);
+    },
+  );
+});
+
+// ── buildBatchByFilterQuery ───────────────────────────────────
+
+describe("buildBatchByFilterQuery", () => {
+  it("builds delete query using filter conditions", () => {
+    const { sql, params } = buildBatchByFilterQuery({
+      action: "delete",
+      filter: { userId: "u1", source: "claude-code" },
+    });
+    expect(sql).toContain("UPDATE sessions s SET deleted_at = datetime('now')");
+    expect(sql).toContain("s.user_id = ?");
+    expect(sql).toContain("s.source = ?");
+    expect(params).toContain("u1");
+    expect(params).toContain("claude-code");
+  });
+
+  it("builds restore query for deleted sessions", () => {
+    const { sql, params } = buildBatchByFilterQuery({
+      action: "restore",
+      filter: { userId: "u1", deleted: true },
+    });
+    expect(sql).toContain("SET deleted_at = NULL");
+    expect(sql).toContain("s.deleted_at IS NOT NULL");
+    expect(params).toContain("u1");
+  });
+
+  it("builds star query with multiple filters", () => {
+    const { sql, params } = buildBatchByFilterQuery({
+      action: "star",
+      filter: { userId: "u1", source: "codex", model: "gpt-4" },
+    });
+    expect(sql).toContain("SET is_starred = 1");
+    expect(sql).toContain("s.source = ?");
+    expect(sql).toContain("s.model = ?");
+    expect(params).toContain("codex");
+    expect(params).toContain("gpt-4");
   });
 });

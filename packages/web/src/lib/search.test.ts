@@ -104,6 +104,11 @@ describe("buildSearchQuery", () => {
     expect(sql).not.toContain("s.last_message_at <= ?");
   });
 
+  it("excludes deleted sessions", () => {
+    const { sql } = buildSearchQuery({ userId: "u1", q: "test" });
+    expect(sql).toContain("s.deleted_at IS NULL");
+  });
+
   it("selects expected columns", () => {
     const { sql } = buildSearchQuery({ userId: "u1", q: "x" });
 
