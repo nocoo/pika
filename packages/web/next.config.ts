@@ -6,7 +6,8 @@ const rootPkg = require("../../package.json") as { version: string };
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  allowedDevOrigins: ["pika.dev.hexly.ai"],
+  images: { unoptimized: true },
+  allowedDevOrigins: ["pika.dev.hexly.ai", "pika.hexly.ai"],
   env: {
     NEXT_PUBLIC_APP_VERSION: rootPkg.version,
   },
