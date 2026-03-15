@@ -3,15 +3,14 @@
 import { type ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { Star } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { AgentBadge } from "@/components/ui/agent-badge";
+import { ModelBadge } from "@/components/ui/model-badge";
 import { cn } from "@/lib/utils";
 import { formatTokens } from "@/lib/utils";
 import {
-  sourceLabel,
   formatDuration,
   relativeTime,
 } from "@/lib/format";
-import { agentColor } from "@/lib/palette";
 import type { SessionCardData } from "./session-card";
 
 // ── Title + Star cell ────────────────────────────────────────
@@ -71,18 +70,7 @@ export function getSessionColumns(
       enableSorting: false,
       header: "Agent",
       size: 130,
-      cell: ({ row }) => {
-        const agent = agentColor(row.original.source);
-        return (
-          <Badge variant="secondary" className="gap-1.5 text-xs font-normal">
-            <span
-              className="h-2 w-2 rounded-full"
-              style={{ backgroundColor: agent.color }}
-            />
-            {sourceLabel(row.original.source)}
-          </Badge>
-        );
-      },
+      cell: ({ row }) => <AgentBadge source={row.original.source} />,
     },
 
     // Title (with inline star on hover)
@@ -103,24 +91,20 @@ export function getSessionColumns(
       },
     },
 
-    // Model (full width, no truncation)
+    // Model (badge with tinted color)
     {
       accessorKey: "model",
       header: "Model",
       enableSorting: false,
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground whitespace-nowrap">
-          {row.original.model ?? "—"}
-        </span>
-      ),
+      cell: ({ row }) => <ModelBadge model={row.original.model} />,
     },
 
     // Messages (sortable, right-aligned)
     {
       accessorKey: "total_messages",
-      header: "Msgs",
+      header: "Messages",
       enableSorting: true,
-      size: 70,
+      size: 90,
       meta: {
         headerClassName: "text-right",
         cellClassName: "text-right",
@@ -170,12 +154,16 @@ export function getSessionColumns(
       ),
     },
 
-    // Last active (sortable)
+    // Last active (sortable, right-aligned)
     {
       accessorKey: "last_message_at",
       header: "Last active",
       enableSorting: true,
       size: 100,
+      meta: {
+        headerClassName: "text-right",
+        cellClassName: "text-right",
+      },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground whitespace-nowrap">
           {relativeTime(row.original.last_message_at)}
@@ -183,15 +171,15 @@ export function getSessionColumns(
       ),
     },
 
-    // Started (sortable, hidden on mobile)
+    // Started (sortable, right-aligned, hidden on mobile)
     {
       accessorKey: "started_at",
       header: "Started",
       enableSorting: true,
       size: 100,
       meta: {
-        headerClassName: "hidden lg:table-cell",
-        cellClassName: "hidden lg:table-cell",
+        headerClassName: "hidden lg:table-cell text-right",
+        cellClassName: "hidden lg:table-cell text-right",
       },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground whitespace-nowrap">

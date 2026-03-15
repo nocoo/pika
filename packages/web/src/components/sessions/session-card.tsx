@@ -5,9 +5,10 @@ import Link from "next/link";
 import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { sourceLabel, formatDuration, relativeTime } from "@/lib/format";
+import { AgentBadge } from "@/components/ui/agent-badge";
+import { ModelBadge } from "@/components/ui/model-badge";
+import { formatDuration, relativeTime } from "@/lib/format";
 import { formatTokens } from "@/lib/utils";
-import { agentColor } from "@/lib/palette";
 import type { Source } from "@pika/core";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -47,7 +48,6 @@ interface SessionCardProps {
 
 export function SessionCard({ session, className }: SessionCardProps) {
   const totalTokens = session.total_input_tokens + session.total_output_tokens;
-  const agent = agentColor(session.source);
   const [starred, setStarred] = useState(session.is_starred === 1);
   const [pending, setPending] = useState(false);
 
@@ -87,16 +87,7 @@ export function SessionCard({ session, className }: SessionCardProps) {
     >
       {/* Top row: source badge + star + time */}
       <div className="flex items-center justify-between">
-        <Badge
-          variant="secondary"
-          className="gap-1.5 text-xs font-normal"
-        >
-          <span
-            className="h-2 w-2 rounded-full"
-            style={{ backgroundColor: agent.color }}
-          />
-          {sourceLabel(session.source)}
-        </Badge>
+        <AgentBadge source={session.source} />
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -144,12 +135,7 @@ export function SessionCard({ session, className }: SessionCardProps) {
             {session.project_name}
           </span>
         )}
-        {session.project_name && session.model && (
-          <span className="text-border">·</span>
-        )}
-        {session.model && (
-          <span className="truncate max-w-[150px]">{session.model}</span>
-        )}
+        {session.model && <ModelBadge model={session.model} />}
       </div>
 
       {/* Stats row */}

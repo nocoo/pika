@@ -3,11 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { formatTokens, formatTokensFull } from "@/lib/utils";
-import { sourceLabel, formatDuration, formatDate, formatDateTime } from "@/lib/format";
-import { agentColor } from "@/lib/palette";
-import { Badge } from "@/components/ui/badge";
+import { formatDuration, formatDateTime } from "@/lib/format";
+import { AgentBadge } from "@/components/ui/agent-badge";
+import { ModelBadge } from "@/components/ui/model-badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
 import { MessageBubble } from "./message-bubble";
 import type { SessionDetailRow } from "@/lib/session-detail";
 import type { CanonicalMessage, CanonicalSession } from "@pika/core";
@@ -126,7 +125,6 @@ export function SessionReplay({
 
   // ── Render ─────────────────────────────────────────────────
 
-  const agent = agentColor(session.source);
   const totalTokens =
     session.total_input_tokens + session.total_output_tokens;
 
@@ -137,16 +135,7 @@ export function SessionReplay({
         <div className="flex flex-col gap-3">
           {/* Top: source badge + date */}
           <div className="flex items-center justify-between">
-            <Badge
-              variant="secondary"
-              className="gap-1.5 text-xs font-normal"
-            >
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: agent.color }}
-              />
-              {sourceLabel(session.source)}
-            </Badge>
+            <AgentBadge source={session.source} />
             <span className="text-xs text-muted-foreground">
               {formatDateTime(session.started_at)}
             </span>
@@ -177,24 +166,7 @@ export function SessionReplay({
                 {session.project_name}
               </span>
             )}
-            {session.model && (
-              <span className="flex items-center gap-1.5">
-                <svg
-                  className="size-3.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2}
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z"
-                  />
-                </svg>
-                {session.model}
-              </span>
-            )}
+            {session.model && <ModelBadge model={session.model} />}
           </div>
 
           {/* Stats row */}

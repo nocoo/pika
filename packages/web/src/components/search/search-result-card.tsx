@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
-import { sourceLabel, relativeTime } from "@/lib/format";
-import { agentColor } from "@/lib/palette";
+import { AgentBadge } from "@/components/ui/agent-badge";
+import { relativeTime } from "@/lib/format";
 import type { Source } from "@pika/core";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -34,8 +33,6 @@ export function SearchResultCard({
   result,
   className,
 }: SearchResultCardProps) {
-  const agent = agentColor(result.source);
-
   return (
     <Link
       href={`/dashboard/sessions/${result.session_id}#msg-${result.ordinal}`}
@@ -46,13 +43,7 @@ export function SearchResultCard({
     >
       {/* Top: source badge + time */}
       <div className="flex items-center justify-between">
-        <Badge variant="secondary" className="gap-1.5 text-xs font-normal">
-          <span
-            className="h-2 w-2 rounded-full"
-            style={{ backgroundColor: agent.color }}
-          />
-          {sourceLabel(result.source)}
-        </Badge>
+        <AgentBadge source={result.source} />
         <span className="text-xs text-muted-foreground">
           {relativeTime(result.started_at)}
         </span>
