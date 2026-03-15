@@ -1,6 +1,6 @@
 {
   "name": "@nocoo/pika",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Replay and search coding agent sessions",
   "type": "module",
   "bin": {
@@ -23,7 +23,18 @@
   "publishConfig": {
     "access": "public"
   },
-  "keywords": ["cli", "agent", "session", "replay", "search", "claude", "codex", "gemini", "opencode", "copilot"],
+  "keywords": [
+    "cli",
+    "agent",
+    "session",
+    "replay",
+    "search",
+    "claude",
+    "codex",
+    "gemini",
+    "opencode",
+    "copilot"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",

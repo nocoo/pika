@@ -1,5 +1,5 @@
 import { defineCommand } from "citty";
-import { join } from "node:path";
+import { join, basename } from "node:path";
 import consola from "consola";
 import { CONFIG_DIR, SOURCES } from "@pika/core";
 import type { OpenCodeSqliteCursor } from "@pika/core";
@@ -11,6 +11,7 @@ import { createOpenCodeSqliteDriver } from "../drivers/session/opencode-sqlite";
 import type { OpenDbFn } from "../drivers/session/opencode-sqlite";
 import type { DbDriver, SyncContext } from "../drivers/types";
 import { runSyncPipeline } from "./sync-pipeline";
+import type { SyncProgressLogger } from "./sync-pipeline";
 
 // ── DB driver construction (extracted for testability) ────────
 
@@ -120,6 +121,44 @@ export default defineCommand({
       `Syncing ${sourceCount} source(s)...`,
     );
 
+    // Build progress logger backed by consola
+    const logger: SyncProgressLogger = {
+      discoverStart(source) {
+        consola.info(`  [${source}] Scanning...`);
+      },
+      discoverDone(source, fileCount) {
+        consola.info(`  [${source}] Found ${fileCount} file(s)`);
+      },
+      parseDone(source, filePath, sessionCount) {
+        consola.info(`  [${source}] Parsed ${sessionCount} session(s) from ${basename(filePath)}`);
+      },
+      uploadMetadataStart(sessionCount) {
+        consola.info(`Uploading metadata for ${sessionCount} session(s)...`);
+      },
+      uploadMetadataDone(ingested, conflicts) {
+        const parts = [`${ingested} ingested`];
+        if (conflicts > 0) parts.push(`${conflicts} conflicts`);
+        consola.info(`Metadata upload done: ${parts.join(", ")}`);
+      },
+      uploadContentStart(sessionCount) {
+        consola.info(`Uploading content for ${sessionCount} session(s)...`);
+      },
+      uploadContentProgress(done, total) {
+        consola.info(`  Content: ${done}/${total}`);
+      },
+      uploadContentDone(uploaded, skipped, errors) {
+        const parts = [`${uploaded} uploaded`, `${skipped} skipped`];
+        if (errors > 0) parts.push(`${errors} errors`);
+        consola.info(`Content upload done: ${parts.join(", ")}`);
+      },
+      dbDriverStart(source) {
+        consola.info(`  [${source}] Querying database...`);
+      },
+      dbDriverDone(source, sessionCount) {
+        consola.info(`  [${source}] Found ${sessionCount} session(s) from DB`);
+      },
+    };
+
     // Run pipeline
     const result = await runSyncPipeline(
       {
@@ -134,7 +173,8 @@ export default defineCommand({
         apiUrl: config.getApiUrl(),
         apiKey: config.getToken() ?? "",
         userId: "cli", // server overrides with authenticated userId from X-User-Id header
-        },
+        logger,
+      },
     );
 
     // Save cursor state

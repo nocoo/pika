@@ -30,6 +30,35 @@ import type { ContentUploadOptions, BatchContentUploadResult } from "../upload/c
 
 // ── Types ──────────────────────────────────────────────────────
 
+/**
+ * Progress callback for the sync pipeline.
+ *
+ * Injected by the CLI command to emit human-readable progress lines.
+ * Tests leave it undefined — all logging is skipped.
+ */
+export interface SyncProgressLogger {
+  /** Called once per source when discovery starts */
+  discoverStart(source: string): void;
+  /** Called once per source after discovery completes */
+  discoverDone(source: string, fileCount: number): void;
+  /** Called per file after parse completes */
+  parseDone(source: string, filePath: string, sessionCount: number): void;
+  /** Called once when the upload metadata stage starts */
+  uploadMetadataStart(sessionCount: number): void;
+  /** Called once after metadata upload completes */
+  uploadMetadataDone(ingested: number, conflicts: number): void;
+  /** Called once when content upload stage starts */
+  uploadContentStart(sessionCount: number): void;
+  /** Called per session when content upload completes */
+  uploadContentProgress(done: number, total: number): void;
+  /** Called once after all content uploads complete */
+  uploadContentDone(uploaded: number, skipped: number, errors: number): void;
+  /** Called once when the DB driver stage starts */
+  dbDriverStart(source: string): void;
+  /** Called once after DB driver completes */
+  dbDriverDone(source: string, sessionCount: number): void;
+}
+
 export interface SyncPipelineOptions {
   /** Upload parsed sessions to API (default: true) */
   upload: boolean;
@@ -45,6 +74,8 @@ export interface SyncPipelineOptions {
   sleep?: (ms: number) => Promise<void>;
   /** Content upload concurrency (default: CONTENT_UPLOAD_CONCURRENCY) */
   contentConcurrency?: number;
+  /** Optional progress logger — omit to suppress all progress output */
+  logger?: SyncProgressLogger;
 }
 
 export interface SyncPipelineInput {
@@ -108,6 +139,7 @@ export async function runSyncPipeline(
     discoverOpts,
     syncCtx,
   } = input;
+  const log = opts.logger;
 
   let cursorState = { ...input.cursorState, files: { ...input.cursorState.files } };
 
@@ -126,7 +158,9 @@ export async function runSyncPipeline(
   // ── Stage 1+2: Discover + incremental parse (file drivers) ──
 
   for (const driver of fileDrivers) {
+    log?.discoverStart(driver.source);
     const files = await driver.discover(discoverOpts);
+    log?.discoverDone(driver.source, files.length);
 
     for (const filePath of files) {
       totalFiles++;
@@ -153,6 +187,7 @@ export async function runSyncPipeline(
 
         if (results.length > 0) {
           allResults.push(...results);
+          log?.parseDone(driver.source, filePath, results.length);
 
           // Save previous cursor for rollback and map sessionKeys to filePath
           prevCursors.set(filePath, cursorState.files[filePath] as FileCursor | undefined);
@@ -179,6 +214,7 @@ export async function runSyncPipeline(
 
   if (dbDriver) {
     try {
+      log?.dbDriverStart(dbDriver.source);
       prevDbCursor = cursorState.openCodeSqlite;
       const dbResult = await dbDriver.run(prevDbCursor, syncCtx);
       allResults.push(...dbResult.results);
@@ -186,6 +222,7 @@ export async function runSyncPipeline(
         dbSourcedSessionKeys.add(r.canonical.sessionKey);
       }
       cursorState.openCodeSqlite = dbResult.cursor;
+      log?.dbDriverDone(dbDriver.source, dbResult.results.length);
     } catch (err) {
       parseErrors.push({
         timestamp: new Date().toISOString(),
@@ -227,7 +264,9 @@ export async function runSyncPipeline(
       sleep: opts.sleep,
     };
 
+    log?.uploadMetadataStart(snapshots.length);
     uploadResult = await uploadMetadataBatches(snapshots, uploadOpts);
+    log?.uploadMetadataDone(uploadResult.totalIngested, uploadResult.totalConflicts);
 
     // Upload content (reusing precomputed JSON + hashes from metadata stage)
     const contentOpts: ContentUploadOptions = {
@@ -237,14 +276,52 @@ export async function runSyncPipeline(
       sleep: opts.sleep,
     };
 
+    const totalSessions = allResults.length;
+    log?.uploadContentStart(totalSessions);
+
+    // Wrap content upload to track per-session progress
+    let contentDone = 0;
+    const wrappedContentOpts: ContentUploadOptions = {
+      ...contentOpts,
+    };
+
+    // We need to intercept completion per session for progress.
+    // Inject a fetch wrapper that counts completed sessions.
+    const originalFetch = contentOpts.fetch ?? globalThis.fetch;
+    if (log) {
+      // Track unique session keys that have completed (canonical PUT done = session progress tick)
+      const completedSessions = new Set<string>();
+      wrappedContentOpts.fetch = async (input, init) => {
+        const response = await originalFetch(input, init);
+        // Detect canonical PUT completion by URL pattern
+        const url = typeof input === "string" ? input : (input as Request).url;
+        if (url.includes("/api/ingest/content/") && url.endsWith("/canonical")) {
+          const parts = url.split("/");
+          const sessionKey = decodeURIComponent(parts[parts.length - 2]);
+          if (!completedSessions.has(sessionKey)) {
+            completedSessions.add(sessionKey);
+            contentDone++;
+            log.uploadContentProgress(contentDone, totalSessions);
+          }
+        }
+        return response;
+      };
+    }
+
     contentResult = await uploadContentBatch(
       allResults.map((r) => ({
         canonical: r.canonical,
         raw: r.raw,
         precomputed: precomputedMap.get(r.canonical.sessionKey),
       })),
-      contentOpts,
+      log ? wrappedContentOpts : contentOpts,
       opts.contentConcurrency,
+    );
+
+    log?.uploadContentDone(
+      contentResult.uploaded,
+      contentResult.skipped,
+      contentResult.errors.length,
     );
 
     // ── Rollback cursors for sessions with content upload errors ──
