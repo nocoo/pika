@@ -474,13 +474,16 @@ export function buildBatchByIdsQuery(batch: BatchByIds): BuiltQuery {
 /**
  * Build batch update query using filter conditions.
  * Reuses buildWhereClause for consistency.
+ *
+ * SQLite UPDATE does not support table aliases, so we use a subquery:
+ * UPDATE sessions SET ... WHERE id IN (SELECT s.id FROM sessions s WHERE ...)
  */
 export function buildBatchByFilterQuery(batch: BatchByFilter): BuiltQuery {
   const { conditions, queryParams } = buildWhereClause(batch.filter);
   const set = batchSetClause(batch.action);
   const where = conditions.join(" AND ");
   return {
-    sql: `UPDATE sessions s SET ${set} WHERE ${where}`,
+    sql: `UPDATE sessions SET ${set} WHERE id IN (SELECT s.id FROM sessions s WHERE ${where})`,
     params: queryParams,
   };
 }

@@ -715,12 +715,13 @@ describe("buildBatchByIdsQuery", () => {
 // ── buildBatchByFilterQuery ───────────────────────────────────
 
 describe("buildBatchByFilterQuery", () => {
-  it("builds delete query using filter conditions", () => {
+  it("builds delete query using filter conditions via subquery", () => {
     const { sql, params } = buildBatchByFilterQuery({
       action: "delete",
       filter: { userId: "u1", source: "claude-code" },
     });
-    expect(sql).toContain("UPDATE sessions s SET deleted_at = datetime('now')");
+    expect(sql).toContain("UPDATE sessions SET deleted_at = datetime('now')");
+    expect(sql).toContain("WHERE id IN (SELECT s.id FROM sessions s WHERE");
     expect(sql).toContain("s.user_id = ?");
     expect(sql).toContain("s.source = ?");
     expect(params).toContain("u1");
