@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.1] - 2026-03-15
+
+### Features
+
+- **Markdown rendering** — Full markdown support in session replay via react-markdown + remark-gfm (headings, lists, tables, blockquotes, strikethrough, task lists, bold/italic, links)
+- **Syntax highlighting** — Code blocks highlighted with shiki (dual theme: github-light/github-dark), async loading with plain-text fallback
+- **Agent brand avatars** — Each source (Claude, Codex, Gemini, OpenCode, Copilot) gets a branded SVG icon instead of a generic letter
+- **User profile avatar** — Google profile photo shown for user messages via NextAuth session
+- **Identity hover cards** — Hover on avatars to see user profile or agent details (model, token usage, timestamp)
+- **Scroll to top** — Floating button appears after 500px scroll with smooth fade animation
+- **Enhanced end marker** — Session end shows statistics summary (messages, duration, tokens) with centered horizontal lines
+- **Enhanced timestamp separator** — Horizontal line with centered time label for clearer message grouping
+- **Tool call improvements** — Success/neutral color tinting, Badge labels for Input/Output, JSON syntax highlighting via shiki, accordion expand animation
+- **Message entrance animation** — Fade-in with staggered delay, respects prefers-reduced-motion
+
+### Enhancements
+
+- **Sessions DataTable** — Replaced card grid with sortable TanStack Table, offset pagination, model filter
+- **Multi-select & batch operations** — Bulk star, tag, delete via DataTable checkboxes
+- **Soft delete & trash** — Sessions can be trashed and restored, with isolated query builders
+- **Auto-generated titles** — Sessions without titles get a title from the first user message
+- **Shared UI components** — AgentBadge and ModelBadge extracted as reusable components
+
+### Fixes
+
+- Fix SQLite UPDATE table alias error (use subquery pattern)
+- Fix message range filter from 1-10 to 0-10
+- Fix Docker standalone deploy (static imports, image optimization, AUTH_URL build arg)
+- Fix migration test location for Docker build
+
+### Infrastructure
+
+- Golden yellow rebrand (primary color)
+- Explicit test file exclude in core tsconfig
+- shadcn hover-card component added
+
 ## [0.2.0] - 2026-03-15
 
 First tagged release. Pika is a SaaS for replaying and searching coding agent sessions — CLI parses local AI tool logs, uploads to the cloud, and a web dashboard provides full-text search and session replay.
