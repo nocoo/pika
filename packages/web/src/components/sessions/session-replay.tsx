@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { formatTokensFull } from "@/lib/utils";
 import { formatDuration, formatDateTime } from "@/lib/format";
@@ -8,6 +8,7 @@ import { AgentBadge } from "@/components/ui/agent-badge";
 import { ModelBadge } from "@/components/ui/model-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MessageBubble } from "./message-bubble";
+import { ScrollToTop } from "./scroll-to-top";
 import type { SessionDetailRow } from "@/lib/session-detail";
 import type { CanonicalMessage, CanonicalSession } from "@pika/core";
 
@@ -127,6 +128,19 @@ export function SessionReplay({
 
   const totalTokens =
     session.total_input_tokens + session.total_output_tokens;
+
+  // End marker summary parts
+  const endSummary = useMemo(() => {
+    const parts: string[] = [];
+    parts.push(`${messages.length} messages`);
+    if (session.duration_seconds > 0) {
+      parts.push(formatDuration(session.duration_seconds));
+    }
+    if (totalTokens > 0) {
+      parts.push(`${formatTokensFull(totalTokens)} tokens`);
+    }
+    return parts.join(" · ");
+  }, [messages.length, session.duration_seconds, totalTokens]);
 
   return (
     <div className={cn("flex flex-col gap-6", className)} ref={containerRef}>
@@ -254,14 +268,19 @@ export function SessionReplay({
             />
           ))}
 
-          {/* End marker */}
-          <div className="flex items-center justify-center py-6">
-            <span className="text-xs text-muted-foreground">
-              End of session ({messages.length} messages)
+          {/* End marker — centered line with session summary */}
+          <div className="flex items-center gap-3 py-6">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-[10px] text-muted-foreground shrink-0">
+              End of session · {endSummary}
             </span>
+            <div className="h-px flex-1 bg-border" />
           </div>
         </div>
       )}
+
+      {/* Scroll to top button */}
+      <ScrollToTop />
     </div>
   );
 }
