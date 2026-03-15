@@ -2,11 +2,9 @@
 
 import { type ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
-import { Star } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AgentBadge } from "@/components/ui/agent-badge";
 import { ModelBadge } from "@/components/ui/model-badge";
-import { cn } from "@/lib/utils";
 import { formatTokens } from "@/lib/utils";
 import {
   formatDuration,
@@ -14,61 +12,18 @@ import {
 } from "@/lib/format";
 import type { SessionCardData } from "./session-card";
 
-// ── Title + Star cell ────────────────────────────────────────
+// ── Trash-specific row type ───────────────────────────────────
 
-function TitleStarCell({
-  session,
-  starred,
-  onToggle,
-}: {
-  session: SessionCardData;
-  starred: boolean;
-  onToggle: (sessionId: string, starred: boolean) => void;
-}) {
-  return (
-    <div className="group flex items-center gap-1.5 min-w-0">
-      <Link
-        href={`/dashboard/sessions/${session.id}`}
-        className="text-sm font-medium text-foreground hover:underline truncate block max-w-[300px] xl:max-w-[400px]"
-        title={session.title ?? "Untitled session"}
-      >
-        {session.title ?? "Untitled session"}
-      </Link>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onToggle(session.id, !starred);
-        }}
-        className={cn(
-          "shrink-0 p-0.5 rounded transition-colors hover:text-amber-500",
-          starred
-            ? "text-amber-500"
-            : "text-muted-foreground/40 opacity-0 group-hover:opacity-100",
-        )}
-        aria-label={starred ? "Unstar session" : "Star session"}
-      >
-        <Star
-          className="h-3.5 w-3.5"
-          fill={starred ? "currentColor" : "none"}
-        />
-      </button>
-    </div>
-  );
+export interface TrashRowData extends SessionCardData {
+  deleted_at: string | null;
 }
 
-// ── Column definitions ───────────────────────────────────────
+// ── Column definitions ────────────────────────────────────────
 
-export function getSessionColumns(
-  starredMap: Map<string, boolean>,
-  onToggleStar: (sessionId: string, starred: boolean) => void,
-  options?: { enableSelection?: boolean },
-): ColumnDef<SessionCardData, unknown>[] {
-  const cols: ColumnDef<SessionCardData, unknown>[] = [];
-
-  if (options?.enableSelection) {
-    cols.push({
+export function getTrashColumns(): ColumnDef<TrashRowData, unknown>[] {
+  return [
+    // Checkbox
+    {
       id: "select",
       size: 40,
       enableSorting: false,
@@ -95,11 +50,9 @@ export function getSessionColumns(
           onClick={(e) => e.stopPropagation()}
         />
       ),
-    });
-  }
+    },
 
-  cols.push(
-    // Agent (was "Source")
+    // Agent
     {
       id: "source",
       enableSorting: false,
@@ -108,25 +61,23 @@ export function getSessionColumns(
       cell: ({ row }) => <AgentBadge source={row.original.source} />,
     },
 
-    // Title (with inline star on hover)
+    // Title (no star toggle)
     {
       accessorKey: "title",
       header: "Title",
       enableSorting: false,
-      cell: ({ row }) => {
-        const session = row.original;
-        const starred = starredMap.get(session.id) ?? session.is_starred === 1;
-        return (
-          <TitleStarCell
-            session={session}
-            starred={starred}
-            onToggle={onToggleStar}
-          />
-        );
-      },
+      cell: ({ row }) => (
+        <Link
+          href={`/dashboard/sessions/${row.original.id}`}
+          className="text-sm font-medium text-foreground hover:underline truncate block max-w-[300px] xl:max-w-[400px]"
+          title={row.original.title ?? "Untitled session"}
+        >
+          {row.original.title ?? "Untitled session"}
+        </Link>
+      ),
     },
 
-    // Model (badge with tinted color)
+    // Model
     {
       accessorKey: "model",
       header: "Model",
@@ -134,7 +85,7 @@ export function getSessionColumns(
       cell: ({ row }) => <ModelBadge model={row.original.model} />,
     },
 
-    // Messages (sortable, right-aligned)
+    // Messages
     {
       accessorKey: "total_messages",
       header: "Messages",
@@ -151,7 +102,7 @@ export function getSessionColumns(
       ),
     },
 
-    // Tokens (sortable, right-aligned, hidden on mobile)
+    // Tokens
     {
       accessorKey: "total_input_tokens",
       header: "Tokens",
@@ -172,7 +123,7 @@ export function getSessionColumns(
       },
     },
 
-    // Duration (sortable, right-aligned)
+    // Duration
     {
       accessorKey: "duration_seconds",
       header: "Duration",
@@ -189,10 +140,10 @@ export function getSessionColumns(
       ),
     },
 
-    // Last active (sortable, right-aligned)
+    // Deleted at
     {
-      accessorKey: "last_message_at",
-      header: "Last active",
+      accessorKey: "deleted_at",
+      header: "Deleted",
       enableSorting: true,
       size: 100,
       meta: {
@@ -201,28 +152,11 @@ export function getSessionColumns(
       },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground whitespace-nowrap">
-          {relativeTime(row.original.last_message_at)}
+          {row.original.deleted_at
+            ? relativeTime(row.original.deleted_at)
+            : "—"}
         </span>
       ),
     },
-
-    // Started (sortable, right-aligned, hidden on mobile)
-    {
-      accessorKey: "started_at",
-      header: "Started",
-      enableSorting: true,
-      size: 100,
-      meta: {
-        headerClassName: "hidden lg:table-cell text-right",
-        cellClassName: "hidden lg:table-cell text-right",
-      },
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground whitespace-nowrap">
-          {relativeTime(row.original.started_at)}
-        </span>
-      ),
-    },
-  );
-
-  return cols;
+  ];
 }
