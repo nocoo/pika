@@ -12,7 +12,7 @@ interface FilterOptions {
   projects: { ref: string; name: string | null }[];
 }
 
-export type MessageRange = "" | "1-10" | "11-50" | "51-200" | "201+";
+export type MessageRange = "" | "0-10" | "11-50" | "51-200" | "201+";
 
 interface SessionFiltersProps {
   source: Source | "";
@@ -50,7 +50,7 @@ const SORT_OPTIONS: { value: SessionSort; label: string }[] = [
 
 const MESSAGE_RANGE_OPTIONS: { value: MessageRange; label: string }[] = [
   { value: "", label: "All sizes" },
-  { value: "1-10", label: "1–10 msgs" },
+  { value: "0-10", label: "0–10 msgs" },
   { value: "11-50", label: "11–50 msgs" },
   { value: "51-200", label: "51–200 msgs" },
   { value: "201+", label: "201+ msgs" },

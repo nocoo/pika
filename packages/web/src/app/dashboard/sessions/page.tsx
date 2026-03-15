@@ -50,8 +50,8 @@ function messageRangeToParams(range: MessageRange): {
   maxMessages?: string;
 } {
   switch (range) {
-    case "1-10":
-      return { minMessages: "1", maxMessages: "10" };
+    case "0-10":
+      return { minMessages: "0", maxMessages: "10" };
     case "11-50":
       return { minMessages: "11", maxMessages: "50" };
     case "51-200":
