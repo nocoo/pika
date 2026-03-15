@@ -51,7 +51,7 @@ Pika 是一套自托管 SaaS，用于收集、搜索和回放你与 AI 编程助
 ### 安全
 
 - **API key 哈希存储** — SHA-256 哈希，每次登录生成新 key
-- **Gzip 炸弹防护** — Worker 端流式追踪解压大小，上限 256 MB
+- **Gzip 解压上限** — Worker 端流式追踪解压大小，超过 256 MB 自动截断
 - **Ingest 体积限制** — 内容上传 50 MB，metadata 2 MB，无 Content-Length 直接拒绝（411）
 - **本地配置权限** — `~/.config/pika/` 文件权限 0600，仅所有者可读
 
