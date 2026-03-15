@@ -48,12 +48,14 @@ export const MessageBubble = memo(function MessageBubble({
 
   return (
     <div className={cn("flex flex-col", className)} id={`msg-${index}`}>
-      {/* Timestamp separator */}
+      {/* Timestamp separator — centered line with time label */}
       {showTimestamp && timeLabel && (
-        <div className="flex items-center justify-center py-3">
-          <span className="text-[10px] text-muted-foreground bg-background px-2">
+        <div className="flex items-center gap-3 py-3">
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-[10px] text-muted-foreground shrink-0">
             {timeLabel}
           </span>
+          <div className="h-px flex-1 bg-border" />
         </div>
       )}
 
