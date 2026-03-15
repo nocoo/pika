@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -17,6 +18,74 @@ interface ToolCallProps {
   className?: string;
 }
 
+// ── Shiki JSON highlight (reuse singleton from markdown-content) ──
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let highlighterPromise: Promise<any> | null = null;
+
+function getHighlighter() {
+  if (!highlighterPromise) {
+    highlighterPromise = import("shiki/bundle/web").then((mod) =>
+      mod.createHighlighter({
+        themes: ["github-dark", "github-light"],
+        langs: ["json"],
+      }),
+    );
+  }
+  return highlighterPromise!;
+}
+
+/** Highlighted JSON block — falls back to plain text while loading */
+function HighlightedJson({ content }: { content: string }) {
+  const [html, setHtml] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const formatted = formatToolContent(content);
+
+    // Only highlight if it looks like JSON
+    if (!formatted.startsWith("{") && !formatted.startsWith("[")) {
+      return;
+    }
+
+    getHighlighter()
+      .then((hl) => {
+        if (cancelled) return;
+        try {
+          const result = hl.codeToHtml(formatted, {
+            lang: "json",
+            themes: { dark: "github-dark", light: "github-light" },
+          });
+          setHtml(result);
+        } catch {
+          // Keep fallback
+        }
+      })
+      .catch(() => {
+        // Keep fallback
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [content]);
+
+  if (html) {
+    return (
+      <div
+        className="tool-call-shiki max-h-60 overflow-auto rounded-md text-xs [&_pre]:!bg-transparent [&_pre]:p-0 [&_pre]:m-0"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    );
+  }
+
+  return (
+    <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-all font-mono text-xs text-foreground">
+      {formatToolContent(content)}
+    </pre>
+  );
+}
+
 // ── ToolCall ───────────────────────────────────────────────────
 
 export function ToolCall({
@@ -27,12 +96,16 @@ export function ToolCall({
 }: ToolCallProps) {
   const [open, setOpen] = useState(false);
   const hasDetails = Boolean(toolInput || toolResult);
+  const hasResult = Boolean(toolResult);
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <div
         className={cn(
-          "rounded-lg border border-border bg-secondary/50 text-sm",
+          "rounded-lg border text-sm overflow-hidden transition-colors",
+          hasResult
+            ? "border-success/20 bg-success/5"
+            : "border-border bg-secondary/50",
           className,
         )}
       >
@@ -66,7 +139,10 @@ export function ToolCall({
 
           {/* Tool icon */}
           <svg
-            className="size-3.5 shrink-0 text-primary"
+            className={cn(
+              "size-3.5 shrink-0",
+              hasResult ? "text-success" : "text-primary",
+            )}
             fill="none"
             viewBox="0 0 24 24"
             strokeWidth={2}
@@ -82,27 +158,34 @@ export function ToolCall({
           <span className="truncate font-mono">{toolName}</span>
         </CollapsibleTrigger>
 
-        {/* Expandable input/output */}
-        <CollapsibleContent>
+        {/* Expandable input/output with height transition */}
+        <CollapsibleContent className="data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up overflow-hidden">
           <div className="border-t border-border">
             {toolInput && (
               <div className="px-3 py-2">
-                <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                <Badge
+                  variant="secondary"
+                  className="mb-1.5 h-4 px-1.5 text-[9px] font-medium uppercase tracking-wider"
+                >
                   Input
-                </div>
-                <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-all font-mono text-xs text-foreground">
-                  {formatToolContent(toolInput)}
-                </pre>
+                </Badge>
+                <HighlightedJson content={toolInput} />
               </div>
             )}
             {toolResult && (
-              <div className={cn("px-3 py-2", toolInput && "border-t border-border")}>
-                <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              <div
+                className={cn(
+                  "px-3 py-2",
+                  toolInput && "border-t border-border",
+                )}
+              >
+                <Badge
+                  variant="secondary"
+                  className="mb-1.5 h-4 px-1.5 text-[9px] font-medium uppercase tracking-wider"
+                >
                   Output
-                </div>
-                <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-all font-mono text-xs text-foreground">
-                  {formatToolContent(toolResult)}
-                </pre>
+                </Badge>
+                <HighlightedJson content={toolResult} />
               </div>
             )}
           </div>
