@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { parseProjectDisplay, projectDisplayName } from "@/lib/format";
+import { ScopeBadge } from "@/components/ui/scope-badge";
 import type { TopProject } from "@/lib/stats";
 
 interface TopProjectsProps {
@@ -28,10 +30,14 @@ export function TopProjects({ projects, className }: TopProjectsProps) {
           href={`/dashboard/sessions?project=${encodeURIComponent(project.project_ref)}`}
           className="group flex items-center gap-3 rounded-lg px-1 py-1.5 transition-colors hover:bg-accent/50 -mx-1"
         >
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 flex items-center gap-1.5">
             <p className="text-sm text-foreground truncate">
-              {project.project_name ?? project.project_ref}
+              {projectDisplayName(project.project_name, project.project_ref)}
             </p>
+            {(() => {
+              const { scope } = parseProjectDisplay(project.project_name);
+              return scope ? <ScopeBadge scope={scope} /> : null;
+            })()}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <div className="w-20 h-1.5 rounded-full bg-secondary overflow-hidden">

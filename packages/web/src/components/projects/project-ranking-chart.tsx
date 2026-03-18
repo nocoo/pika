@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { BarChart3 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { projectDisplayName } from "@/lib/format";
 import { projectColor } from "@/lib/palette";
 import type { ProjectItem } from "@/lib/projects";
 
@@ -45,7 +46,7 @@ export function ProjectRankingChart({
   }
 
   const data = top10.map((p) => ({
-    name: p.project_name ?? p.project_ref.slice(0, 8),
+    name: projectDisplayName(p.project_name, p.project_ref),
     sessions: p.session_count,
     projectRef: p.project_ref,
   }));

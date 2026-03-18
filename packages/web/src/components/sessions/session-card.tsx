@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { AgentBadge } from "@/components/ui/agent-badge";
 import { ModelBadge } from "@/components/ui/model-badge";
-import { formatDuration, relativeTime } from "@/lib/format";
+import { formatDuration, relativeTime, projectDisplayName } from "@/lib/format";
 import { formatTokens } from "@/lib/utils";
 import type { Source } from "@pika/core";
 
@@ -132,7 +132,7 @@ export function SessionCard({ session, className }: SessionCardProps) {
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         {session.project_name && (
           <span className="truncate max-w-[200px]">
-            {session.project_name}
+            {projectDisplayName(session.project_name)}
           </span>
         )}
         {session.model && <ModelBadge model={session.model} />}

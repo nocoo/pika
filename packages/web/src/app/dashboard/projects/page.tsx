@@ -22,6 +22,7 @@ import { ProjectActivityChart } from "@/components/projects/project-activity-cha
 import { getSessionColumns } from "@/components/sessions/session-columns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatTokens } from "@/lib/utils";
+import { projectDisplayName } from "@/lib/format";
 import type { SessionCardData } from "@/components/sessions/session-card";
 import type { SessionSort, SessionListResponse } from "@/lib/sessions";
 import type {
@@ -330,7 +331,7 @@ export default function ProjectsPage() {
           {/* Section header */}
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold tracking-tight">
-              {selectedProject?.project_name ?? selectedRef}
+              {projectDisplayName(selectedProject?.project_name ?? null, selectedRef ?? undefined)}
             </h2>
             <button
               type="button"

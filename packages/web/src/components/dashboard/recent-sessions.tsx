@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { sourceLabel, formatDuration, relativeTime } from "@/lib/format";
+import { sourceLabel, formatDuration, relativeTime, projectDisplayName } from "@/lib/format";
 import { formatTokens } from "@/lib/utils";
 import { agentColor } from "@/lib/palette";
 import type { Source } from "@pika/core";
@@ -58,7 +58,7 @@ export function RecentSessions({ sessions, className }: RecentSessionsProps) {
               {session.title ?? "Untitled session"}
             </p>
             <p className="text-xs text-muted-foreground truncate">
-              {session.project_name ?? "No project"} · {sourceLabel(session.source)}
+              {session.project_name ? projectDisplayName(session.project_name) : "No project"} · {sourceLabel(session.source)}
             </p>
           </div>
 

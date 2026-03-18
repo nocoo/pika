@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { AgentBadge } from "@/components/ui/agent-badge";
-import { relativeTime } from "@/lib/format";
+import { relativeTime, projectDisplayName } from "@/lib/format";
 import type { Source } from "@pika/core";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -51,7 +51,7 @@ function SearchResultCardInner({ result }: { result: SearchResultData }) {
           <>
             <span className="text-border">·</span>
             <span className="text-xs text-muted-foreground truncate max-w-[200px]">
-              {result.project_name}
+              {projectDisplayName(result.project_name)}
             </span>
           </>
         )}

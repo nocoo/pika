@@ -4,7 +4,8 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
 import { formatTokens } from "@/lib/utils";
 import { agentColor } from "@/lib/palette";
-import { relativeTime } from "@/lib/format";
+import { relativeTime, parseProjectDisplay, projectDisplayName } from "@/lib/format";
+import { ScopeBadge } from "@/components/ui/scope-badge";
 import type { ProjectItem, ProjectSourceCount } from "@/lib/projects";
 
 // ── MiniDonut ─────────────────────────────────────────────────
@@ -66,9 +67,15 @@ export function ProjectCard({
     >
       <MiniDonut sources={sources} />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground truncate">
-          {project.project_name ?? project.project_ref}
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-medium text-foreground truncate">
+            {projectDisplayName(project.project_name, project.project_ref)}
+          </p>
+          {(() => {
+            const { scope } = parseProjectDisplay(project.project_name);
+            return scope ? <ScopeBadge scope={scope} /> : null;
+          })()}
+        </div>
         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
           <span>{project.session_count} sessions</span>
           <span>{project.total_messages} msgs</span>
