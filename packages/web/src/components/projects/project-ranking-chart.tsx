@@ -47,7 +47,7 @@ export function ProjectRankingChart({
   const data = top10.map((p) => ({
     name: p.project_name ?? p.project_ref.slice(0, 8),
     sessions: p.session_count,
-    ref: p.project_ref,
+    projectRef: p.project_ref,
   }));
 
   return (
@@ -93,8 +93,8 @@ export function ProjectRankingChart({
               <Bar dataKey="sessions" radius={[0, 4, 4, 0]} barSize={20}>
                 {data.map((entry) => (
                   <Cell
-                    key={entry.ref}
-                    fill={projectColor(entry.ref).color}
+                    key={entry.projectRef}
+                    fill={projectColor(entry.projectRef).color}
                   />
                 ))}
               </Bar>
