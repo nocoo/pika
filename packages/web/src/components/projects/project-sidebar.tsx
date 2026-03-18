@@ -65,7 +65,7 @@ export function ProjectSidebar({
   }
 
   return (
-    <div className="flex flex-col gap-4 lg:h-[calc(100vh-12rem)] lg:overflow-y-auto lg:pr-1">
+    <div className="flex flex-col gap-4 lg:h-[calc(100vh-12rem)] lg:overflow-y-auto p-0.5">
       {groups.map((group) => (
         <div key={group.label} className="flex flex-col gap-2">
           <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">
