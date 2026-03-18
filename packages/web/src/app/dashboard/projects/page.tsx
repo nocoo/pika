@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ProjectFilters,
   type MinSessionsValue,
@@ -17,18 +17,21 @@ import {
   MessageSquare,
   Layers,
   Coins,
-  X,
+  ChevronRight,
 } from "lucide-react";
-import { DataTable } from "@/components/ui/data-table";
-import { DataTablePagination } from "@/components/ui/data-table-pagination";
+import { cn } from "@/lib/utils";
 import { StatGrid, StatCard } from "@/components/dashboard/stat-card";
-import { ProjectCard } from "@/components/projects/project-card";
+import { ProjectSidebar } from "@/components/projects/project-sidebar";
+import { ProjectDetailPanel } from "@/components/projects/project-detail-panel";
 import { ProjectRankingChart } from "@/components/projects/project-ranking-chart";
-import { ProjectActivityChart } from "@/components/projects/project-activity-chart";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
 import { getSessionColumns } from "@/components/sessions/session-columns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatTokens } from "@/lib/utils";
-import { projectDisplayName } from "@/lib/format";
 import type { SessionCardData } from "@/components/sessions/session-card";
 import type { SessionSort, SessionListResponse } from "@/lib/sessions";
 import type {
@@ -86,8 +89,8 @@ export default function ProjectsPage() {
   // Star state (optimistic)
   const [starredMap, setStarredMap] = useState<Map<string, boolean>>(new Map());
 
-  // Ref for scrolling to drill-down section
-  const drillDownRef = useRef<HTMLDivElement>(null);
+  // Overview collapsible
+  const [overviewOpen, setOverviewOpen] = useState(true);
 
   // ── Fetch projects ─────────────────────────────────────────
 
@@ -135,10 +138,6 @@ export default function ProjectsPage() {
         setSelectedKey(key);
         setSessionsPage(1);
         setSessionsSort("last_message_at");
-        // Scroll to drill-down after a tick
-        setTimeout(() => {
-          drillDownRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-        }, 100);
       }
     },
     [selectedKey],
@@ -304,10 +303,16 @@ export default function ProjectsPage() {
 
   const selectedProject = filteredProjects.find((p) => p.project_key === selectedKey);
 
+  const handleClose = useCallback(() => {
+    setSelectedKey(null);
+    setSessions([]);
+    setSessionsTotalCount(0);
+  }, []);
+
   // ── Render ─────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight font-display">
@@ -333,124 +338,114 @@ export default function ProjectsPage() {
         />
       )}
 
-      {/* Stat cards */}
-      {loading ? (
-        <StatGrid>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-[88px] rounded-xl" />
-          ))}
-        </StatGrid>
-      ) : filteredOverview ? (
-        <StatGrid>
-          <StatCard
-            label="Total Projects"
-            value={filteredOverview.totalProjects.toLocaleString()}
-            icon={<FolderKanban className="h-4 w-4" />}
-          />
-          <StatCard
-            label="Total Sessions"
-            value={filteredOverview.totalSessions.toLocaleString()}
-            icon={<Layers className="h-4 w-4" />}
-          />
-          <StatCard
-            label="Total Tokens"
-            value={formatTokens(
-              filteredOverview.totalInputTokens + filteredOverview.totalOutputTokens,
-            )}
-            icon={<Coins className="h-4 w-4" />}
-          />
-          <StatCard
-            label="Total Messages"
-            value={filteredOverview.totalMessages.toLocaleString()}
-            icon={<MessageSquare className="h-4 w-4" />}
-          />
-        </StatGrid>
-      ) : null}
-
-      {/* Ranking chart */}
-      {loading ? (
-        <Skeleton className="h-[380px] rounded-xl" />
-      ) : (
-        <ProjectRankingChart projects={filteredProjects} />
-      )}
-
-      {/* Project cards grid */}
-      {loading ? (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-[96px] rounded-xl" />
-          ))}
-        </div>
-      ) : filteredProjects.length === 0 ? (
-        <div className="text-sm text-muted-foreground text-center py-12">
-          {projects.length === 0
-            ? "No projects found. Sessions will appear here once they have a project reference."
-            : "No projects match the current filters."}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredProjects.map((project) => (
-            <ProjectCard
-              key={project.project_key}
-              project={project}
-              sources={filteredSourceDistribution[project.project_key] ?? []}
-              selected={selectedKey === project.project_key}
-              onClick={() => handleProjectClick(project.project_key)}
+      {/* Main body: left/right split */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-10">
+        {/* Left: Project list */}
+        <div className="lg:col-span-3">
+          {loading ? (
+            <div className="flex flex-col gap-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-[96px] rounded-xl" />
+              ))}
+            </div>
+          ) : filteredProjects.length === 0 ? (
+            <div className="text-sm text-muted-foreground text-center py-12">
+              {projects.length === 0
+                ? "No projects found. Sessions will appear here once they have a project reference."
+                : "No projects match the current filters."}
+            </div>
+          ) : (
+            <ProjectSidebar
+              projects={filteredProjects}
+              sourceDistribution={filteredSourceDistribution}
+              selectedKey={selectedKey}
+              onProjectClick={handleProjectClick}
             />
-          ))}
+          )}
         </div>
-      )}
 
-      {/* Drill-down section */}
-      {selectedKey && (
-        <div ref={drillDownRef} className="flex flex-col gap-4">
-          {/* Section header */}
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold tracking-tight">
-              {projectDisplayName(selectedProject?.project_name ?? null, selectedKey ?? undefined)}
-            </h2>
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedKey(null);
-                setSessions([]);
-                setSessionsTotalCount(0);
-              }}
-              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="h-4 w-4" />
-              Close
-            </button>
-          </div>
-
-          {/* Activity chart */}
-          <ProjectActivityChart projectKey={selectedKey} />
-
-          {/* Sessions error */}
-          {sessionsError && (
-            <div className="text-sm text-destructive">{sessionsError}</div>
+        {/* Right: Overview + Detail */}
+        <div className="lg:col-span-7 flex flex-col gap-4">
+          {/* Collapsible overview */}
+          {!loading && (
+            <Collapsible open={overviewOpen} onOpenChange={setOverviewOpen}>
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ChevronRight
+                    className={cn(
+                      "h-4 w-4 transition-transform",
+                      overviewOpen && "rotate-90",
+                    )}
+                  />
+                  Overview
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="flex flex-col gap-4 pt-3">
+                  {filteredOverview && (
+                    <StatGrid className="lg:grid-cols-2 xl:grid-cols-4">
+                      <StatCard
+                        label="Total Projects"
+                        value={filteredOverview.totalProjects.toLocaleString()}
+                        icon={<FolderKanban className="h-4 w-4" />}
+                      />
+                      <StatCard
+                        label="Total Sessions"
+                        value={filteredOverview.totalSessions.toLocaleString()}
+                        icon={<Layers className="h-4 w-4" />}
+                      />
+                      <StatCard
+                        label="Total Tokens"
+                        value={formatTokens(
+                          filteredOverview.totalInputTokens +
+                            filteredOverview.totalOutputTokens,
+                        )}
+                        icon={<Coins className="h-4 w-4" />}
+                      />
+                      <StatCard
+                        label="Total Messages"
+                        value={filteredOverview.totalMessages.toLocaleString()}
+                        icon={<MessageSquare className="h-4 w-4" />}
+                      />
+                    </StatGrid>
+                  )}
+                  <ProjectRankingChart projects={filteredProjects} />
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           )}
 
-          {/* Sessions table */}
-          <DataTable
+          {loading && (
+            <div className="flex flex-col gap-4">
+              <StatGrid className="lg:grid-cols-2 xl:grid-cols-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-[88px] rounded-xl" />
+                ))}
+              </StatGrid>
+              <Skeleton className="h-[380px] rounded-xl" />
+            </div>
+          )}
+
+          {/* Detail area */}
+          <ProjectDetailPanel
+            selectedKey={selectedKey}
+            selectedProject={selectedProject}
+            sessionsError={sessionsError}
+            sessionsLoading={sessionsLoading}
             table={table}
             columns={columns}
-            loading={sessionsLoading}
-            emptyMessage="No sessions found for this project."
-            skeletonRows={5}
-          />
-
-          {/* Pagination */}
-          <DataTablePagination
-            page={sessionsPage}
-            pageSize={sessionsPageSize}
-            totalCount={sessionsTotalCount}
+            sessionsPage={sessionsPage}
+            sessionsPageSize={sessionsPageSize}
+            sessionsTotalCount={sessionsTotalCount}
             onPageChange={setSessionsPage}
             onPageSizeChange={setSessionsPageSize}
-            loading={sessionsLoading}
+            onClose={handleClose}
           />
         </div>
-      )}
+      </div>
     </div>
   );
 }
