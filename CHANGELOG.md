@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-03-18
+
+### Features
+
+- **Search dialog** — Sidebar-integrated search trigger (fake input with ⌘K badge) that opens a large dialog overlay with full FTS5 search; clicking a result closes the dialog and navigates to session detail
+- **⌘K keyboard shortcut** — Global ⌘K / Ctrl+K shortcut to toggle search dialog from anywhere in the dashboard
+- **Sync progress logging** — CLI sync pipeline now logs progress during upload for better visibility
+
+### Enhancements
+
+- **SearchResultCard dual mode** — Supports both `<Link>` (page) and `<button>` (dialog) rendering via optional `onClick` prop
+- **Search removed from sidebar nav** — Search is now exclusively accessed via the dialog trigger / ⌘K; the standalone search page remains for backward compatibility
+
+### Infrastructure
+
+- shadcn Dialog component added (Radix UI)
+- CLI bundled as single-file via Bun for npm publish
+
 ## [0.2.1] - 2026-03-15
 
 ### Features
