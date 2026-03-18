@@ -133,6 +133,74 @@ export function buildHeatmapData(
   }));
 }
 
+// ── Project display name parsing ──────────────────────────────
+
+export type ProjectScope = "personal" | "work";
+
+export interface ProjectDisplay {
+  displayName: string;
+  scope: ProjectScope | null;
+}
+
+const KNOWN_SCOPES = new Set<string>(["personal", "work"]);
+
+/**
+ * Parse a raw project path into a short display name and optional scope.
+ *
+ * Convention: `…/workspace/{scope}/{project}` where scope is "personal" | "work".
+ * Sub-directory paths like `…/workspace/personal/pika/packages/web` → "pika".
+ * Short names (no `/`) are returned as-is.
+ */
+export function parseProjectDisplay(projectName: string | null): ProjectDisplay {
+  if (!projectName || !projectName.trim()) {
+    return { displayName: "Unknown", scope: null };
+  }
+
+  const trimmed = projectName.replace(/\/+$/, "");
+  const segments = trimmed.split("/").filter(Boolean);
+
+  if (segments.length === 0) {
+    return { displayName: "Unknown", scope: null };
+  }
+
+  // No path separator — short name
+  if (segments.length === 1) {
+    return { displayName: segments[0]!, scope: null };
+  }
+
+  // Find "workspace" marker
+  const wsIndex = segments.lastIndexOf("workspace");
+
+  if (wsIndex !== -1) {
+    const scopeCandidate = segments[wsIndex + 1];
+    const projectSegment = segments[wsIndex + 2];
+
+    if (scopeCandidate && projectSegment && KNOWN_SCOPES.has(scopeCandidate)) {
+      return {
+        displayName: projectSegment,
+        scope: scopeCandidate as ProjectScope,
+      };
+    }
+  }
+
+  // Fallback: last segment
+  return { displayName: segments[segments.length - 1]!, scope: null };
+}
+
+/**
+ * Convenience wrapper returning just the display name string.
+ * Falls back to `projectRef` (truncated) if projectName is null.
+ */
+export function projectDisplayName(
+  projectName: string | null,
+  projectRef?: string,
+): string {
+  if (!projectName && projectRef) {
+    return projectRef.slice(0, 8);
+  }
+  return parseProjectDisplay(projectName).displayName;
+}
+
 function countToLevel(count: number, maxCount: number): 0 | 1 | 2 | 3 | 4 {
   if (count === 0) return 0;
   const ratio = count / maxCount;

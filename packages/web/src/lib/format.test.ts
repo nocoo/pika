@@ -6,6 +6,8 @@ import {
   formatDate,
   formatDateTime,
   buildHeatmapData,
+  parseProjectDisplay,
+  projectDisplayName,
 } from "./format";
 
 // ── sourceLabel ────────────────────────────────────────────────
@@ -187,5 +189,89 @@ describe("buildHeatmapData", () => {
     for (let i = 1; i < result.length; i++) {
       expect(result[i]!.date > result[i - 1]!.date).toBe(true);
     }
+  });
+});
+
+// ── parseProjectDisplay ─────────────────────────────────────
+
+describe("parseProjectDisplay", () => {
+  it("extracts workspace + personal scope", () => {
+    const result = parseProjectDisplay("/Users/nocoo/workspace/personal/pika");
+    expect(result).toEqual({ displayName: "pika", scope: "personal" });
+  });
+
+  it("extracts workspace + work scope", () => {
+    const result = parseProjectDisplay("/Users/nocoo/workspace/work/openclaw");
+    expect(result).toEqual({ displayName: "openclaw", scope: "work" });
+  });
+
+  it("handles sub-directory paths (takes wsIndex+2)", () => {
+    const result = parseProjectDisplay(
+      "/Users/nocoo/workspace/personal/pika/packages/web",
+    );
+    expect(result).toEqual({ displayName: "pika", scope: "personal" });
+  });
+
+  it("handles non-conforming path (no workspace marker)", () => {
+    const result = parseProjectDisplay("/opt/projects/my-app");
+    expect(result).toEqual({ displayName: "my-app", scope: null });
+  });
+
+  it("treats unrecognized scope as no scope, returns last segment", () => {
+    const result = parseProjectDisplay("/Users/nocoo/workspace/oss/react");
+    expect(result).toEqual({ displayName: "react", scope: null });
+  });
+
+  it("returns short name as-is when no slash", () => {
+    const result = parseProjectDisplay("pika");
+    expect(result).toEqual({ displayName: "pika", scope: null });
+  });
+
+  it("returns Unknown for null", () => {
+    const result = parseProjectDisplay(null);
+    expect(result).toEqual({ displayName: "Unknown", scope: null });
+  });
+
+  it("returns Unknown for empty string", () => {
+    const result = parseProjectDisplay("");
+    expect(result).toEqual({ displayName: "Unknown", scope: null });
+  });
+
+  it("returns Unknown for whitespace-only", () => {
+    const result = parseProjectDisplay("   ");
+    expect(result).toEqual({ displayName: "Unknown", scope: null });
+  });
+
+  it("handles trailing slash", () => {
+    const result = parseProjectDisplay("/Users/nocoo/workspace/personal/pika/");
+    expect(result).toEqual({ displayName: "pika", scope: "personal" });
+  });
+
+  it("returns last segment when workspace has insufficient segments after scope", () => {
+    // workspace/personal but no project segment after it
+    const result = parseProjectDisplay("/Users/nocoo/workspace/personal");
+    expect(result).toEqual({ displayName: "personal", scope: null });
+  });
+});
+
+// ── projectDisplayName ──────────────────────────────────────
+
+describe("projectDisplayName", () => {
+  it("returns short name from workspace path", () => {
+    expect(
+      projectDisplayName("/Users/nocoo/workspace/personal/pika"),
+    ).toBe("pika");
+  });
+
+  it("falls back to projectRef when projectName is null", () => {
+    expect(projectDisplayName(null, "abcdef1234567890")).toBe("abcdef12");
+  });
+
+  it("returns Unknown when both null", () => {
+    expect(projectDisplayName(null)).toBe("Unknown");
+  });
+
+  it("returns short name directly", () => {
+    expect(projectDisplayName("my-project")).toBe("my-project");
   });
 });
