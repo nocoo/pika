@@ -108,6 +108,17 @@ describe("buildProjectDailyActivityQuery", () => {
     const { sql } = buildProjectDailyActivityQuery("u1", "abc123");
     expect(sql).toContain("deleted_at IS NULL");
   });
+
+  it("supports comma-separated multi-key for merged projects", () => {
+    const { sql, params } = buildProjectDailyActivityQuery(
+      "u1",
+      "/path/a,/path/b",
+    );
+
+    expect(sql).toContain("COALESCE(project_name, project_ref) IN (?, ?)");
+    expect(sql).not.toContain("project_ref) = ?");
+    expect(params).toEqual(["u1", "/path/a", "/path/b", "-90"]);
+  });
 });
 
 // ── assembleProjectOverview ───────────────────────────────────

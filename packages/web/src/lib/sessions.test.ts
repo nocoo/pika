@@ -126,6 +126,17 @@ describe("buildSessionListQuery", () => {
     expect(params).toContain("pika");
   });
 
+  it("adds multi-value projectKey filter using IN", () => {
+    const { sql, params } = buildSessionListQuery({
+      userId: "u1",
+      projectKey: "/path/to/pika,/path/to/pika/.claude/worktrees/abc",
+    });
+
+    expect(sql).toContain("COALESCE(s.project_name, s.project_ref) IN (?, ?)");
+    expect(params).toContain("/path/to/pika");
+    expect(params).toContain("/path/to/pika/.claude/worktrees/abc");
+  });
+
   it("adds model filter", () => {
     const { sql, params } = buildSessionListQuery({
       userId: "u1",

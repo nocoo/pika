@@ -117,22 +117,39 @@ ORDER BY project_key, count DESC
 }
 
 /**
- * Daily activity for a single project (last N days, default 90).
+ * Daily activity for one or more projects (last N days, default 90).
+ * Accepts a single key or comma-separated keys for merged projects.
  */
 export function buildProjectDailyActivityQuery(
   userId: string,
   projectKey: string,
   days = 90,
 ): BuiltQuery {
-  return {
-    sql: `
+  const keys = projectKey.split(",").filter(Boolean);
+
+  if (keys.length === 1) {
+    return {
+      sql: `
 SELECT date(started_at) AS date, COUNT(*) AS count
 FROM sessions
 WHERE user_id = ? AND deleted_at IS NULL AND COALESCE(project_name, project_ref) = ? AND started_at >= datetime('now', ? || ' days')
 GROUP BY date(started_at)
 ORDER BY date ASC
+      `.trim(),
+      params: [userId, keys[0]!, `-${days}`],
+    };
+  }
+
+  const placeholders = keys.map(() => "?").join(", ");
+  return {
+    sql: `
+SELECT date(started_at) AS date, COUNT(*) AS count
+FROM sessions
+WHERE user_id = ? AND deleted_at IS NULL AND COALESCE(project_name, project_ref) IN (${placeholders}) AND started_at >= datetime('now', ? || ' days')
+GROUP BY date(started_at)
+ORDER BY date ASC
     `.trim(),
-    params: [userId, projectKey, `-${days}`],
+    params: [userId, ...keys, `-${days}`],
   };
 }
 

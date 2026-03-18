@@ -100,8 +100,15 @@ function buildWhereClause(params: SessionListParams): {
   }
 
   if (params.projectKey) {
-    conditions.push("COALESCE(s.project_name, s.project_ref) = ?");
-    queryParams.push(params.projectKey);
+    const keys = params.projectKey.split(",").filter(Boolean);
+    if (keys.length === 1) {
+      conditions.push("COALESCE(s.project_name, s.project_ref) = ?");
+      queryParams.push(keys[0]!);
+    } else if (keys.length > 1) {
+      const placeholders = keys.map(() => "?").join(", ");
+      conditions.push(`COALESCE(s.project_name, s.project_ref) IN (${placeholders})`);
+      queryParams.push(...keys);
+    }
   }
 
   if (params.model) {
