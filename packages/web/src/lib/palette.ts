@@ -99,3 +99,12 @@ export function modelColor(model: string): ChartColor {
   const idx = hashString(model) % CHART_COLORS.length;
   return { color: CHART_COLORS[idx]!, token: CHART_TOKENS[idx]! };
 }
+
+/**
+ * Get a stable color for a project ref (16-char hex hash).
+ * Reuses the djb2 hash to deterministically pick from the 8 chart colors.
+ */
+export function projectColor(ref: string): ChartColor {
+  const idx = hashString(ref) % CHART_COLORS.length;
+  return { color: CHART_COLORS[idx]!, token: CHART_TOKENS[idx]! };
+}

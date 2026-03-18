@@ -1,0 +1,83 @@
+"use client";
+
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { cn } from "@/lib/utils";
+import { formatTokens } from "@/lib/utils";
+import { agentColor } from "@/lib/palette";
+import { relativeTime } from "@/lib/format";
+import type { ProjectItem, ProjectSourceCount } from "@/lib/projects";
+
+// ── MiniDonut ─────────────────────────────────────────────────
+
+function MiniDonut({ sources }: { sources: ProjectSourceCount[] }) {
+  if (sources.length === 0) return null;
+
+  const data = sources.map((s) => ({
+    value: s.count,
+    fill: agentColor(s.source).color,
+  }));
+
+  return (
+    <div className="h-9 w-9 shrink-0">
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={data}
+            cx="50%"
+            cy="50%"
+            innerRadius={12}
+            outerRadius={18}
+            paddingAngle={2}
+            dataKey="value"
+            stroke="none"
+          />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// ── ProjectCard ───────────────────────────────────────────────
+
+interface ProjectCardProps {
+  project: ProjectItem;
+  sources: ProjectSourceCount[];
+  selected: boolean;
+  onClick: () => void;
+}
+
+export function ProjectCard({
+  project,
+  sources,
+  selected,
+  onClick,
+}: ProjectCardProps) {
+  const totalTokens =
+    project.total_input_tokens + project.total_output_tokens;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex items-start gap-3 rounded-xl border bg-card p-4 text-left transition-all hover:bg-accent/50",
+        selected && "ring-2 ring-primary border-primary/50",
+      )}
+    >
+      <MiniDonut sources={sources} />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-foreground truncate">
+          {project.project_name ?? project.project_ref}
+        </p>
+        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+          <span>{project.session_count} sessions</span>
+          <span>{project.total_messages} msgs</span>
+          <span>{formatTokens(totalTokens)} tokens</span>
+        </div>
+        <p className="text-xs text-muted-foreground/70 mt-1">
+          {relativeTime(project.last_activity)}
+        </p>
+      </div>
+    </button>
+  );
+}
