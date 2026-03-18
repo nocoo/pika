@@ -143,45 +143,6 @@ export default function ProjectsPage() {
     [selectedKey],
   );
 
-  // ── Fetch sessions for selected project ────────────────────
-
-  const buildSessionsUrl = useCallback(() => {
-    if (!selectedKey) return null;
-    const params = new URLSearchParams();
-    params.set("projectKey", selectedKey);
-    params.set("sort", sessionsSort);
-    params.set("page", String(sessionsPage));
-    params.set("limit", String(sessionsPageSize));
-    return `/api/sessions?${params.toString()}`;
-  }, [selectedKey, sessionsSort, sessionsPage, sessionsPageSize]);
-
-  const fetchSessions = useCallback(async () => {
-    const url = buildSessionsUrl();
-    if (!url) return;
-
-    setSessionsLoading(true);
-    setSessionsError(null);
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: SessionListResponse = await res.json();
-      setSessions(data.sessions as unknown as SessionCardData[]);
-      setSessionsTotalCount(data.totalCount ?? 0);
-    } catch (err) {
-      setSessionsError(
-        err instanceof Error ? err.message : "Failed to load sessions",
-      );
-    } finally {
-      setSessionsLoading(false);
-    }
-  }, [buildSessionsUrl]);
-
-  useEffect(() => {
-    if (selectedKey) {
-      fetchSessions();
-    }
-  }, [selectedKey, fetchSessions]);
-
   // ── Star toggle ────────────────────────────────────────────
 
   const handleToggleStar = useCallback(
@@ -217,9 +178,64 @@ export default function ProjectsPage() {
     });
   }, [projects, minSessions, scope]);
 
+  // ── Merge projects with same displayName + scope ─────────────
+  // Worktrees create distinct project_key paths for the same logical
+  // project. Merge them so the sidebar shows one card with aggregated stats.
+
+  const { mergedProjects, projectKeyMap } = useMemo(() => {
+    const groups = new Map<string, ProjectItem[]>();
+
+    for (const p of filteredProjects) {
+      const { displayName, scope: pScope } = parseProjectDisplay(p.project_name);
+      const mergeKey = `${displayName}\0${pScope ?? ""}`;
+      const existing = groups.get(mergeKey);
+      if (existing) {
+        existing.push(p);
+      } else {
+        groups.set(mergeKey, [p]);
+      }
+    }
+
+    const merged: ProjectItem[] = [];
+    const keyMap = new Map<string, string[]>();
+
+    for (const items of groups.values()) {
+      if (items.length === 1) {
+        const item = items[0]!;
+        merged.push(item);
+        keyMap.set(item.project_key, [item.project_key]);
+      } else {
+        // Use first item as representative, aggregate stats
+        const rep = { ...items[0]! };
+        const allKeys: string[] = [];
+        for (let i = 0; i < items.length; i++) {
+          const it = items[i]!;
+          allKeys.push(it.project_key);
+          if (i > 0) {
+            rep.session_count += it.session_count;
+            rep.total_messages += it.total_messages;
+            rep.total_input_tokens += it.total_input_tokens;
+            rep.total_output_tokens += it.total_output_tokens;
+            // Keep the most recent activity
+            if (it.last_activity > rep.last_activity) {
+              rep.last_activity = it.last_activity;
+            }
+          }
+        }
+        merged.push(rep);
+        keyMap.set(rep.project_key, allKeys);
+      }
+    }
+
+    // Sort by session_count DESC (original API order)
+    merged.sort((a, b) => b.session_count - a.session_count);
+
+    return { mergedProjects: merged, projectKeyMap: keyMap };
+  }, [filteredProjects]);
+
   const filteredOverview = useMemo<ProjectOverview | null>(() => {
     if (!overview) return null;
-    return filteredProjects.reduce<ProjectOverview>(
+    return mergedProjects.reduce<ProjectOverview>(
       (acc, p) => ({
         totalProjects: acc.totalProjects + 1,
         totalSessions: acc.totalSessions + p.session_count,
@@ -235,28 +251,86 @@ export default function ProjectsPage() {
         totalOutputTokens: 0,
       },
     );
-  }, [overview, filteredProjects]);
+  }, [overview, mergedProjects]);
 
-  const filteredSourceDistribution = useMemo(() => {
-    const keys = new Set(filteredProjects.map((p) => p.project_key));
+  const mergedSourceDistribution = useMemo(() => {
     const result: Record<string, ProjectSourceCount[]> = {};
-    for (const [key, value] of Object.entries(sourceDistribution)) {
-      if (keys.has(key)) result[key] = value;
+    for (const p of mergedProjects) {
+      const allKeys = projectKeyMap.get(p.project_key) ?? [p.project_key];
+      const combined: ProjectSourceCount[] = [];
+      for (const k of allKeys) {
+        const sources = sourceDistribution[k];
+        if (sources) combined.push(...sources);
+      }
+      // Merge duplicate sources
+      const bySource = new Map<string, number>();
+      for (const s of combined) {
+        bySource.set(s.source, (bySource.get(s.source) ?? 0) + s.count);
+      }
+      result[p.project_key] = Array.from(bySource.entries()).map(
+        ([source, count]) => ({ source, count }) as ProjectSourceCount,
+      );
     }
     return result;
-  }, [filteredProjects, sourceDistribution]);
+  }, [mergedProjects, projectKeyMap, sourceDistribution]);
+
+  // ── Resolve selected project keys for drill-down ──────────
+
+  const selectedProjectKeys = useMemo(() => {
+    if (!selectedKey) return null;
+    return projectKeyMap.get(selectedKey) ?? [selectedKey];
+  }, [selectedKey, projectKeyMap]);
+
+  // ── Fetch sessions for selected project ────────────────────
+
+  const buildSessionsUrl = useCallback(() => {
+    if (!selectedProjectKeys) return null;
+    const params = new URLSearchParams();
+    params.set("projectKey", selectedProjectKeys.join(","));
+    params.set("sort", sessionsSort);
+    params.set("page", String(sessionsPage));
+    params.set("limit", String(sessionsPageSize));
+    return `/api/sessions?${params.toString()}`;
+  }, [selectedProjectKeys, sessionsSort, sessionsPage, sessionsPageSize]);
+
+  const fetchSessions = useCallback(async () => {
+    const url = buildSessionsUrl();
+    if (!url) return;
+
+    setSessionsLoading(true);
+    setSessionsError(null);
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: SessionListResponse = await res.json();
+      setSessions(data.sessions as unknown as SessionCardData[]);
+      setSessionsTotalCount(data.totalCount ?? 0);
+    } catch (err) {
+      setSessionsError(
+        err instanceof Error ? err.message : "Failed to load sessions",
+      );
+    } finally {
+      setSessionsLoading(false);
+    }
+  }, [buildSessionsUrl]);
+
+  useEffect(() => {
+    if (selectedKey) {
+      fetchSessions();
+    }
+  }, [selectedKey, fetchSessions]);
 
   // Auto-deselect when selected project is filtered out
   useEffect(() => {
     if (
       selectedKey &&
-      !filteredProjects.some((p) => p.project_key === selectedKey)
+      !mergedProjects.some((p) => p.project_key === selectedKey)
     ) {
       setSelectedKey(null);
       setSessions([]);
       setSessionsTotalCount(0);
     }
-  }, [filteredProjects, selectedKey]);
+  }, [mergedProjects, selectedKey]);
 
   // ── Sessions table setup ───────────────────────────────────
 
@@ -301,7 +375,7 @@ export default function ProjectsPage() {
 
   // ── Selected project name for header ───────────────────────
 
-  const selectedProject = filteredProjects.find((p) => p.project_key === selectedKey);
+  const selectedProject = mergedProjects.find((p) => p.project_key === selectedKey);
 
   const handleClose = useCallback(() => {
     setSelectedKey(null);
@@ -348,7 +422,7 @@ export default function ProjectsPage() {
                 <Skeleton key={i} className="h-[96px] rounded-xl" />
               ))}
             </div>
-          ) : filteredProjects.length === 0 ? (
+          ) : mergedProjects.length === 0 ? (
             <div className="text-sm text-muted-foreground text-center py-12">
               {projects.length === 0
                 ? "No projects found. Sessions will appear here once they have a project reference."
@@ -356,8 +430,8 @@ export default function ProjectsPage() {
             </div>
           ) : (
             <ProjectSidebar
-              projects={filteredProjects}
-              sourceDistribution={filteredSourceDistribution}
+              projects={mergedProjects}
+              sourceDistribution={mergedSourceDistribution}
               selectedKey={selectedKey}
               onProjectClick={handleProjectClick}
             />
@@ -412,7 +486,7 @@ export default function ProjectsPage() {
                       />
                     </StatGrid>
                   )}
-                  <ProjectRankingChart projects={filteredProjects} />
+                  <ProjectRankingChart projects={mergedProjects} />
                 </div>
               </CollapsibleContent>
             </Collapsible>
@@ -432,6 +506,7 @@ export default function ProjectsPage() {
           {/* Detail area */}
           <ProjectDetailPanel
             selectedKey={selectedKey}
+            activityKeys={selectedProjectKeys?.join(",") ?? null}
             selectedProject={selectedProject}
             sessionsError={sessionsError}
             sessionsLoading={sessionsLoading}

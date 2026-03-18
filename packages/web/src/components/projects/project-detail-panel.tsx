@@ -13,6 +13,8 @@ import type { ProjectItem } from "@/lib/projects";
 
 interface ProjectDetailPanelProps {
   selectedKey: string | null;
+  /** Comma-separated project keys for merged worktree projects */
+  activityKeys: string | null;
   selectedProject: ProjectItem | undefined;
   sessionsError: string | null;
   sessionsLoading: boolean;
@@ -30,6 +32,7 @@ interface ProjectDetailPanelProps {
 
 export function ProjectDetailPanel({
   selectedKey,
+  activityKeys,
   selectedProject,
   sessionsError,
   sessionsLoading,
@@ -72,7 +75,7 @@ export function ProjectDetailPanel({
       </div>
 
       {/* Activity chart */}
-      <ProjectActivityChart projectKey={selectedKey} />
+      <ProjectActivityChart projectKey={activityKeys ?? selectedKey} />
 
       {/* Sessions error */}
       {sessionsError && (
