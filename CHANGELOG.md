@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2026-03-18
+
+### Features
+
+- **Projects page** — Full project-centric dashboard with stats overview, ranking chart, and session drill-down; sidebar navigation integration
+- **Left/right split layout** — Projects page uses 3/10 + 7/10 grid with left sidebar (project list grouped by scope) and right panel (collapsible overview + detail)
+- **Scope grouping** — Projects automatically grouped by personal / work / other based on workspace path convention
+- **Project filters** — Filter by minimum session count and scope (personal/work)
+- **Worktree project merging** — Projects from different worktree paths but same logical project are merged into a single card with aggregated stats
+- **Multi-value projectKey queries** — Sessions and activity APIs support comma-separated project keys for merged project drill-down
+- **Project display names** — Parse `…/workspace/{scope}/{project}` paths into short names with scope badges
+
+### Enhancements
+
+- **ScopeBadge component** — Visual badge for personal/work scope
+- **ProjectCard** — Compact card with mini donut chart showing source distribution, session/message/token stats
+- **ProjectRankingChart** — Top 10 projects horizontal bar chart by session count
+- **ProjectActivityChart** — 90-day area chart for per-project daily session activity
+- **Collapsible overview** — Stats cards and ranking chart can be collapsed to focus on detail
+- **Placeholder state** — FolderKanban icon with prompt when no project is selected
+
+### Fixes
+
+- Fix Recharts `ref` reserved prop collision by renaming to `projectRef` in chart data
+- Fix selected project ring clipping in sidebar overflow container
+
 ## [0.3.0] - 2026-03-18
 
 ### Features
