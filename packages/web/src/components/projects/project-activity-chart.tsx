@@ -17,7 +17,7 @@ import type { ProjectDailyActivity } from "@/lib/projects";
 // ── Types ──────────────────────────────────────────────────────
 
 interface ProjectActivityChartProps {
-  projectRef: string;
+  projectKey: string;
   className?: string;
 }
 
@@ -41,7 +41,7 @@ function formatXAxis(dateStr: string): string {
 // ── ProjectActivityChart ──────────────────────────────────────
 
 export function ProjectActivityChart({
-  projectRef,
+  projectKey,
   className,
 }: ProjectActivityChartProps) {
   const [data, setData] = useState<ProjectDailyActivity[]>([]);
@@ -56,7 +56,7 @@ export function ProjectActivityChart({
       setError(null);
       try {
         const res = await fetch(
-          `/api/projects/activity?project=${encodeURIComponent(projectRef)}`,
+          `/api/projects/activity?project=${encodeURIComponent(projectKey)}`,
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json: { activity: ProjectDailyActivity[] } = await res.json();
@@ -80,7 +80,7 @@ export function ProjectActivityChart({
     return () => {
       cancelled = true;
     };
-  }, [projectRef]);
+  }, [projectKey]);
 
   if (loading) {
     return <Skeleton className={`h-[200px] w-full rounded-xl ${className ?? ""}`} />;

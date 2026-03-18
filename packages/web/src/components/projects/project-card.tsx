@@ -69,7 +69,7 @@ export function ProjectCard({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <p className="text-sm font-medium text-foreground truncate">
-            {projectDisplayName(project.project_name, project.project_ref)}
+            {projectDisplayName(project.project_name, project.project_key)}
           </p>
           {(() => {
             const { scope } = parseProjectDisplay(project.project_name);

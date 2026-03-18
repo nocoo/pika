@@ -62,7 +62,7 @@ export default function ProjectsPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Selection state
-  const [selectedRef, setSelectedRef] = useState<string | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   // Session drill-down state
   const [sessions, setSessions] = useState<SessionCardData[]>([]);
@@ -116,13 +116,13 @@ export default function ProjectsPage() {
   // ── Handle project card click ──────────────────────────────
 
   const handleProjectClick = useCallback(
-    (ref: string) => {
-      if (selectedRef === ref) {
-        setSelectedRef(null);
+    (key: string) => {
+      if (selectedKey === key) {
+        setSelectedKey(null);
         setSessions([]);
         setSessionsTotalCount(0);
       } else {
-        setSelectedRef(ref);
+        setSelectedKey(key);
         setSessionsPage(1);
         setSessionsSort("last_message_at");
         // Scroll to drill-down after a tick
@@ -131,20 +131,20 @@ export default function ProjectsPage() {
         }, 100);
       }
     },
-    [selectedRef],
+    [selectedKey],
   );
 
   // ── Fetch sessions for selected project ────────────────────
 
   const buildSessionsUrl = useCallback(() => {
-    if (!selectedRef) return null;
+    if (!selectedKey) return null;
     const params = new URLSearchParams();
-    params.set("project", selectedRef);
+    params.set("projectKey", selectedKey);
     params.set("sort", sessionsSort);
     params.set("page", String(sessionsPage));
     params.set("limit", String(sessionsPageSize));
     return `/api/sessions?${params.toString()}`;
-  }, [selectedRef, sessionsSort, sessionsPage, sessionsPageSize]);
+  }, [selectedKey, sessionsSort, sessionsPage, sessionsPageSize]);
 
   const fetchSessions = useCallback(async () => {
     const url = buildSessionsUrl();
@@ -168,10 +168,10 @@ export default function ProjectsPage() {
   }, [buildSessionsUrl]);
 
   useEffect(() => {
-    if (selectedRef) {
+    if (selectedKey) {
       fetchSessions();
     }
-  }, [selectedRef, fetchSessions]);
+  }, [selectedKey, fetchSessions]);
 
   // ── Star toggle ────────────────────────────────────────────
 
@@ -238,7 +238,7 @@ export default function ProjectsPage() {
 
   // ── Selected project name for header ───────────────────────
 
-  const selectedProject = projects.find((p) => p.project_ref === selectedRef);
+  const selectedProject = projects.find((p) => p.project_key === selectedKey);
 
   // ── Render ─────────────────────────────────────────────────
 
@@ -315,28 +315,28 @@ export default function ProjectsPage() {
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => (
             <ProjectCard
-              key={project.project_ref}
+              key={project.project_key}
               project={project}
-              sources={sourceDistribution[project.project_ref] ?? []}
-              selected={selectedRef === project.project_ref}
-              onClick={() => handleProjectClick(project.project_ref)}
+              sources={sourceDistribution[project.project_key] ?? []}
+              selected={selectedKey === project.project_key}
+              onClick={() => handleProjectClick(project.project_key)}
             />
           ))}
         </div>
       )}
 
       {/* Drill-down section */}
-      {selectedRef && (
+      {selectedKey && (
         <div ref={drillDownRef} className="flex flex-col gap-4">
           {/* Section header */}
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold tracking-tight">
-              {projectDisplayName(selectedProject?.project_name ?? null, selectedRef ?? undefined)}
+              {projectDisplayName(selectedProject?.project_name ?? null, selectedKey ?? undefined)}
             </h2>
             <button
               type="button"
               onClick={() => {
-                setSelectedRef(null);
+                setSelectedKey(null);
                 setSessions([]);
                 setSessionsTotalCount(0);
               }}
@@ -348,7 +348,7 @@ export default function ProjectsPage() {
           </div>
 
           {/* Activity chart */}
-          <ProjectActivityChart projectRef={selectedRef} />
+          <ProjectActivityChart projectKey={selectedKey} />
 
           {/* Sessions error */}
           {sessionsError && (
