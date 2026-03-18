@@ -13,6 +13,7 @@ export interface SessionListParams {
   userId: string;
   source?: Source;
   project?: string;
+  projectKey?: string;
   model?: string;
   from?: string; // ISO 8601
   to?: string; // ISO 8601
@@ -96,6 +97,11 @@ function buildWhereClause(params: SessionListParams): {
   if (params.project) {
     conditions.push("s.project_ref = ?");
     queryParams.push(params.project);
+  }
+
+  if (params.projectKey) {
+    conditions.push("COALESCE(s.project_name, s.project_ref) = ?");
+    queryParams.push(params.projectKey);
   }
 
   if (params.model) {
@@ -307,6 +313,7 @@ export function shapeOffsetResponse(
 export interface ParsedSessionListParams {
   source?: Source;
   project?: string;
+  projectKey?: string;
   model?: string;
   from?: string;
   to?: string;
@@ -348,6 +355,7 @@ export function parseSessionListParams(
 ): ParsedSessionListParams {
   const source = searchParams.get("source") ?? undefined;
   const project = searchParams.get("project") ?? undefined;
+  const projectKey = searchParams.get("projectKey") ?? undefined;
   const model = searchParams.get("model") ?? undefined;
   const from = searchParams.get("from") ?? undefined;
   const to = searchParams.get("to") ?? undefined;
@@ -378,6 +386,7 @@ export function parseSessionListParams(
   return {
     source: source && VALID_SOURCES.has(source) ? (source as Source) : undefined,
     project,
+    projectKey: projectKey || undefined,
     model: model || undefined,
     from,
     to,

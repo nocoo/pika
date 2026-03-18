@@ -26,16 +26,16 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const projectRef = searchParams.get("project");
+  const projectKey = searchParams.get("project");
 
-  if (!projectRef) {
+  if (!projectKey) {
     return NextResponse.json(
       { error: "Missing project parameter" },
       { status: 400 },
     );
   }
 
-  const query = buildProjectDailyActivityQuery(user.userId, projectRef);
+  const query = buildProjectDailyActivityQuery(user.userId, projectKey);
   const result = await d1.query<ProjectDailyActivity>(query.sql, query.params);
 
   return NextResponse.json({ activity: result.results });

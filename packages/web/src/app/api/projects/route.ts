@@ -9,7 +9,6 @@ import {
   buildProjectSourceDistributionQuery,
   assembleProjectOverview,
   groupSourceDistribution,
-  type ProjectItem,
 } from "@/lib/projects";
 import type { Source } from "@pika/core";
 
@@ -45,12 +44,12 @@ export async function GET(request: Request) {
       buildProjectOverviewQuery(userId).params,
     ),
 
-    d1.query<ProjectItem>(
+    d1.query<{ project_key: string; project_name: string | null; project_refs: string; session_count: number; total_messages: number; total_input_tokens: number; total_output_tokens: number; last_activity: string }>(
       buildProjectListQuery(userId).sql,
       buildProjectListQuery(userId).params,
     ),
 
-    d1.query<{ project_ref: string; source: Source; count: number }>(
+    d1.query<{ project_key: string; source: Source; count: number }>(
       buildProjectSourceDistributionQuery(userId).sql,
       buildProjectSourceDistributionQuery(userId).params,
     ),

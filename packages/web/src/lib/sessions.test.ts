@@ -116,6 +116,16 @@ describe("buildSessionListQuery", () => {
     expect(params).toContain("abc123");
   });
 
+  it("adds projectKey filter using COALESCE", () => {
+    const { sql, params } = buildSessionListQuery({
+      userId: "u1",
+      projectKey: "pika",
+    });
+
+    expect(sql).toContain("COALESCE(s.project_name, s.project_ref) = ?");
+    expect(params).toContain("pika");
+  });
+
   it("adds model filter", () => {
     const { sql, params } = buildSessionListQuery({
       userId: "u1",
@@ -448,6 +458,7 @@ describe("parseSessionListParams", () => {
 
     expect(params.source).toBeUndefined();
     expect(params.project).toBeUndefined();
+    expect(params.projectKey).toBeUndefined();
     expect(params.model).toBeUndefined();
     expect(params.from).toBeUndefined();
     expect(params.to).toBeUndefined();
@@ -536,6 +547,16 @@ describe("parseSessionListParams", () => {
   it("model is undefined for empty string", () => {
     const sp = new URLSearchParams({ model: "" });
     expect(parseSessionListParams(sp).model).toBeUndefined();
+  });
+
+  it("parses projectKey param", () => {
+    const sp = new URLSearchParams({ projectKey: "pika" });
+    expect(parseSessionListParams(sp).projectKey).toBe("pika");
+  });
+
+  it("projectKey is undefined for empty string", () => {
+    const sp = new URLSearchParams({ projectKey: "" });
+    expect(parseSessionListParams(sp).projectKey).toBeUndefined();
   });
 });
 
