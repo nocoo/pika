@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ProjectFilters,
+  type MinSessionsValue,
+  type ScopeFilter,
+} from "@/components/projects/project-filters";
+import { parseProjectDisplay } from "@/lib/format";
+import {
   useReactTable,
   getCoreRowModel,
   type SortingState,
@@ -60,6 +66,10 @@ export default function ProjectsPage() {
   >({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Filter state
+  const [minSessions, setMinSessions] = useState<MinSessionsValue>(10);
+  const [scope, setScope] = useState<ScopeFilter>("");
 
   // Selection state
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -195,6 +205,60 @@ export default function ProjectsPage() {
     [],
   );
 
+  // ── Filtered projects ─────────────────────────────────────────
+
+  const filteredProjects = useMemo(() => {
+    return projects.filter((p) => {
+      if (p.session_count < minSessions) return false;
+      if (scope) {
+        const parsed = parseProjectDisplay(p.project_name);
+        if (parsed.scope !== scope) return false;
+      }
+      return true;
+    });
+  }, [projects, minSessions, scope]);
+
+  const filteredOverview = useMemo<ProjectOverview | null>(() => {
+    if (!overview) return null;
+    return filteredProjects.reduce<ProjectOverview>(
+      (acc, p) => ({
+        totalProjects: acc.totalProjects + 1,
+        totalSessions: acc.totalSessions + p.session_count,
+        totalMessages: acc.totalMessages + p.total_messages,
+        totalInputTokens: acc.totalInputTokens + p.total_input_tokens,
+        totalOutputTokens: acc.totalOutputTokens + p.total_output_tokens,
+      }),
+      {
+        totalProjects: 0,
+        totalSessions: 0,
+        totalMessages: 0,
+        totalInputTokens: 0,
+        totalOutputTokens: 0,
+      },
+    );
+  }, [overview, filteredProjects]);
+
+  const filteredSourceDistribution = useMemo(() => {
+    const keys = new Set(filteredProjects.map((p) => p.project_key));
+    const result: Record<string, ProjectSourceCount[]> = {};
+    for (const [key, value] of Object.entries(sourceDistribution)) {
+      if (keys.has(key)) result[key] = value;
+    }
+    return result;
+  }, [filteredProjects, sourceDistribution]);
+
+  // Auto-deselect when selected project is filtered out
+  useEffect(() => {
+    if (
+      selectedKey &&
+      !filteredProjects.some((p) => p.project_key === selectedKey)
+    ) {
+      setSelectedKey(null);
+      setSessions([]);
+      setSessionsTotalCount(0);
+    }
+  }, [filteredProjects, selectedKey]);
+
   // ── Sessions table setup ───────────────────────────────────
 
   const columns = useMemo(
@@ -238,7 +302,7 @@ export default function ProjectsPage() {
 
   // ── Selected project name for header ───────────────────────
 
-  const selectedProject = projects.find((p) => p.project_key === selectedKey);
+  const selectedProject = filteredProjects.find((p) => p.project_key === selectedKey);
 
   // ── Render ─────────────────────────────────────────────────
 
@@ -259,6 +323,16 @@ export default function ProjectsPage() {
         <div className="text-sm text-destructive py-4">{error}</div>
       )}
 
+      {/* Filters */}
+      {!loading && projects.length > 0 && (
+        <ProjectFilters
+          minSessions={minSessions}
+          scope={scope}
+          onMinSessionsChange={setMinSessions}
+          onScopeChange={setScope}
+        />
+      )}
+
       {/* Stat cards */}
       {loading ? (
         <StatGrid>
@@ -266,28 +340,28 @@ export default function ProjectsPage() {
             <Skeleton key={i} className="h-[88px] rounded-xl" />
           ))}
         </StatGrid>
-      ) : overview ? (
+      ) : filteredOverview ? (
         <StatGrid>
           <StatCard
             label="Total Projects"
-            value={overview.totalProjects.toLocaleString()}
+            value={filteredOverview.totalProjects.toLocaleString()}
             icon={<FolderKanban className="h-4 w-4" />}
           />
           <StatCard
             label="Total Sessions"
-            value={overview.totalSessions.toLocaleString()}
+            value={filteredOverview.totalSessions.toLocaleString()}
             icon={<Layers className="h-4 w-4" />}
           />
           <StatCard
             label="Total Tokens"
             value={formatTokens(
-              overview.totalInputTokens + overview.totalOutputTokens,
+              filteredOverview.totalInputTokens + filteredOverview.totalOutputTokens,
             )}
             icon={<Coins className="h-4 w-4" />}
           />
           <StatCard
             label="Total Messages"
-            value={overview.totalMessages.toLocaleString()}
+            value={filteredOverview.totalMessages.toLocaleString()}
             icon={<MessageSquare className="h-4 w-4" />}
           />
         </StatGrid>
@@ -297,7 +371,7 @@ export default function ProjectsPage() {
       {loading ? (
         <Skeleton className="h-[380px] rounded-xl" />
       ) : (
-        <ProjectRankingChart projects={projects} />
+        <ProjectRankingChart projects={filteredProjects} />
       )}
 
       {/* Project cards grid */}
@@ -307,17 +381,19 @@ export default function ProjectsPage() {
             <Skeleton key={i} className="h-[96px] rounded-xl" />
           ))}
         </div>
-      ) : projects.length === 0 ? (
+      ) : filteredProjects.length === 0 ? (
         <div className="text-sm text-muted-foreground text-center py-12">
-          No projects found. Sessions will appear here once they have a project reference.
+          {projects.length === 0
+            ? "No projects found. Sessions will appear here once they have a project reference."
+            : "No projects match the current filters."}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {projects.map((project) => (
+          {filteredProjects.map((project) => (
             <ProjectCard
               key={project.project_key}
               project={project}
-              sources={sourceDistribution[project.project_key] ?? []}
+              sources={filteredSourceDistribution[project.project_key] ?? []}
               selected={selectedKey === project.project_key}
               onClick={() => handleProjectClick(project.project_key)}
             />
