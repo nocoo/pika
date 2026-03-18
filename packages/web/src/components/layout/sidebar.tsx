@@ -9,6 +9,7 @@ import type { ElementType } from "react";
 import {
   LayoutDashboard,
   MessagesSquare,
+  FolderKanban,
   Search,
   Tags,
   Trash2,
@@ -39,6 +40,7 @@ import { SearchDialog } from "@/components/search/search-dialog";
 const ICON_MAP: Record<string, ElementType> = {
   LayoutDashboard,
   MessagesSquare,
+  FolderKanban,
   Tags,
   Trash2,
 };

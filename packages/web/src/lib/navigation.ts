@@ -39,6 +39,7 @@ export const NAV_GROUPS: NavGroupDef[] = [
     defaultOpen: true,
     items: [
       { href: "/dashboard/sessions", label: "Sessions", icon: "MessagesSquare" },
+      { href: "/dashboard/projects", label: "Projects", icon: "FolderKanban" },
       { href: "/dashboard/trash", label: "Trash", icon: "Trash2" },
     ],
   },
@@ -58,6 +59,7 @@ export const NAV_GROUPS: NavGroupDef[] = [
 export const ROUTE_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
   sessions: "Sessions",
+  projects: "Projects",
   search: "Search",
   trash: "Trash",
   settings: "Settings",
