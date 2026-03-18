@@ -39,7 +39,6 @@ export const NAV_GROUPS: NavGroupDef[] = [
     defaultOpen: true,
     items: [
       { href: "/dashboard/sessions", label: "Sessions", icon: "MessagesSquare" },
-      { href: "/dashboard/search", label: "Search", icon: "Search" },
       { href: "/dashboard/trash", label: "Trash", icon: "Trash2" },
     ],
   },

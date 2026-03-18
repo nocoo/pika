@@ -25,22 +25,15 @@ export interface SearchResultData {
 interface SearchResultCardProps {
   result: SearchResultData;
   className?: string;
+  /** When provided, renders as a button instead of a Link (used in dialog mode). */
+  onClick?: () => void;
 }
 
-// ── SearchResultCard ───────────────────────────────────────────
+// ── Shared inner content ──────────────────────────────────────
 
-export function SearchResultCard({
-  result,
-  className,
-}: SearchResultCardProps) {
+function SearchResultCardInner({ result }: { result: SearchResultData }) {
   return (
-    <Link
-      href={`/dashboard/sessions/${result.session_id}#msg-${result.ordinal}`}
-      className={cn(
-        "flex flex-col gap-2 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/30 hover:bg-accent/30",
-        className,
-      )}
-    >
+    <>
       {/* Top: source badge + time */}
       <div className="flex items-center justify-between">
         <AgentBadge source={result.source} />
@@ -91,6 +84,36 @@ export function SearchResultCard({
       <div className="text-[10px] text-muted-foreground/60">
         Message #{result.ordinal + 1}
       </div>
+    </>
+  );
+}
+
+// ── SearchResultCard ───────────────────────────────────────────
+
+export function SearchResultCard({
+  result,
+  className,
+  onClick,
+}: SearchResultCardProps) {
+  const cardClassName = cn(
+    "flex flex-col gap-2 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/30 hover:bg-accent/30 text-left w-full",
+    className,
+  );
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={cardClassName}>
+        <SearchResultCardInner result={result} />
+      </button>
+    );
+  }
+
+  return (
+    <Link
+      href={`/dashboard/sessions/${result.session_id}#msg-${result.ordinal}`}
+      className={cardClassName}
+    >
+      <SearchResultCardInner result={result} />
     </Link>
   );
 }
