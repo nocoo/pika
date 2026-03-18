@@ -302,8 +302,8 @@ export default function ProjectsPage() {
 
       {/* Project cards grid */}
       {loading ? (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
             <Skeleton key={i} className="h-[96px] rounded-xl" />
           ))}
         </div>
@@ -312,7 +312,7 @@ export default function ProjectsPage() {
           No projects found. Sessions will appear here once they have a project reference.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {projects.map((project) => (
             <ProjectCard
               key={project.project_key}
