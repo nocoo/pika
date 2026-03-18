@@ -15,12 +15,14 @@ describe("buildProjectListQuery", () => {
   it("returns SQL with userId param", () => {
     const { sql, params } = buildProjectListQuery("u1");
 
+    expect(sql).toContain("COALESCE(project_name, project_ref) AS project_key");
+    expect(sql).toContain("GROUP_CONCAT(DISTINCT project_ref) AS project_refs");
     expect(sql).toContain("COUNT(*) AS session_count");
     expect(sql).toContain("SUM(total_messages)");
     expect(sql).toContain("SUM(total_input_tokens)");
     expect(sql).toContain("SUM(total_output_tokens)");
     expect(sql).toContain("MAX(last_message_at) AS last_activity");
-    expect(sql).toContain("GROUP BY project_ref");
+    expect(sql).toContain("GROUP BY COALESCE(project_name, project_ref)");
     expect(sql).toContain("ORDER BY session_count DESC");
     expect(params).toEqual(["u1"]);
   });
@@ -42,7 +44,7 @@ describe("buildProjectOverviewQuery", () => {
   it("returns SQL with aggregate totals", () => {
     const { sql, params } = buildProjectOverviewQuery("u1");
 
-    expect(sql).toContain("COUNT(DISTINCT project_ref) AS total_projects");
+    expect(sql).toContain("COUNT(DISTINCT COALESCE(project_name, project_ref)) AS total_projects");
     expect(sql).toContain("COUNT(*) AS total_sessions");
     expect(sql).toContain("SUM(total_messages)");
     expect(sql).toContain("SUM(total_input_tokens)");
@@ -64,11 +66,12 @@ describe("buildProjectOverviewQuery", () => {
 // ── buildProjectSourceDistributionQuery ───────────────────────
 
 describe("buildProjectSourceDistributionQuery", () => {
-  it("groups by project_ref and source", () => {
+  it("groups by project_key and source", () => {
     const { sql, params } = buildProjectSourceDistributionQuery("u1");
 
-    expect(sql).toContain("GROUP BY project_ref, source");
-    expect(sql).toContain("ORDER BY project_ref, count DESC");
+    expect(sql).toContain("COALESCE(project_name, project_ref) AS project_key");
+    expect(sql).toContain("GROUP BY COALESCE(project_name, project_ref), source");
+    expect(sql).toContain("ORDER BY project_key, count DESC");
     expect(params).toEqual(["u1"]);
   });
 
@@ -92,7 +95,7 @@ describe("buildProjectDailyActivityQuery", () => {
     expect(sql).toContain("date(started_at) AS date");
     expect(sql).toContain("GROUP BY date(started_at)");
     expect(sql).toContain("ORDER BY date ASC");
-    expect(sql).toContain("project_ref = ?");
+    expect(sql).toContain("COALESCE(project_name, project_ref) = ?");
     expect(params).toEqual(["u1", "abc123", "-90"]);
   });
 
@@ -144,21 +147,21 @@ describe("assembleProjectOverview", () => {
 // ── groupSourceDistribution ───────────────────────────────────
 
 describe("groupSourceDistribution", () => {
-  it("groups rows by project_ref", () => {
+  it("groups rows by project_key", () => {
     const rows = [
-      { project_ref: "p1", source: "claude-code" as Source, count: 10 },
-      { project_ref: "p1", source: "codex" as Source, count: 3 },
-      { project_ref: "p2", source: "claude-code" as Source, count: 7 },
+      { project_key: "pika", source: "claude-code" as Source, count: 10 },
+      { project_key: "pika", source: "codex" as Source, count: 3 },
+      { project_key: "other", source: "claude-code" as Source, count: 7 },
     ];
 
     const result = groupSourceDistribution(rows);
 
     expect(Object.keys(result)).toHaveLength(2);
-    expect(result["p1"]).toEqual([
+    expect(result["pika"]).toEqual([
       { source: "claude-code", count: 10 },
       { source: "codex", count: 3 },
     ]);
-    expect(result["p2"]).toEqual([
+    expect(result["other"]).toEqual([
       { source: "claude-code", count: 7 },
     ]);
   });

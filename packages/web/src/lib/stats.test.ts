@@ -90,10 +90,11 @@ describe("buildDailyActivityQuery", () => {
 // ── buildTopProjectsQuery ──────────────────────────────────────
 
 describe("buildTopProjectsQuery", () => {
-  it("groups by project_ref and limits to 10", () => {
+  it("groups by project_key and limits to 10", () => {
     const { sql, params } = buildTopProjectsQuery("u1");
 
-    expect(sql).toContain("GROUP BY project_ref");
+    expect(sql).toContain("COALESCE(project_name, project_ref) AS project_key");
+    expect(sql).toContain("GROUP BY project_key");
     expect(sql).toContain("ORDER BY count DESC");
     expect(sql).toContain("LIMIT 10");
     expect(sql).toContain("project_ref IS NOT NULL");

@@ -16,7 +16,7 @@ export interface BuiltQuery {
 }
 
 export interface ProjectItem {
-  project_ref: string;
+  project_key: string;
   project_name: string | null;
   session_count: number;
   total_messages: number;
@@ -53,14 +53,16 @@ export interface ProjectsResponse {
 
 /**
  * List all projects with aggregate stats.
- * Returns one row per project, ordered by session count descending.
+ * Groups by COALESCE(project_name, project_ref) so same-directory projects
+ * from different agents merge into one row.
  */
 export function buildProjectListQuery(userId: string): BuiltQuery {
   return {
     sql: `
 SELECT
-  project_ref,
+  COALESCE(project_name, project_ref) AS project_key,
   project_name,
+  GROUP_CONCAT(DISTINCT project_ref) AS project_refs,
   COUNT(*) AS session_count,
   COALESCE(SUM(total_messages), 0) AS total_messages,
   COALESCE(SUM(total_input_tokens), 0) AS total_input_tokens,
@@ -68,7 +70,7 @@ SELECT
   MAX(last_message_at) AS last_activity
 FROM sessions
 WHERE user_id = ? AND deleted_at IS NULL AND project_ref IS NOT NULL
-GROUP BY project_ref
+GROUP BY COALESCE(project_name, project_ref)
 ORDER BY session_count DESC
     `.trim(),
     params: [userId],
@@ -83,7 +85,7 @@ export function buildProjectOverviewQuery(userId: string): BuiltQuery {
   return {
     sql: `
 SELECT
-  COUNT(DISTINCT project_ref) AS total_projects,
+  COUNT(DISTINCT COALESCE(project_name, project_ref)) AS total_projects,
   COUNT(*) AS total_sessions,
   COALESCE(SUM(total_messages), 0) AS total_messages,
   COALESCE(SUM(total_input_tokens), 0) AS total_input_tokens,
@@ -97,18 +99,18 @@ WHERE user_id = ? AND deleted_at IS NULL AND project_ref IS NOT NULL
 
 /**
  * Source distribution across all projects.
- * Returns project_ref × source combinations for client-side grouping.
+ * Returns project_key × source combinations for client-side grouping.
  */
 export function buildProjectSourceDistributionQuery(
   userId: string,
 ): BuiltQuery {
   return {
     sql: `
-SELECT project_ref, source, COUNT(*) AS count
+SELECT COALESCE(project_name, project_ref) AS project_key, source, COUNT(*) AS count
 FROM sessions
 WHERE user_id = ? AND deleted_at IS NULL AND project_ref IS NOT NULL
-GROUP BY project_ref, source
-ORDER BY project_ref, count DESC
+GROUP BY COALESCE(project_name, project_ref), source
+ORDER BY project_key, count DESC
     `.trim(),
     params: [userId],
   };
@@ -119,18 +121,18 @@ ORDER BY project_ref, count DESC
  */
 export function buildProjectDailyActivityQuery(
   userId: string,
-  projectRef: string,
+  projectKey: string,
   days = 90,
 ): BuiltQuery {
   return {
     sql: `
 SELECT date(started_at) AS date, COUNT(*) AS count
 FROM sessions
-WHERE user_id = ? AND deleted_at IS NULL AND project_ref = ? AND started_at >= datetime('now', ? || ' days')
+WHERE user_id = ? AND deleted_at IS NULL AND COALESCE(project_name, project_ref) = ? AND started_at >= datetime('now', ? || ' days')
 GROUP BY date(started_at)
 ORDER BY date ASC
     `.trim(),
-    params: [userId, projectRef, `-${days}`],
+    params: [userId, projectKey, `-${days}`],
   };
 }
 
@@ -158,16 +160,16 @@ export function assembleProjectOverview(
 }
 
 /**
- * Group flat source distribution rows into a Map keyed by project_ref.
+ * Group flat source distribution rows into a Map keyed by project_key.
  */
 export function groupSourceDistribution(
-  rows: { project_ref: string; source: Source; count: number }[],
+  rows: { project_key: string; source: Source; count: number }[],
 ): Record<string, ProjectSourceCount[]> {
   const result: Record<string, ProjectSourceCount[]> = {};
   for (const row of rows) {
-    const list = result[row.project_ref] ?? [];
+    const list = result[row.project_key] ?? [];
     list.push({ source: row.source, count: row.count });
-    result[row.project_ref] = list;
+    result[row.project_key] = list;
   }
   return result;
 }

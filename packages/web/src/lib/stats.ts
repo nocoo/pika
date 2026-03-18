@@ -33,7 +33,7 @@ export interface DailyActivity {
 }
 
 export interface TopProject {
-  project_ref: string;
+  project_key: string;
   project_name: string | null;
   count: number;
 }
@@ -116,14 +116,15 @@ ORDER BY date ASC
 
 /**
  * Top projects by session count (max 10).
+ * Groups by COALESCE(project_name, project_ref) to merge cross-agent projects.
  */
 export function buildTopProjectsQuery(userId: string): BuiltQuery {
   return {
     sql: `
-SELECT project_ref, project_name, COUNT(*) AS count
+SELECT COALESCE(project_name, project_ref) AS project_key, project_name, COUNT(*) AS count
 FROM sessions
 WHERE user_id = ? AND deleted_at IS NULL AND project_ref IS NOT NULL
-GROUP BY project_ref
+GROUP BY project_key
 ORDER BY count DESC
 LIMIT 10
     `.trim(),
