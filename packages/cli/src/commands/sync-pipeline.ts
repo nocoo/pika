@@ -100,8 +100,10 @@ export interface SyncPipelineInput {
 }
 
 export interface SyncPipelineResult {
-  /** Total sessions parsed across all sources */
+  /** Total sessions parsed (with messages) across all sources */
   totalParsed: number;
+  /** Total empty sessions filtered out (0 messages) */
+  totalEmpty: number;
   /** Total files scanned */
   totalFiles: number;
   /** Total files skipped (unchanged) */
@@ -259,12 +261,22 @@ export async function runSyncPipeline(
 
   // ── Stage 3+4: Upload (if enabled and we have results) ──
 
+  // Filter out empty sessions (0 messages) — these are parser artefacts
+  // from source files that contained only metadata and no real conversation.
+  // Cursors are already saved above so empty files won't be re-parsed.
+  const emptyCount = allResults.filter(
+    (r) => r.canonical.messages.length === 0,
+  ).length;
+  const uploadableResults = allResults.filter(
+    (r) => r.canonical.messages.length > 0,
+  );
+
   let uploadResult: UploadResult | undefined;
   let contentResult: BatchContentUploadResult | undefined;
 
-  if (opts.upload && allResults.length > 0) {
+  if (opts.upload && uploadableResults.length > 0) {
     // Transform to snapshots for metadata upload (also caches JSON + hashes)
-    const transformed = allResults.map((r) =>
+    const transformed = uploadableResults.map((r) =>
       toSessionSnapshot(r.canonical, r.raw),
     );
     const snapshots = transformed.map((t) => t.snapshot);
@@ -296,7 +308,7 @@ export async function runSyncPipeline(
       sleep: opts.sleep,
     };
 
-    const totalSessions = allResults.length;
+    const totalSessions = uploadableResults.length;
     log?.uploadContentStart(totalSessions);
 
     // Wrap content upload to track per-session progress
@@ -332,7 +344,7 @@ export async function runSyncPipeline(
     }
 
     contentResult = await uploadContentBatch(
-      allResults.map((r) => ({
+      uploadableResults.map((r) => ({
         canonical: r.canonical,
         raw: r.raw,
         precomputed: precomputedMap.get(r.canonical.sessionKey),
@@ -376,7 +388,8 @@ export async function runSyncPipeline(
   }
 
   return {
-    totalParsed: allResults.length,
+    totalParsed: uploadableResults.length,
+    totalEmpty: emptyCount,
     totalFiles,
     totalSkipped,
     parseErrors,

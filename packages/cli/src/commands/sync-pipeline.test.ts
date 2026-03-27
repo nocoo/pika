@@ -312,6 +312,59 @@ describe("runSyncPipeline: file drivers", () => {
     expect(result.totalParsed).toBe(0);
     expect(result.parseErrors).toEqual([]);
   });
+
+  it("filters out empty sessions (0 messages) before upload", async () => {
+    const emptyCanonical = makeCanonical("codex:empty-1");
+    emptyCanonical.messages = []; // simulate buildEmptyResult()
+    const emptyResult: ParseResult = {
+      canonical: emptyCanonical,
+      raw: makeRaw("codex:empty-1"),
+    };
+
+    const normalResult = makeParseResult("claude-code:normal-1");
+
+    const driver = mockFileDriver({
+      discover: vi.fn().mockResolvedValue([__filename, __filename]),
+      parse: vi
+        .fn()
+        .mockResolvedValueOnce([emptyResult])
+        .mockResolvedValueOnce([normalResult]),
+    });
+
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ingested: 1, conflicts: 0 }), {
+        status: 200,
+      }),
+    );
+
+    const result = await runSyncPipeline(
+      makeInput({ fileDrivers: [driver] }),
+      makeOpts({ upload: true, fetch: mockFetch }),
+    );
+
+    // Only the non-empty session should count as parsed
+    expect(result.totalParsed).toBe(1);
+    expect(result.totalEmpty).toBe(1);
+    // Both files were scanned
+    expect(result.totalFiles).toBe(2);
+    // Cursor should still be saved for both files (so empty file isn't re-parsed)
+    expect(driver.buildCursor).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports totalEmpty = 0 when all sessions have messages", async () => {
+    const driver = mockFileDriver({
+      discover: vi.fn().mockResolvedValue([__filename]),
+      parse: vi.fn().mockResolvedValue([makeParseResult()]),
+    });
+
+    const result = await runSyncPipeline(
+      makeInput({ fileDrivers: [driver] }),
+      makeOpts(),
+    );
+
+    expect(result.totalParsed).toBe(1);
+    expect(result.totalEmpty).toBe(0);
+  });
 });
 
 // ── DB driver ──────────────────────────────────────────────────

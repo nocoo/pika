@@ -189,7 +189,7 @@ export default defineCommand({
 
     // Report results
     consola.success(
-      `Parsed ${result.totalParsed} session(s) from ${result.totalFiles} file(s) (${result.totalSkipped} unchanged)`,
+      `Parsed ${result.totalParsed} session(s) from ${result.totalFiles} file(s) (${result.totalSkipped} unchanged${result.totalEmpty > 0 ? `, ${result.totalEmpty} empty skipped` : ""})`,
     );
 
     if (result.uploadResult) {
