@@ -788,6 +788,30 @@ describe("handleCanonicalUpload", () => {
     expect(env.BUCKET.put).toHaveBeenCalledTimes(1);
   });
 
+  it("proceeds when content_hash differs even if stale content_key exists (hash-change invalidation)", async () => {
+    const req = await makeCanonicalRequest({
+      "X-Content-Hash": "new-hash-after-resync",
+    });
+    const env = mockEnvForCanonical({
+      id: "session-id-1",
+      content_hash: "old-hash-from-previous-version",
+      raw_hash: "raw-1",
+      content_key: "user-1/claude:abc-123/canonical/old-hash.json.gz",
+      raw_key: null,
+      parser_revision: 1,
+      schema_version: 1,
+    });
+    const res = await handleCanonicalUpload(
+      "claude:abc-123",
+      "user-1",
+      req,
+      env,
+    );
+    // Should NOT return 204 — hash mismatch means new content must be uploaded
+    expect(res.status).toBe(200);
+    expect(env.BUCKET.put).toHaveBeenCalledTimes(1);
+  });
+
   it("returns 409 when incoming parser_revision is older", async () => {
     const req = await makeCanonicalRequest({ "X-Parser-Revision": "1" });
     const env = mockEnvForCanonical({
@@ -1156,6 +1180,23 @@ describe("handleRawUpload", () => {
       schema_version: 1,
     });
     const res = await handleRawUpload("claude:abc-123", "user-1", req, env);
+    expect(res.status).toBe(200);
+    expect(env.BUCKET.put).toHaveBeenCalledTimes(1);
+  });
+
+  it("proceeds when raw_hash differs even if stale raw_key exists (hash-change invalidation)", async () => {
+    const req = await makeRawRequest({ "X-Raw-Hash": "new-raw-hash" });
+    const env = mockEnvForRaw({
+      id: "session-id-1",
+      content_hash: "content-1",
+      raw_hash: "old-raw-hash-from-previous-version",
+      content_key: null,
+      raw_key: "user-1/claude:abc-123/raw/old-raw-hash.json.gz",
+      parser_revision: 1,
+      schema_version: 1,
+    });
+    const res = await handleRawUpload("claude:abc-123", "user-1", req, env);
+    // Should NOT return 204 — hash mismatch means new content must be uploaded
     expect(res.status).toBe(200);
     expect(env.BUCKET.put).toHaveBeenCalledTimes(1);
   });
