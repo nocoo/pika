@@ -167,3 +167,38 @@ export function getD1Client(): D1Client {
 export function resetD1Client(): void {
   _client = null;
 }
+
+// ── Test Isolation ────────────────────────────────────────────
+
+/** Known test database ID — must match pika-db-test in Cloudflare. */
+export const TEST_DATABASE_ID = "f52931ad-9c96-4d04-9d0a-3098a800ce5e";
+
+/**
+ * Assert that the current D1 client points to the test database.
+ * Implements 2-layer verification:
+ *   1. Env binding check — CF_D1_DATABASE_ID must match TEST_DATABASE_ID
+ *   2. Marker table check — _test_marker table must exist in DB
+ *
+ * Call this in E2E test setup to prevent accidental production writes.
+ * @throws Error if any check fails
+ */
+export async function assertTestDatabase(client?: D1Client): Promise<void> {
+  // Layer 1: Env binding check
+  const dbId = process.env.CF_D1_DATABASE_ID;
+  if (dbId !== TEST_DATABASE_ID) {
+    throw new Error(
+      `D1 isolation FAILED: CF_D1_DATABASE_ID="${dbId}" does not match test DB "${TEST_DATABASE_ID}"`,
+    );
+  }
+
+  // Layer 2: Marker table check
+  const db = client ?? getD1Client();
+  const result = await db.query<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='_test_marker'",
+  );
+  if (result.results.length === 0) {
+    throw new Error(
+      "D1 isolation FAILED: _test_marker table not found — this may not be the test database",
+    );
+  }
+}

@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { D1Client, D1Error, getD1Client, resetD1Client } from "./d1";
+import {
+  assertTestDatabase,
+  D1Client,
+  D1Error,
+  getD1Client,
+  resetD1Client,
+  TEST_DATABASE_ID,
+} from "./d1";
 
 // ── Mock fetch ─────────────────────────────────────────────────
 
@@ -249,5 +256,65 @@ describe("getD1Client", () => {
     delete process.env.CF_ACCOUNT_ID;
     delete process.env.CF_D1_DATABASE_ID;
     delete process.env.CF_D1_API_TOKEN;
+  });
+});
+
+// ── assertTestDatabase ────────────────────────────────────────
+
+describe("assertTestDatabase", () => {
+  const savedDbId = process.env.CF_D1_DATABASE_ID;
+
+  afterEach(() => {
+    if (savedDbId !== undefined) {
+      process.env.CF_D1_DATABASE_ID = savedDbId;
+    } else {
+      delete process.env.CF_D1_DATABASE_ID;
+    }
+  });
+
+  it("throws when CF_D1_DATABASE_ID does not match test DB", async () => {
+    process.env.CF_D1_DATABASE_ID = "production-db-id";
+
+    await expect(assertTestDatabase()).rejects.toThrow(
+      /D1 isolation FAILED.*does not match test DB/,
+    );
+  });
+
+  it("throws when CF_D1_DATABASE_ID is undefined", async () => {
+    delete process.env.CF_D1_DATABASE_ID;
+
+    await expect(assertTestDatabase()).rejects.toThrow(/D1 isolation FAILED/);
+  });
+
+  it("throws when _test_marker table not found", async () => {
+    process.env.CF_D1_DATABASE_ID = TEST_DATABASE_ID;
+
+    // Mock: marker table query returns empty
+    mockFetch.mockResolvedValue(okResponse([]));
+
+    const client = new D1Client({
+      accountId: "a",
+      databaseId: TEST_DATABASE_ID,
+      apiToken: "t",
+    });
+
+    await expect(assertTestDatabase(client)).rejects.toThrow(
+      /D1 isolation FAILED.*_test_marker table not found/,
+    );
+  });
+
+  it("passes when DB ID matches and _test_marker exists", async () => {
+    process.env.CF_D1_DATABASE_ID = TEST_DATABASE_ID;
+
+    // Mock: marker table query returns the marker
+    mockFetch.mockResolvedValue(okResponse([{ name: "_test_marker" }]));
+
+    const client = new D1Client({
+      accountId: "a",
+      databaseId: TEST_DATABASE_ID,
+      apiToken: "t",
+    });
+
+    await expect(assertTestDatabase(client)).resolves.toBeUndefined();
   });
 });
