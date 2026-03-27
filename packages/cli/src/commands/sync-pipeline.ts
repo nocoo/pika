@@ -322,6 +322,7 @@ export async function runSyncPipeline(
 
     // Progress tracking for content upload (shared across batches)
     let contentDone = 0;
+    log?.uploadContentStart(totalSessions);
 
     for (const batch of pipelineBatches) {
       // Transform to snapshots for this batch only (JSON + hashes)
@@ -343,14 +344,6 @@ export async function runSyncPipeline(
       uploadResult.totalConflicts += batchUploadResult.totalConflicts;
       uploadResult.totalBatches += batchUploadResult.totalBatches;
       uploadResult.errors.push(...batchUploadResult.errors);
-
-      log?.uploadMetadataDone(
-        uploadResult.totalIngested,
-        uploadResult.totalConflicts,
-      );
-
-      // Upload content for this batch
-      log?.uploadContentStart(totalSessions);
 
       // Wrap content upload to track per-session progress
       const wrappedContentOpts: ContentUploadOptions = { ...contentOpts };
@@ -416,6 +409,10 @@ export async function runSyncPipeline(
       }
     }
 
+    log?.uploadMetadataDone(
+      uploadResult.totalIngested,
+      uploadResult.totalConflicts,
+    );
     log?.uploadContentDone(
       contentResult.uploaded,
       contentResult.skipped,
