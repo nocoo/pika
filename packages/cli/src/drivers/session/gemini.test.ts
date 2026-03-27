@@ -333,7 +333,7 @@ describe("geminiSessionDriver.parse", () => {
     expect(results[0].canonical.messages[0].content).toBe("First");
   });
 
-  it("returns result with empty messages for empty file", async () => {
+  it("returns empty array for empty file", async () => {
     const filePath = join(tmpDir, "empty.json");
     await writeFile(filePath, "");
 
@@ -343,11 +343,11 @@ describe("geminiSessionDriver.parse", () => {
       lastTotalTokens: 0,
       lastModel: null,
     });
-    expect(results).toHaveLength(1);
-    expect(results[0].canonical.messages).toHaveLength(0);
+    // Empty sessions are filtered out at the driver level
+    expect(results).toHaveLength(0);
   });
 
-  it("returns result for missing file", async () => {
+  it("returns empty array for missing file", async () => {
     const results = await geminiSessionDriver.parse(
       join(tmpDir, "nonexistent.json"),
       {
@@ -357,8 +357,8 @@ describe("geminiSessionDriver.parse", () => {
         lastModel: null,
       },
     );
-    expect(results).toHaveLength(1);
-    expect(results[0].canonical.messages).toHaveLength(0);
+    // Non-existent files produce empty results, filtered out at driver level
+    expect(results).toHaveLength(0);
   });
 });
 

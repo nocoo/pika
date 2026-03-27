@@ -236,6 +236,9 @@ export function createOpenCodeJsonDriver(
         });
       }
 
+      // Skip empty sessions (no extractable messages)
+      if (result.canonical.messages.length === 0) return [];
+
       return [result];
     },
 

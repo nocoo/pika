@@ -357,7 +357,7 @@ describe("codexSessionDriver.parse", () => {
     expect(results[0].canonical.messages).toHaveLength(4);
   });
 
-  it("returns a result with empty messages for empty file", async () => {
+  it("returns empty array for empty file", async () => {
     const filePath = join(tmpDir, "rollout-2025-01-15T10-30-00-empty123.jsonl");
     await writeFile(filePath, "");
 
@@ -367,19 +367,17 @@ describe("codexSessionDriver.parse", () => {
       lastTotalTokens: 0,
       lastModel: null,
     });
-    // parseCodexFile returns an empty result for empty files, wrapped in array
-    expect(results).toHaveLength(1);
-    expect(results[0].canonical.messages).toHaveLength(0);
+    // Empty sessions are filtered out at the driver level
+    expect(results).toHaveLength(0);
   });
 
-  it("returns a result for missing file", async () => {
+  it("returns empty array for missing file", async () => {
     const results = await codexSessionDriver.parse(
       join(tmpDir, "rollout-2025-01-15T10-30-00-missing.jsonl"),
       { kind: "codex", startOffset: 0, lastTotalTokens: 0, lastModel: null },
     );
-    // parseCodexFile returns buildEmptyResult for non-existent files
-    expect(results).toHaveLength(1);
-    expect(results[0].canonical.messages).toHaveLength(0);
+    // Non-existent files produce empty results, filtered out at driver level
+    expect(results).toHaveLength(0);
   });
 
   it("includes tool calls in parsed messages", async () => {

@@ -128,6 +128,8 @@ export const geminiSessionDriver: FileDriver<GeminiCursor> = {
     resume: ArrayIndexResumeState,
   ): Promise<ParseResult[]> {
     const result = await parseGeminiFile(filePath, resume.startIndex);
+    // Skip empty sessions (no extractable messages)
+    if (result.canonical.messages.length === 0) return [];
     return [result];
   },
 

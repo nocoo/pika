@@ -536,16 +536,16 @@ describe("openCodeJsonDriver.parse", () => {
     expect(info.lastMessageAt).toBeDefined();
   });
 
-  it("returns empty result for missing session file", async () => {
+  it("returns empty array for missing session file", async () => {
     const driver = createOpenCodeJsonDriver();
     const results = await driver.parse(join(tmpDir, "nonexistent.json"), {
       kind: "opencode-json",
     });
-    expect(results).toHaveLength(1);
-    expect(results[0].canonical.messages).toHaveLength(0);
+    // Non-existent files produce empty results, filtered out at driver level
+    expect(results).toHaveLength(0);
   });
 
-  it("returns empty result for session with no messages", async () => {
+  it("returns empty array for session with no messages", async () => {
     const storageDir = join(tmpDir, "storage");
     const sessionDir = join(storageDir, "session", "proj_abc");
     await mkdir(sessionDir, { recursive: true });
@@ -555,8 +555,8 @@ describe("openCodeJsonDriver.parse", () => {
     const filePath = join(sessionDir, "ses_empty.json");
     const driver = createOpenCodeJsonDriver();
     const results = await driver.parse(filePath, { kind: "opencode-json" });
-    expect(results).toHaveLength(1);
-    expect(results[0].canonical.messages).toHaveLength(0);
+    // Empty sessions are filtered out at the driver level
+    expect(results).toHaveLength(0);
   });
 });
 

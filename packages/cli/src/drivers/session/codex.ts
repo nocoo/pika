@@ -125,6 +125,8 @@ export const codexSessionDriver: FileDriver<CodexCursor> = {
     resume: CodexResumeState,
   ): Promise<ParseResult[]> {
     const result = await parseCodexFile(filePath, resume.startOffset);
+    // Skip empty sessions (no extractable messages)
+    if (result.canonical.messages.length === 0) return [];
     // parseCodexFile returns a single ParseResult (one session per file)
     // Return as array for the FileDriver interface
     return [result];
