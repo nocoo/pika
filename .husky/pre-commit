@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 
+# L1: Unit Tests ≥90% coverage
 bun run test:coverage 2>&1
 TEST_EXIT=$?
 if [ $TEST_EXIT -ne 0 ]; then
@@ -7,4 +8,12 @@ if [ $TEST_EXIT -ne 0 ]; then
   exit 1
 fi
 
-echo "✅ pre-commit passed: UT + Coverage ≥90%"
+# G1: Biome lint + format
+bunx biome check packages/ 2>&1
+BIOME_EXIT=$?
+if [ $BIOME_EXIT -ne 0 ]; then
+  echo "❌ pre-commit FAILED: Biome lint/format violations found."
+  exit 1
+fi
+
+echo "✅ pre-commit passed: L1 (UT ≥90%) + G1 (Biome)"

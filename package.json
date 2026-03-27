@@ -16,6 +16,7 @@
     "lint:biome": "bunx biome check packages/",
     "lint:secrets": "gitleaks detect --source . --no-git --config .gitleaks.toml",
     "lint:deps": "osv-scanner scan --lockfile=bun.lock",
+    "lint:all": "bun run lint && bunx biome check packages/ && bun run lint:secrets && bun run lint:deps",
     "sync-versions": "bun scripts/sync-versions.ts --write",
     "prepare": "husky"
   },

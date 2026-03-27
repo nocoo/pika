@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 
+# L1: Unit Tests ≥90% coverage
 bun run test:coverage 2>&1
 TEST_EXIT=$?
 if [ $TEST_EXIT -ne 0 ]; then
@@ -7,6 +8,7 @@ if [ $TEST_EXIT -ne 0 ]; then
   exit 1
 fi
 
+# G1: TypeScript type check
 bun run lint 2>&1
 LINT_EXIT=$?
 if [ $LINT_EXIT -ne 0 ]; then
@@ -14,4 +16,28 @@ if [ $LINT_EXIT -ne 0 ]; then
   exit 1
 fi
 
-echo "✅ pre-push passed: UT + Coverage ≥90% + Lint"
+# G1: Biome lint + format
+bunx biome check packages/ 2>&1
+BIOME_EXIT=$?
+if [ $BIOME_EXIT -ne 0 ]; then
+  echo "❌ pre-push FAILED: Biome lint/format violations found."
+  exit 1
+fi
+
+# G2: Secret scanning
+bun run lint:secrets 2>&1
+SECRETS_EXIT=$?
+if [ $SECRETS_EXIT -ne 0 ]; then
+  echo "❌ pre-push FAILED: Secrets detected by gitleaks."
+  exit 1
+fi
+
+# G2: Dependency audit
+bun run lint:deps 2>&1
+DEPS_EXIT=$?
+if [ $DEPS_EXIT -ne 0 ]; then
+  echo "❌ pre-push FAILED: Known vulnerabilities detected by osv-scanner."
+  exit 1
+fi
+
+echo "✅ pre-push passed: L1 + G1 (tsc + Biome) + G2 (gitleaks + osv-scanner)"
