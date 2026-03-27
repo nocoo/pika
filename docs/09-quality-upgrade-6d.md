@@ -272,9 +272,11 @@ INSERT OR IGNORE INTO _test_marker (id) VALUES (1);
 
 ---
 
-### Phase 3: API E2E Tests (L2)
+### Phase 3: API E2E Tests (L2) ✅ COMPLETE
 
 **Goal**: Real HTTP tests against all REST API endpoints using test D1/R2.
+
+**Status**: 5 commits landed. 57 E2E tests across 4 spec files covering all non-ingest API endpoints. Test harness boots Next.js on :17040 with E2E_SKIP_AUTH bypass, seeds data directly via D1 HTTP API, verifies responses via real HTTP. Pre-push hook now includes L2 gate.
 
 #### Commit 9.9: `feat: add vitest e2e config and test harness`
 
