@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2026-03-27
+
+### Features
+
+- **Six-dimension quality framework** — Full quality infrastructure: L1 unit tests (98%+ coverage), G1 static analysis (tsc + Biome), G2 security scanning (gitleaks + osv-scanner), D1 test isolation (dedicated D1-test + R2-test with marker verification)
+- **L2 API E2E tests** — 57 endpoint tests across 4 spec files (sessions, search/stats/projects, tags, live health) with dedicated E2E vitest config and auth bypass mode
+- **Batch upload pipeline** — Two-phase memory-efficient upload: metadata batches first, then content batches. Prevents 25GB+ RSS on large syncs (~5800 sessions) by keeping only one batch in memory at a time
+
+### Fixes
+
+- **Memory leak** — Sync pipeline accumulated all sessions + JSON copies + gzip buffers simultaneously; now batched with per-batch GC eligibility
+- **Empty session upload prevention** — Three-layer defense: driver-level `parse()` returns `[]` for zero-message sessions, pipeline filters before upload, worker rejects `totalMessages < 1`
+- **Subagent file deduplication** — Exclude `subagents/` directory from Claude Code discovery; subagent JSONL files share the parent session's `sessionId`, causing duplicate uploads. Reduces discovered files from ~2800 to ~400
+- **Logger stage ordering** — Split interleaved metadata+content loop into two-phase pipeline so CLI progress output correctly shows metadata complete before content starts
+
+### Infrastructure
+
+- Biome lint + format (replaced manual style checks)
+- gitleaks secret scanning in pre-push hook
+- osv-scanner dependency audit in pre-push hook
+- Pre-commit hook: L1 unit tests (90%+ coverage) + G1 (Biome lint)
+- Pre-push hook: L2 E2E + G2 security gates
+- D1-test database with `_test_marker` table for 2-layer isolation verification
+- Next.js 16 alignment (config + type declarations)
+
 ## [0.4.0] - 2026-03-18
 
 ### Features

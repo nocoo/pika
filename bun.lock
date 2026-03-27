@@ -14,7 +14,7 @@
     },
     "packages/cli": {
       "name": "@nocoo/pika",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "bin": {
         "pika": "dist/bin.js",
       },
@@ -28,11 +28,11 @@
     },
     "packages/core": {
       "name": "@pika/core",
-      "version": "0.4.0",
+      "version": "0.5.0",
     },
     "packages/web": {
       "name": "@pika/web",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "dependencies": {
         "@aws-sdk/client-s3": "^3.1008.0",
         "@aws-sdk/s3-request-presigner": "^3.1008.0",
@@ -42,7 +42,7 @@
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "lucide-react": "^0.577.0",
-        "next": "^15.3.3",
+        "next": "^16.2.1",
         "next-auth": "^5.0.0-beta.28",
         "postcss": "^8.5.8",
         "radix-ui": "^1.4.3",
@@ -65,7 +65,7 @@
     },
     "packages/worker": {
       "name": "@pika/worker",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "dependencies": {
         "@pika/core": "workspace:*",
       },
@@ -79,7 +79,7 @@
     "brace-expansion": ">=5.0.5",
     "cookie": ">=0.7.0",
     "fast-xml-parser": ">=5.5.9",
-    "next": ">=15.5.14",
+    "next": ">=16.2.1",
     "picomatch": ">=4.0.4",
     "undici": ">=7.24.0",
   },
