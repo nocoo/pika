@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "vitest run --config packages/web/vitest.e2e.config.ts",
     "lint": "tsc --noEmit && tsc --noEmit -p packages/web/tsconfig.json",
     "lint:typecheck": "tsc --noEmit && tsc --noEmit -p packages/web/tsconfig.json",
     "lint:biome": "bunx biome check packages/",
