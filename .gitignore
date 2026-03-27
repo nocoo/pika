@@ -11,6 +11,7 @@ dist/
 # Environment
 .env
 .env.local
+.env.test
 .env.*.local
 .dev.vars
 
