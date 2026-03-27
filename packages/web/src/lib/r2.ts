@@ -206,3 +206,24 @@ export function getR2Client(): R2Client {
 export function resetR2Client(): void {
   _client = null;
 }
+
+// ── Test Isolation ────────────────────────────────────────────
+
+/** Known test bucket name — must match pika-test in Cloudflare R2. */
+export const TEST_BUCKET_NAME = "pika-test";
+
+/**
+ * Assert that the current R2 client points to the test bucket.
+ * Checks CF_R2_BUCKET env var matches the known test bucket name.
+ *
+ * Call this in E2E test setup to prevent accidental production writes.
+ * @throws Error if the bucket does not match
+ */
+export function assertTestBucket(): void {
+  const bucket = process.env.CF_R2_BUCKET;
+  if (bucket !== TEST_BUCKET_NAME) {
+    throw new Error(
+      `R2 isolation FAILED: CF_R2_BUCKET="${bucket}" does not match test bucket "${TEST_BUCKET_NAME}"`,
+    );
+  }
+}
