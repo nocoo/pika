@@ -106,9 +106,11 @@ Playwright tests cover core user flows:
 
 ## Implementation Plan
 
-### Phase 1: Gates + Security (G1 + G2)
+### Phase 1: Gates + Security (G1 + G2) ✅ COMPLETE
 
 **Goal**: Upgrade pre-commit to include Biome lint, add security scanning to pre-push.
+
+**Status**: 5 commits landed. Biome 2.4.9 with 6 disabled false-positive rules. 9 CVEs fixed via overrides.
 
 #### Commit 9.1: `chore: add biome for lint and format`
 
@@ -201,9 +203,11 @@ bun run lint:deps              # G2: osv-scanner
 
 ---
 
-### Phase 2: Test Isolation (D1)
+### Phase 2: Test Isolation (D1) ✅ COMPLETE
 
 **Goal**: Dedicated test resources on Cloudflare, with four-layer verification.
+
+**Status**: 3 commits landed. D1 pika-db-test (f52931ad) + R2 pika-test configured. Migrations applied. assertTestDatabase() with 2-layer verification + 4 unit tests.
 
 #### Commit 9.6: `feat: create D1-test database and R2-test bucket`
 

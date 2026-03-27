@@ -24,16 +24,19 @@
 - **Testing**: Vitest (90% coverage), Husky hooks
 - **Test runner note**: `bun test` uses Bun's native test runner; `bunx vitest run` uses Vitest under Node. Migration tests (bun:sqlite) only run under `bun test`.
 
-## Four-Layer Testing
+## Six-Dimension Quality Framework
 
-| Layer | What | When | Threshold |
-|-------|------|------|-----------|
+| Dimension | What | When | Threshold |
+|-----------|------|------|-----------|
 | L1: UT | Business logic, parsers, validators | pre-commit | 90% coverage |
-| L2: Lint | tsc --noEmit (all packages) | pre-commit | Zero errors |
-| L3: API E2E | All REST API endpoints | pre-push | 100% endpoints |
-| L4: BDD E2E | Core user flows (Playwright) | On demand | Core flows |
+| L2: API E2E | All REST API endpoints | pre-push | 100% endpoints |
+| L3: BDD E2E | Core user flows (Playwright) | On demand | Core flows |
+| G1: Static | tsc --noEmit + Biome lint | pre-commit | Zero errors |
+| G2: Security | gitleaks + osv-scanner | pre-push | Zero findings |
+| D1: Isolation | D1-test + R2-test + _test_marker | E2E setup | 2-layer verify |
 
 **Ports**: dev=7040, API E2E=17040, BDD E2E=27040
+**Current Tier**: B+ (L1 + G1 + G2 + D1, L2 pending)
 
 ## Key Commands
 
@@ -43,6 +46,10 @@ bun test                       # run unit tests (bun native runner, includes bun
 bunx vitest run --coverage     # run tests with coverage report (vitest/node, excludes migration tests)
 bun run build                  # build all packages
 bun run lint                   # type-check all packages (root + web tsconfig)
+bun run lint:biome             # biome lint + format check
+bun run lint:secrets           # gitleaks secret scanning
+bun run lint:deps              # osv-scanner dependency audit
+bun run lint:all               # all lint gates (tsc + biome + gitleaks + osv-scanner)
 ```
 
 ## Supported Sources
