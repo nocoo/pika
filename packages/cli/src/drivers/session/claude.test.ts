@@ -118,6 +118,36 @@ describe("claudeSessionDriver.discover", () => {
     expect(files).toHaveLength(1);
     expect(files[0]).toMatch(/session\.jsonl$/);
   });
+
+  it("excludes .jsonl files under subagents/ directories", async () => {
+    const projectDir = join(tmpDir, "projects", "-Users-test-project");
+    const subagentsDir = join(projectDir, "session-id", "subagents");
+    await mkdir(projectDir, { recursive: true });
+    await mkdir(subagentsDir, { recursive: true });
+    await writeFile(join(projectDir, "session.jsonl"), "{}");
+    await writeFile(join(subagentsDir, "agent-a09d9edead8343a90.jsonl"), "{}");
+
+    const files = await claudeSessionDriver.discover({ claudeDir: tmpDir });
+    expect(files).toHaveLength(1);
+    expect(files[0]).toMatch(/session\.jsonl$/);
+    expect(files.some((f) => f.includes("subagents"))).toBe(false);
+  });
+
+  it("excludes nested subagents/ at any depth", async () => {
+    const deep = join(
+      tmpDir,
+      "projects",
+      "-Users-test",
+      "abc",
+      "subagents",
+      "nested",
+    );
+    await mkdir(deep, { recursive: true });
+    await writeFile(join(deep, "agent.jsonl"), "{}");
+
+    const files = await claudeSessionDriver.discover({ claudeDir: tmpDir });
+    expect(files).toHaveLength(0);
+  });
 });
 
 // ---------------------------------------------------------------------------

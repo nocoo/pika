@@ -40,6 +40,14 @@ async function discoverClaudeFiles(claudeDir: string): Promise<string[]> {
   return results;
 }
 
+/**
+ * Directories to skip during recursive walk.
+ *
+ * `subagents/` contains JSONL files whose `sessionId` duplicates the parent
+ * session, causing key collisions and double-counted uploads.
+ */
+const SKIP_DIRS = new Set(["subagents"]);
+
 /** Recursively collect .jsonl files from a directory tree */
 async function walkJsonl(dir: string, results: string[]): Promise<void> {
   let entries: Dirent[];
@@ -50,6 +58,7 @@ async function walkJsonl(dir: string, results: string[]): Promise<void> {
   }
 
   for (const entry of entries) {
+    if (entry.isDirectory() && SKIP_DIRS.has(entry.name)) continue;
     const fullPath = join(dir, entry.name);
     if (entry.isDirectory()) {
       await walkJsonl(fullPath, results);
