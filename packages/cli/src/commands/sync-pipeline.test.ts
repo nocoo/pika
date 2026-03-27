@@ -6,6 +6,7 @@ import type {
   ParseResult,
   RawSessionArchive,
 } from "@pika/core";
+import { METADATA_BATCH_SIZE } from "@pika/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   DbDriver,
@@ -740,5 +741,191 @@ describe("runSyncPipeline: upload", () => {
     expect(result.cursorState.files[__filename]).toEqual(newCursor1);
     // s2 failed — cursor rolled back (was undefined before)
     expect(result.cursorState.files[otherFile]).toBeUndefined();
+  });
+});
+
+// ── Batch upload behavior ─────────────────────────────────────
+
+describe("runSyncPipeline: batch upload", () => {
+  let mockFetch: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+  });
+
+  function jsonResponse(data: unknown, status = 200): Response {
+    return new Response(JSON.stringify(data), {
+      status,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  /** Generate unique real file paths for stat() */
+  function realFiles(count: number): string[] {
+    const base = __filename;
+    const sourceFile = base.replace(".test.ts", ".ts");
+    const files = [base, sourceFile];
+    // For count > 2, we reuse these two files — the mock driver
+    // will return different parse results per call
+    return files.slice(0, Math.min(count, files.length));
+  }
+
+  it("aggregates upload results across multiple batches", async () => {
+    // Create METADATA_BATCH_SIZE + 1 sessions (will split into 2 batches)
+    const sessionCount = METADATA_BATCH_SIZE + 1;
+    const results: ParseResult[] = [];
+    for (let i = 0; i < sessionCount; i++) {
+      results.push(makeParseResult(`claude-code:batch-${i}`));
+    }
+
+    const files = realFiles(2);
+    const driver = mockFileDriver({
+      discover: vi.fn().mockResolvedValue(files),
+      // First file produces first METADATA_BATCH_SIZE results
+      // Second file produces the rest
+      parse: vi
+        .fn()
+        .mockResolvedValueOnce(results.slice(0, METADATA_BATCH_SIZE))
+        .mockResolvedValueOnce(results.slice(METADATA_BATCH_SIZE)),
+    });
+
+    // Respond to all metadata + content requests with success
+    mockFetch.mockImplementation(async (url: string) => {
+      if (typeof url === "string" && url.includes("/api/ingest/sessions")) {
+        return jsonResponse({ ingested: METADATA_BATCH_SIZE });
+      }
+      if (typeof url === "string" && url.includes("/api/ingest/presign")) {
+        return jsonResponse({
+          url: "https://r2.example.com/presigned",
+          key: "k",
+        });
+      }
+      if (typeof url === "string" && url.includes("/api/ingest/confirm-raw")) {
+        return jsonResponse({ confirmed: true });
+      }
+      // Canonical PUT, R2 PUT, etc.
+      return new Response(null, { status: 201 });
+    });
+
+    const result = await runSyncPipeline(
+      makeInput({ fileDrivers: [driver] }),
+      makeOpts({ upload: true, fetch: mockFetch }),
+    );
+
+    // Both batches should be uploaded
+    expect(result.uploadResult).toBeDefined();
+    expect(result.uploadResult!.totalBatches).toBe(2);
+    expect(result.totalParsed).toBe(sessionCount);
+    expect(result.contentResult).toBeDefined();
+    expect(result.contentResult!.uploaded).toBe(sessionCount);
+  });
+
+  it("handles single batch when sessions <= METADATA_BATCH_SIZE", async () => {
+    const driver = mockFileDriver({
+      discover: vi.fn().mockResolvedValue([__filename]),
+      parse: vi.fn().mockResolvedValue([makeParseResult("claude-code:s1")]),
+    });
+
+    // metadata batch POST
+    mockFetch.mockResolvedValueOnce(jsonResponse({ ingested: 1 }));
+    // content: canonical PUT
+    mockFetch.mockResolvedValueOnce(new Response(null, { status: 201 }));
+    // content: presign request
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ url: "https://r2.example.com/presigned", key: "k" }),
+    );
+    // content: R2 PUT
+    mockFetch.mockResolvedValueOnce(new Response(null, { status: 200 }));
+    // content: confirm raw
+    mockFetch.mockResolvedValueOnce(jsonResponse({ confirmed: true }));
+
+    const result = await runSyncPipeline(
+      makeInput({ fileDrivers: [driver] }),
+      makeOpts({ upload: true, fetch: mockFetch }),
+    );
+
+    expect(result.uploadResult?.totalBatches).toBe(1);
+    expect(result.contentResult?.uploaded).toBe(1);
+  });
+
+  it("only rolls back cursors for failed sessions within a batch", async () => {
+    // 2 sessions: s1 succeeds content upload, s2 fails
+    const otherFile = __filename.replace(".test.ts", ".ts");
+    const parseResult1 = makeParseResult("claude-code:s1");
+    const parseResult2 = makeParseResult("claude-code:s2");
+
+    const newCursor1 = makeCursor({ inode: 11111 });
+    const newCursor2 = makeCursor({ inode: 22222 });
+
+    const driver = mockFileDriver({
+      discover: vi.fn().mockResolvedValue([__filename, otherFile]),
+      parse: vi
+        .fn()
+        .mockResolvedValueOnce([parseResult1])
+        .mockResolvedValueOnce([parseResult2]),
+      buildCursor: vi
+        .fn()
+        .mockReturnValueOnce(newCursor1)
+        .mockReturnValueOnce(newCursor2),
+    });
+
+    // Both sessions in same batch (< METADATA_BATCH_SIZE)
+    // metadata batch POST — success
+    mockFetch.mockResolvedValueOnce(jsonResponse({ ingested: 2 }));
+    // s1: canonical PUT — success
+    mockFetch.mockResolvedValueOnce(new Response(null, { status: 201 }));
+    // s1: presign request
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ url: "https://r2.example.com/presigned", key: "k1" }),
+    );
+    // s1: R2 PUT
+    mockFetch.mockResolvedValueOnce(new Response(null, { status: 200 }));
+    // s1: confirm raw
+    mockFetch.mockResolvedValueOnce(jsonResponse({ confirmed: true }));
+    // s2: canonical PUT — 500 error (exhaust retries)
+    mockFetch.mockResolvedValue(new Response("Server Error", { status: 500 }));
+
+    const result = await runSyncPipeline(
+      makeInput({ fileDrivers: [driver] }),
+      makeOpts({ upload: true, fetch: mockFetch }),
+    );
+
+    // s1 succeeded — cursor preserved
+    expect(result.cursorState.files[__filename]).toEqual(newCursor1);
+    // s2 failed — cursor rolled back
+    expect(result.cursorState.files[otherFile]).toBeUndefined();
+    // Aggregate: 1 uploaded, 1 error
+    expect(result.contentResult?.uploaded).toBe(1);
+    expect(result.contentResult?.errors).toHaveLength(1);
+    expect(result.contentResult?.errors[0].sessionKey).toBe("claude-code:s2");
+  });
+
+  it("initializes contentResult when upload is enabled", async () => {
+    const driver = mockFileDriver({
+      discover: vi.fn().mockResolvedValue([__filename]),
+      parse: vi.fn().mockResolvedValue([makeParseResult()]),
+    });
+
+    // metadata batch POST
+    mockFetch.mockResolvedValueOnce(jsonResponse({ ingested: 1 }));
+    // content: canonical PUT — 204 no-op
+    mockFetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    // content: presign
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ url: "https://r2.example.com/presigned", key: "k" }),
+    );
+    // content: R2 PUT — 200
+    mockFetch.mockResolvedValueOnce(new Response(null, { status: 200 }));
+    // content: confirm
+    mockFetch.mockResolvedValueOnce(jsonResponse({ confirmed: true }));
+
+    const result = await runSyncPipeline(
+      makeInput({ fileDrivers: [driver] }),
+      makeOpts({ upload: true, fetch: mockFetch }),
+    );
+
+    // contentResult should always be initialized when upload runs
+    expect(result.contentResult).toBeDefined();
+    expect(result.contentResult!.errors).toEqual([]);
   });
 });
