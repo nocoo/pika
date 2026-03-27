@@ -14,6 +14,7 @@
     "lint": "tsc --noEmit && tsc --noEmit -p packages/web/tsconfig.json",
     "lint:typecheck": "tsc --noEmit && tsc --noEmit -p packages/web/tsconfig.json",
     "lint:biome": "bunx biome check packages/",
+    "lint:secrets": "gitleaks detect --source . --no-git --config .gitleaks.toml",
     "sync-versions": "bun scripts/sync-versions.ts --write",
     "prepare": "husky"
   },

@@ -1,0 +1,16 @@
+# Gitleaks configuration for Pika
+# See https://github.com/gitleaks/gitleaks#configuration
+
+title = "Pika gitleaks config"
+
+# Paths to exclude from scanning (gitignored files that contain expected secrets)
+[allowlist]
+  paths = [
+    '''\.env\.local$''',
+    '''\.env\.test$''',
+    '''\.next/''',
+    '''node_modules/''',
+    '''\.wrangler/''',
+    '''coverage/''',
+    '''dist/''',
+  ]
