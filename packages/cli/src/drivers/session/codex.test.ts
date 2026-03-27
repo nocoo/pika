@@ -480,3 +480,161 @@ describe("codexSessionDriver.source", () => {
     expect(codexSessionDriver.source).toBe("codex");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Multi-cycle cursor resume (integration)
+// ---------------------------------------------------------------------------
+
+describe("codexSessionDriver: multi-cycle cursor resume", () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await mkdtemp(join(tmpdir(), "pika-codex-resume-"));
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("resumes from cursor offset after file grows", async () => {
+    const filePath = join(tmpDir, "rollout-2025-01-15T10-30-00-resume.jsonl");
+
+    // Cycle 1: write initial content
+    const line1 = sessionMeta("ses-resume", "/project", "2025-01-15T10:30:00Z");
+    const line2 = turnContext("o3-mini");
+    const line3 = userMsg("First message", "2025-01-15T10:30:01Z");
+    const line4 = agentMsg("First reply", "2025-01-15T10:30:02Z");
+    const initialContent = `${line1}\n${line2}\n${line3}\n${line4}\n`;
+    await writeFile(filePath, initialContent);
+
+    // Parse cycle 1
+    const results1 = await codexSessionDriver.parse(filePath, {
+      kind: "codex",
+      startOffset: 0,
+      lastTotalTokens: 0,
+      lastModel: null,
+    });
+    expect(results1).toHaveLength(1);
+    expect(results1[0].canonical.messages).toHaveLength(2);
+
+    // Build cursor after cycle 1
+    const { ino, mtimeMs, size } = await import("node:fs/promises").then((fs) =>
+      fs.stat(filePath),
+    );
+    const fingerprint1 = { inode: ino, mtimeMs, size };
+    const cursor1 = codexSessionDriver.buildCursor(fingerprint1, results1);
+    expect(cursor1.offset).toBe(size);
+
+    // Cycle 2: append more content
+    const line5 = userMsg("Second message", "2025-01-15T10:30:03Z");
+    const line6 = agentMsg("Second reply", "2025-01-15T10:30:04Z");
+    await writeFile(filePath, `${initialContent}${line5}\n${line6}\n`);
+
+    // Get new fingerprint
+    const stat2 = await import("node:fs/promises").then((fs) =>
+      fs.stat(filePath),
+    );
+    const fingerprint2 = {
+      inode: stat2.ino,
+      mtimeMs: stat2.mtimeMs,
+      size: stat2.size,
+    };
+
+    // shouldSkip should return false (size changed)
+    expect(codexSessionDriver.shouldSkip(cursor1, fingerprint2)).toBe(false);
+
+    // resumeState should return the previous offset
+    const resume = codexSessionDriver.resumeState(cursor1, fingerprint2);
+    expect(resume.startOffset).toBe(cursor1.offset);
+
+    // Parse cycle 2 — full canonical snapshot includes ALL messages
+    const results2 = await codexSessionDriver.parse(filePath, resume);
+    expect(results2).toHaveLength(1);
+    expect(results2[0].canonical.messages).toHaveLength(4);
+  });
+
+  it("resets cursor when file is replaced (different inode)", async () => {
+    const cursor = makeCodexCursor({
+      inode: 99999, // different from any real file
+      offset: 2048,
+      lastTotalTokens: 500,
+      lastModel: "o3-mini",
+    });
+
+    const fingerprint = fp({ inode: 12345 }); // different inode
+    const resume = codexSessionDriver.resumeState(cursor, fingerprint);
+
+    expect(resume.startOffset).toBe(0);
+    expect(resume.lastTotalTokens).toBe(0);
+    expect(resume.lastModel).toBeNull();
+  });
+
+  it("resets cursor when file shrinks (truncated)", async () => {
+    const cursor = makeCodexCursor({
+      offset: 8192,
+      size: 8192,
+    });
+
+    const fingerprint = fp({ size: 1024 }); // smaller than cursor offset
+    const resume = codexSessionDriver.resumeState(cursor, fingerprint);
+
+    expect(resume.startOffset).toBe(0);
+    expect(resume.lastTotalTokens).toBe(0);
+    expect(resume.lastModel).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Near-empty files (metadata only, no conversation)
+// ---------------------------------------------------------------------------
+
+describe("codexSessionDriver: near-empty files", () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await mkdtemp(join(tmpdir(), "pika-codex-empty-"));
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("returns empty array for file with only metadata (no messages)", async () => {
+    const filePath = join(tmpDir, "rollout-2025-01-15T10-30-00-metaonly.jsonl");
+    // Only session_meta + turn_context, no user/agent messages
+    const lines = [
+      sessionMeta("ses-meta-only", "/project", "2025-01-15T10:30:00Z"),
+      turnContext("o3-mini"),
+    ];
+    await writeFile(filePath, `${lines.join("\n")}\n`);
+
+    const results = await codexSessionDriver.parse(filePath, {
+      kind: "codex",
+      startOffset: 0,
+      lastTotalTokens: 0,
+      lastModel: null,
+    });
+    expect(results).toHaveLength(0);
+  });
+
+  it("returns empty array for file with only token counts (no conversation)", async () => {
+    const filePath = join(
+      tmpDir,
+      "rollout-2025-01-15T10-30-00-tokensonly.jsonl",
+    );
+    const lines = [
+      sessionMeta("ses-tokens-only", "/project", "2025-01-15T10:30:00Z"),
+      turnContext("o3-mini"),
+      tokenCount(100, 50, "2025-01-15T10:30:01Z"),
+    ];
+    await writeFile(filePath, `${lines.join("\n")}\n`);
+
+    const results = await codexSessionDriver.parse(filePath, {
+      kind: "codex",
+      startOffset: 0,
+      lastTotalTokens: 0,
+      lastModel: null,
+    });
+    expect(results).toHaveLength(0);
+  });
+});

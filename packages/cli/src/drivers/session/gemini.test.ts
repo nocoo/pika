@@ -440,3 +440,178 @@ describe("geminiSessionDriver.source", () => {
     expect(geminiSessionDriver.source).toBe("gemini-cli");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Multi-cycle cursor resume (integration)
+// ---------------------------------------------------------------------------
+
+describe("geminiSessionDriver: multi-cycle cursor resume", () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await mkdtemp(join(tmpdir(), "pika-gemini-resume-"));
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("resumes from cursor messageIndex after file grows", async () => {
+    const chatsDir = join(tmpDir, "tmp", "hash-resume", "chats");
+    await mkdir(chatsDir, { recursive: true });
+    const filePath = join(chatsDir, "session-2025-01-15T10-00-resume.json");
+
+    // Cycle 1: write session with 2 messages
+    await writeFile(
+      filePath,
+      buildSession([
+        userMsg("First", "2025-01-15T10:00:00.000Z"),
+        geminiMsg("Reply 1", "2025-01-15T10:00:01.000Z"),
+      ]),
+    );
+
+    // Parse cycle 1
+    const results1 = await geminiSessionDriver.parse(filePath, {
+      kind: "array-index",
+      startIndex: 0,
+      lastTotalTokens: 0,
+      lastModel: null,
+    });
+    expect(results1).toHaveLength(1);
+    expect(results1[0].canonical.messages).toHaveLength(2);
+
+    // Build cursor after cycle 1
+    const stat1 = await import("node:fs/promises").then((fs) =>
+      fs.stat(filePath),
+    );
+    const fingerprint1 = {
+      inode: stat1.ino,
+      mtimeMs: stat1.mtimeMs,
+      size: stat1.size,
+    };
+    const cursor1 = geminiSessionDriver.buildCursor(fingerprint1, results1);
+
+    // Cycle 2: write session with 4 messages (simulating file update)
+    await writeFile(
+      filePath,
+      buildSession([
+        userMsg("First", "2025-01-15T10:00:00.000Z"),
+        geminiMsg("Reply 1", "2025-01-15T10:00:01.000Z"),
+        userMsg("Second", "2025-01-15T10:00:02.000Z"),
+        geminiMsg("Reply 2", "2025-01-15T10:00:03.000Z"),
+      ]),
+    );
+
+    // Get new fingerprint
+    const stat2 = await import("node:fs/promises").then((fs) =>
+      fs.stat(filePath),
+    );
+    const fingerprint2 = {
+      inode: stat2.ino,
+      mtimeMs: stat2.mtimeMs,
+      size: stat2.size,
+    };
+
+    // shouldSkip should return false (size/mtime changed)
+    expect(geminiSessionDriver.shouldSkip(cursor1, fingerprint2)).toBe(false);
+
+    // resumeState should return the previous messageIndex
+    const resume = geminiSessionDriver.resumeState(cursor1, fingerprint2);
+    expect(resume.startIndex).toBe(cursor1.messageIndex);
+
+    // Parse cycle 2 — full canonical snapshot includes ALL messages
+    const results2 = await geminiSessionDriver.parse(filePath, resume);
+    expect(results2).toHaveLength(1);
+    expect(results2[0].canonical.messages).toHaveLength(4);
+  });
+
+  it("resets cursor when file is replaced (different inode)", async () => {
+    const cursor = makeGeminiCursor({
+      inode: 99999, // different from default
+      messageIndex: 10,
+      lastTotalTokens: 500,
+      lastModel: "gemini-3-pro",
+    });
+
+    const fingerprint = fp({ inode: 12345 }); // different inode
+    const resume = geminiSessionDriver.resumeState(cursor, fingerprint);
+
+    expect(resume.startIndex).toBe(0);
+    expect(resume.lastTotalTokens).toBe(0);
+    expect(resume.lastModel).toBeNull();
+  });
+
+  it("resets cursor when file shrinks (truncated)", async () => {
+    const cursor = makeGeminiCursor({
+      size: 8192,
+      messageIndex: 10,
+    });
+
+    const fingerprint = fp({ size: 1024 }); // smaller than cursor
+    const resume = geminiSessionDriver.resumeState(cursor, fingerprint);
+
+    expect(resume.startIndex).toBe(0);
+    expect(resume.lastTotalTokens).toBe(0);
+    expect(resume.lastModel).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Near-empty files (no messages in session)
+// ---------------------------------------------------------------------------
+
+describe("geminiSessionDriver: near-empty files", () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await mkdtemp(join(tmpdir(), "pika-gemini-empty-"));
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("returns empty array for session with empty messages array", async () => {
+    const chatsDir = join(tmpDir, "tmp", "hash-empty", "chats");
+    await mkdir(chatsDir, { recursive: true });
+    const filePath = join(chatsDir, "session-2025-01-15T10-00-empty.json");
+
+    // Session JSON with valid structure but no messages
+    await writeFile(filePath, buildSession([]));
+
+    const results = await geminiSessionDriver.parse(filePath, {
+      kind: "array-index",
+      startIndex: 0,
+      lastTotalTokens: 0,
+      lastModel: null,
+    });
+    expect(results).toHaveLength(0);
+  });
+
+  it("returns empty array for session with only non-extractable messages", async () => {
+    const chatsDir = join(tmpDir, "tmp", "hash-info", "chats");
+    await mkdir(chatsDir, { recursive: true });
+    const filePath = join(chatsDir, "session-2025-01-15T10-00-info.json");
+
+    // Session with only "info" type messages (not user/gemini)
+    await writeFile(
+      filePath,
+      buildSession([
+        {
+          id: "info-1",
+          timestamp: "2025-01-15T10:00:00.000Z",
+          type: "info",
+          content: "Session started",
+        },
+      ]),
+    );
+
+    const results = await geminiSessionDriver.parse(filePath, {
+      kind: "array-index",
+      startIndex: 0,
+      lastTotalTokens: 0,
+      lastModel: null,
+    });
+    expect(results).toHaveLength(0);
+  });
+});
