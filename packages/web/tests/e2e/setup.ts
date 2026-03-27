@@ -82,26 +82,27 @@ export async function setup() {
     ...process.env,
     ...testEnv,
     PORT: String(PORT),
-    NODE_ENV: "development",
+    NODE_ENV: "development" as const,
   };
 
-  serverProcess = spawn("bun", ["run", "next", "dev", "-p", String(PORT)], {
+  const proc = spawn("bun", ["run", "next", "dev", "-p", String(PORT)], {
     cwd: WEB_DIR,
     env: serverEnv,
     stdio: ["ignore", "pipe", "pipe"],
   });
+  serverProcess = proc;
 
   // Forward server output for debugging
-  serverProcess.stdout?.on("data", (data: Buffer) => {
+  proc.stdout!.on("data", (data: Buffer) => {
     const msg = data.toString().trim();
     if (msg) console.log(`[E2E server] ${msg}`);
   });
-  serverProcess.stderr?.on("data", (data: Buffer) => {
+  proc.stderr!.on("data", (data: Buffer) => {
     const msg = data.toString().trim();
     if (msg) console.error(`[E2E server] ${msg}`);
   });
 
-  serverProcess.on("error", (err) => {
+  proc.on("error", (err) => {
     console.error("[E2E] Failed to start server:", err);
   });
 

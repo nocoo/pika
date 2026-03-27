@@ -85,8 +85,8 @@ export async function POST(request: Request) {
   const tag: TagRow = {
     id,
     user_id: user.userId,
-    name: validation.data?.name,
-    color: validation.data?.color ?? null,
+    name: validation.data!.name,
+    color: validation.data!.color ?? null,
     created_at: new Date().toISOString(),
   };
 

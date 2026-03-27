@@ -24,7 +24,7 @@ describe("D1AuthAdapter", () => {
       const client = createMockD1Client();
       const adapter = D1AuthAdapter(client);
 
-      const result = await adapter.createUser?.({
+      const result = await adapter.createUser!({
         email: "test@example.com",
         name: "Test User",
         image: "https://example.com/avatar.png",
@@ -45,7 +45,7 @@ describe("D1AuthAdapter", () => {
       const client = createMockD1Client();
       const adapter = D1AuthAdapter(client);
 
-      const result = await adapter.createUser?.({
+      const result = await adapter.createUser!({
         id: "custom-id-123",
         email: "user@e.com",
         name: null,
@@ -64,7 +64,7 @@ describe("D1AuthAdapter", () => {
       const client = createMockD1Client();
       const adapter = D1AuthAdapter(client);
 
-      const result = await adapter.createUser?.({
+      const result = await adapter.createUser!({
         email: "minimal@e.com",
         emailVerified: null,
       } as any);
@@ -200,7 +200,7 @@ describe("D1AuthAdapter", () => {
       });
       const adapter = D1AuthAdapter(client);
 
-      const result = await adapter.updateUser?.({
+      const result = await adapter.updateUser!({
         id: "u1",
         name: "New Name",
         email: "new@e.com",
@@ -226,7 +226,7 @@ describe("D1AuthAdapter", () => {
       });
       const adapter = D1AuthAdapter(client);
 
-      const result = await adapter.updateUser?.({ id: "u1" } as any);
+      const result = await adapter.updateUser!({ id: "u1" } as any);
 
       expect(result.id).toBe("u1");
       // execute should NOT be called (no fields to update)
@@ -245,7 +245,7 @@ describe("D1AuthAdapter", () => {
       });
       const adapter = D1AuthAdapter(client);
 
-      const result = await adapter.updateUser?.({
+      const result = await adapter.updateUser!({
         id: "u1",
         emailVerified: new Date("2026-03-01T00:00:00Z"),
       } as any);
