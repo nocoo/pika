@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, DM_Sans, Caveat } from "next/font/google";
+import { Caveat, DM_Sans, Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth-provider";
 
@@ -21,9 +21,7 @@ const caveat = Caveat({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXTAUTH_URL ?? "https://pika.hexly.ai",
-  ),
+  metadataBase: new URL(process.env.NEXTAUTH_URL ?? "https://pika.hexly.ai"),
   title: "Pika — replay and search coding agent sessions",
   description: "Replay and search your coding agent sessions",
   openGraph: {

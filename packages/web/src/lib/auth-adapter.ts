@@ -10,7 +10,7 @@
  * - createUser, getUser, getUserByEmail, getUserByAccount, updateUser, linkAccount
  */
 
-import type { Adapter, AdapterUser, AdapterAccount } from "next-auth/adapters";
+import type { Adapter, AdapterAccount, AdapterUser } from "next-auth/adapters";
 import type { D1Client } from "./d1";
 
 interface UserRow {

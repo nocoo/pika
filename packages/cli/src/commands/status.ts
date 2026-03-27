@@ -1,11 +1,16 @@
-import { defineCommand } from "citty";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import consola from "consola";
+import type { ParseError } from "@pika/core";
 import { CONFIG_DIR, PARSE_ERRORS_FILE } from "@pika/core";
+import { defineCommand } from "citty";
+import consola from "consola";
 import { ConfigManager } from "../config/manager";
 import { CursorStore } from "../storage/cursor-store";
-import { buildStatus, loadParseErrors, formatStatusLines } from "./status-display";
+import {
+  buildStatus,
+  formatStatusLines,
+  loadParseErrors,
+} from "./status-display";
 
 export default defineCommand({
   meta: {
@@ -37,9 +42,12 @@ export default defineCommand({
     const cursorState = await cursorStore.load();
 
     // Load parse errors
-    let parseErrors;
+    let parseErrors: ParseError[];
     try {
-      const content = await readFile(join(configDir, PARSE_ERRORS_FILE), "utf-8");
+      const content = await readFile(
+        join(configDir, PARSE_ERRORS_FILE),
+        "utf-8",
+      );
       parseErrors = loadParseErrors(content);
     } catch {
       parseErrors = [];

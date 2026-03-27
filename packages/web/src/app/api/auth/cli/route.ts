@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { handleCliAuth, getPublicOrigin } from "@/lib/cli-auth";
+import { getPublicOrigin, handleCliAuth } from "@/lib/cli-auth";
 import { getD1Client } from "@/lib/d1";
 import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
 

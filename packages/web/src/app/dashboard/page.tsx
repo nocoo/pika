@@ -1,24 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import {
+  ArrowUpRight,
+  Calendar,
   LayoutDashboard,
   MessagesSquare,
-  ArrowUpRight,
   Zap,
-  Calendar,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ActivityHeatmap } from "@/components/dashboard/activity-heatmap";
+import { RecentSessions } from "@/components/dashboard/recent-sessions";
+import { SourceChart } from "@/components/dashboard/source-chart";
+import { StatCard, StatGrid } from "@/components/dashboard/stat-card";
+import { TopProjects } from "@/components/dashboard/top-projects";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatCard, StatGrid } from "@/components/dashboard/stat-card";
-import { ActivityHeatmap } from "@/components/dashboard/activity-heatmap";
-import { SourceChart } from "@/components/dashboard/source-chart";
-import { RecentSessions } from "@/components/dashboard/recent-sessions";
-import { TopProjects } from "@/components/dashboard/top-projects";
-import { formatTokens } from "@/lib/utils";
 import { buildHeatmapData } from "@/lib/format";
-import type { StatsResponse } from "@/lib/stats";
 import type { SessionRow } from "@/lib/sessions";
+import type { StatsResponse } from "@/lib/stats";
+import { formatTokens } from "@/lib/utils";
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<StatsResponse | null>(null);
@@ -38,7 +38,8 @@ export default function DashboardPage() {
         if (!sessionsRes.ok) throw new Error(`Sessions: ${sessionsRes.status}`);
 
         const statsData: StatsResponse = await statsRes.json();
-        const sessionsData: { sessions: SessionRow[] } = await sessionsRes.json();
+        const sessionsData: { sessions: SessionRow[] } =
+          await sessionsRes.json();
 
         setStats(statsData);
         setRecent(sessionsData.sessions);
@@ -127,9 +128,7 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">
-              Sources
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Sources</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -164,9 +163,7 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">
-              Top Projects
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Top Projects</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (

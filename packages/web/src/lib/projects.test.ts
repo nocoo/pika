@@ -1,13 +1,13 @@
-import { describe, it, expect } from "vitest";
+import type { Source } from "@pika/core";
+import { describe, expect, it } from "vitest";
 import {
+  assembleProjectOverview,
+  buildProjectDailyActivityQuery,
   buildProjectListQuery,
   buildProjectOverviewQuery,
   buildProjectSourceDistributionQuery,
-  buildProjectDailyActivityQuery,
-  assembleProjectOverview,
   groupSourceDistribution,
 } from "./projects";
-import type { Source } from "@pika/core";
 
 // ── buildProjectListQuery ─────────────────────────────────────
 
@@ -44,7 +44,9 @@ describe("buildProjectOverviewQuery", () => {
   it("returns SQL with aggregate totals", () => {
     const { sql, params } = buildProjectOverviewQuery("u1");
 
-    expect(sql).toContain("COUNT(DISTINCT COALESCE(project_name, project_ref)) AS total_projects");
+    expect(sql).toContain(
+      "COUNT(DISTINCT COALESCE(project_name, project_ref)) AS total_projects",
+    );
     expect(sql).toContain("COUNT(*) AS total_sessions");
     expect(sql).toContain("SUM(total_messages)");
     expect(sql).toContain("SUM(total_input_tokens)");
@@ -70,7 +72,9 @@ describe("buildProjectSourceDistributionQuery", () => {
     const { sql, params } = buildProjectSourceDistributionQuery("u1");
 
     expect(sql).toContain("COALESCE(project_name, project_ref) AS project_key");
-    expect(sql).toContain("GROUP BY COALESCE(project_name, project_ref), source");
+    expect(sql).toContain(
+      "GROUP BY COALESCE(project_name, project_ref), source",
+    );
     expect(sql).toContain("ORDER BY project_key, count DESC");
     expect(params).toEqual(["u1"]);
   });
@@ -168,13 +172,11 @@ describe("groupSourceDistribution", () => {
     const result = groupSourceDistribution(rows);
 
     expect(Object.keys(result)).toHaveLength(2);
-    expect(result["pika"]).toEqual([
+    expect(result.pika).toEqual([
       { source: "claude-code", count: 10 },
       { source: "codex", count: 3 },
     ]);
-    expect(result["other"]).toEqual([
-      { source: "claude-code", count: 7 },
-    ]);
+    expect(result.other).toEqual([{ source: "claude-code", count: 7 }]);
   });
 
   it("returns empty object for empty input", () => {

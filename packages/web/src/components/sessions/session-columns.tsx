@@ -1,17 +1,13 @@
 "use client";
 
-import { type ColumnDef } from "@tanstack/react-table";
-import Link from "next/link";
+import type { ColumnDef } from "@tanstack/react-table";
 import { Star } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
+import Link from "next/link";
 import { AgentBadge } from "@/components/ui/agent-badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ModelBadge } from "@/components/ui/model-badge";
-import { cn } from "@/lib/utils";
-import { formatTokens } from "@/lib/utils";
-import {
-  formatDuration,
-  relativeTime,
-} from "@/lib/format";
+import { formatDuration, relativeTime } from "@/lib/format";
+import { cn, formatTokens } from "@/lib/utils";
 import type { SessionCardData } from "./session-card";
 
 // ── Title + Star cell ────────────────────────────────────────
@@ -81,9 +77,7 @@ export function getSessionColumns(
                 ? "indeterminate"
                 : false
           }
-          onCheckedChange={(value) =>
-            table.toggleAllPageRowsSelected(!!value)
-          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
           aria-label="Select all"
         />
       ),

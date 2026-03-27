@@ -1,16 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useMemo } from "react";
-import { cn } from "@/lib/utils";
-import { formatTokensFull } from "@/lib/utils";
-import { formatDuration, formatDateTime, projectDisplayName } from "@/lib/format";
+import type { CanonicalMessage, CanonicalSession } from "@pika/core";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AgentBadge } from "@/components/ui/agent-badge";
 import { ModelBadge } from "@/components/ui/model-badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  formatDateTime,
+  formatDuration,
+  projectDisplayName,
+} from "@/lib/format";
+import type { SessionDetailRow } from "@/lib/session-detail";
+import { cn, formatTokensFull } from "@/lib/utils";
 import { MessageBubble } from "./message-bubble";
 import { ScrollToTop } from "./scroll-to-top";
-import type { SessionDetailRow } from "@/lib/session-detail";
-import type { CanonicalMessage, CanonicalSession } from "@pika/core";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -117,8 +120,7 @@ export function SessionReplay({
       const curr = messages[index];
       if (!prev?.timestamp || !curr?.timestamp) return false;
       const gap =
-        new Date(curr.timestamp).getTime() -
-        new Date(prev.timestamp).getTime();
+        new Date(curr.timestamp).getTime() - new Date(prev.timestamp).getTime();
       return gap > 5 * 60 * 1000; // 5 minutes
     },
     [messages],
@@ -126,8 +128,7 @@ export function SessionReplay({
 
   // ── Render ─────────────────────────────────────────────────
 
-  const totalTokens =
-    session.total_input_tokens + session.total_output_tokens;
+  const totalTokens = session.total_input_tokens + session.total_output_tokens;
 
   // End marker summary parts
   const endSummary = useMemo(() => {
@@ -185,10 +186,7 @@ export function SessionReplay({
 
           {/* Stats row */}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-border pt-3 text-xs text-muted-foreground">
-            <StatItem
-              label="Messages"
-              value={String(session.total_messages)}
-            />
+            <StatItem label="Messages" value={String(session.total_messages)} />
             <StatItem
               label="Duration"
               value={formatDuration(session.duration_seconds)}
@@ -198,10 +196,7 @@ export function SessionReplay({
               value={formatTokensFull(totalTokens)}
               title={`In: ${formatTokensFull(session.total_input_tokens)} / Out: ${formatTokensFull(session.total_output_tokens)}${session.total_cached_tokens ? ` / Cached: ${formatTokensFull(session.total_cached_tokens)}` : ""}`}
             />
-            <StatItem
-              label="User"
-              value={String(session.user_messages)}
-            />
+            <StatItem label="User" value={String(session.user_messages)} />
             <StatItem
               label="Assistant"
               value={String(session.assistant_messages)}

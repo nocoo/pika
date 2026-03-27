@@ -1,9 +1,9 @@
+import type { Session, User } from "next-auth";
 import NextAuth from "next-auth";
+import type { JWT } from "next-auth/jwt";
 import Google from "next-auth/providers/google";
 import { D1AuthAdapter } from "./auth-adapter";
 import { getD1Client } from "./d1";
-import type { JWT } from "next-auth/jwt";
-import type { Session, User } from "next-auth";
 
 // ---------------------------------------------------------------------------
 // Exported helpers (testable without next-auth runtime)
@@ -19,13 +19,7 @@ export function shouldUseSecureCookies(): boolean {
 }
 
 /** Persist user ID into the JWT token. */
-export function jwtCallback({
-  token,
-  user,
-}: {
-  token: JWT;
-  user?: User;
-}): JWT {
+export function jwtCallback({ token, user }: { token: JWT; user?: User }): JWT {
   if (user?.id) {
     token.userId = user.id;
   }
@@ -118,9 +112,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth(() => ({
       },
     },
     csrfToken: {
-      name: useSecureCookies
-        ? "__Host-authjs.csrf-token"
-        : "authjs.csrf-token",
+      name: useSecureCookies ? "__Host-authjs.csrf-token" : "authjs.csrf-token",
       options: {
         httpOnly: true,
         sameSite: "lax",

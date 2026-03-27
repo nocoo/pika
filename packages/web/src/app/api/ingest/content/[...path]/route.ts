@@ -1,17 +1,25 @@
-import { NextResponse } from "next/server";
-import { resolveUser } from "@/lib/cli-auth";
-import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
-import { getD1Client } from "@/lib/d1";
-import { auth } from "@/lib/auth";
-import { proxyToWorker, getProxyConfig, parseContentPath } from "@/lib/ingest";
 import { MAX_CONTENT_UPLOAD_BYTES } from "@pika/core";
+import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { resolveUser } from "@/lib/cli-auth";
+import { getD1Client } from "@/lib/d1";
+import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
+import {
+  getProxyConfig,
+  type ProxyConfig,
+  parseContentPath,
+  proxyToWorker,
+} from "@/lib/ingest";
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ path: string[] }> },
 ) {
   // Validate Content-Length before auth to fail fast on oversized payloads
-  const contentLength = parseInt(request.headers.get("Content-Length") ?? "", 10);
+  const contentLength = parseInt(
+    request.headers.get("Content-Length") ?? "",
+    10,
+  );
   if (!Number.isFinite(contentLength)) {
     return NextResponse.json(
       { error: "Content-Length header is required" },
@@ -19,10 +27,7 @@ export async function PUT(
     );
   }
   if (contentLength > MAX_CONTENT_UPLOAD_BYTES) {
-    return NextResponse.json(
-      { error: "Payload too large" },
-      { status: 413 },
-    );
+    return NextResponse.json({ error: "Payload too large" }, { status: 413 });
   }
 
   const d1 = getD1Client();
@@ -32,7 +37,10 @@ export async function PUT(
     getSession: async () => {
       const session = await auth();
       if (!session?.user?.id) return null;
-      return { userId: session.user.id, email: session.user.email ?? undefined };
+      return {
+        userId: session.user.id,
+        email: session.user.email ?? undefined,
+      };
     },
     db,
   });
@@ -48,12 +56,15 @@ export async function PUT(
     return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
 
-  let config;
+  let config: ProxyConfig;
   try {
     config = getProxyConfig();
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server configuration error" },
+      {
+        error:
+          err instanceof Error ? err.message : "Server configuration error",
+      },
       { status: 500 },
     );
   }
@@ -77,7 +88,8 @@ export async function PUT(
     path: parsed.workerPath,
     userId: user.userId,
     body: request.body,
-    contentType: request.headers.get("Content-Type") ?? "application/octet-stream",
+    contentType:
+      request.headers.get("Content-Type") ?? "application/octet-stream",
     extraHeaders,
   });
 

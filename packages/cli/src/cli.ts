@@ -1,5 +1,5 @@
-import { defineCommand } from "citty";
 import { PIKA_VERSION } from "@pika/core";
+import { defineCommand } from "citty";
 
 export const main = defineCommand({
   meta: {

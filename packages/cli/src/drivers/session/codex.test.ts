@@ -4,11 +4,11 @@
  * Covers: discover, shouldSkip, resumeState, parse, buildCursor
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, writeFile, mkdir, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { CodexCursor, ParseResult } from "@pika/core";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { FileFingerprint } from "../../utils/file-changed";
 import { codexSessionDriver } from "./codex";
 
@@ -17,11 +17,7 @@ import { codexSessionDriver } from "./codex";
 // ---------------------------------------------------------------------------
 
 /** Build a session_meta JSONL line */
-function sessionMeta(
-  id: string,
-  cwd: string,
-  ts: string,
-): string {
+function sessionMeta(id: string, cwd: string, ts: string): string {
   return JSON.stringify({
     type: "session_meta",
     timestamp: ts,
@@ -95,9 +91,7 @@ const fp = (overrides: Partial<FileFingerprint> = {}): FileFingerprint => ({
   ...overrides,
 });
 
-function makeCodexCursor(
-  overrides: Partial<CodexCursor> = {},
-): CodexCursor {
+function makeCodexCursor(overrides: Partial<CodexCursor> = {}): CodexCursor {
   return {
     inode: 12345,
     mtimeMs: 1700000000000,
@@ -247,10 +241,7 @@ describe("codexSessionDriver.resumeState", () => {
       lastTotalTokens: 500,
       lastModel: "o3-mini",
     });
-    const resume = codexSessionDriver.resumeState(
-      cursor,
-      fp({ size: 4096 }),
-    );
+    const resume = codexSessionDriver.resumeState(cursor, fp({ size: 4096 }));
     expect(resume).toEqual({
       kind: "codex",
       startOffset: 2048,
@@ -272,10 +263,7 @@ describe("codexSessionDriver.resumeState", () => {
 
   it("returns offset 0 when file shrunk (re-written)", () => {
     const cursor = makeCodexCursor({ offset: 8192 });
-    const resume = codexSessionDriver.resumeState(
-      cursor,
-      fp({ size: 1024 }),
-    );
+    const resume = codexSessionDriver.resumeState(cursor, fp({ size: 1024 }));
     expect(resume).toEqual({
       kind: "codex",
       startOffset: 0,
@@ -289,10 +277,7 @@ describe("codexSessionDriver.resumeState", () => {
       offset: 500,
       lastModel: null,
     });
-    const resume = codexSessionDriver.resumeState(
-      cursor,
-      fp({ size: 1000 }),
-    );
+    const resume = codexSessionDriver.resumeState(cursor, fp({ size: 1000 }));
     expect(resume.lastModel).toBeNull();
   });
 });
@@ -313,10 +298,7 @@ describe("codexSessionDriver.parse", () => {
   });
 
   it("parses a simple Codex session file", async () => {
-    const filePath = join(
-      tmpDir,
-      "rollout-2025-01-15T10-30-00-abc123.jsonl",
-    );
+    const filePath = join(tmpDir, "rollout-2025-01-15T10-30-00-abc123.jsonl");
     const lines = [
       sessionMeta("ses-codex-1", "/home/user/project", "2025-01-15T10:30:00Z"),
       turnContext("o3-mini"),
@@ -324,7 +306,7 @@ describe("codexSessionDriver.parse", () => {
       agentMsg("Hi there!", "2025-01-15T10:30:02Z"),
       tokenCount(100, 50, "2025-01-15T10:30:02Z"),
     ];
-    await writeFile(filePath, lines.join("\n") + "\n");
+    await writeFile(filePath, `${lines.join("\n")}\n`);
 
     const results = await codexSessionDriver.parse(filePath, {
       kind: "codex",
@@ -342,10 +324,7 @@ describe("codexSessionDriver.parse", () => {
   });
 
   it("handles incremental parsing from byte offset", async () => {
-    const filePath = join(
-      tmpDir,
-      "rollout-2025-01-15T10-30-00-inc123.jsonl",
-    );
+    const filePath = join(tmpDir, "rollout-2025-01-15T10-30-00-inc123.jsonl");
     const line1 = sessionMeta(
       "ses-inc",
       "/home/user/project",
@@ -355,14 +334,14 @@ describe("codexSessionDriver.parse", () => {
     const line3 = agentMsg("First reply", "2025-01-15T10:30:02Z");
 
     // Write initial chunk
-    const firstChunk = line1 + "\n" + line2 + "\n" + line3 + "\n";
+    const firstChunk = `${line1}\n${line2}\n${line3}\n`;
     await writeFile(filePath, firstChunk);
     const offset = Buffer.byteLength(firstChunk, "utf8");
 
     // Append more lines
     const line4 = userMsg("Second message", "2025-01-15T10:30:03Z");
     const line5 = agentMsg("Second reply", "2025-01-15T10:30:04Z");
-    const secondChunk = line4 + "\n" + line5 + "\n";
+    const secondChunk = `${line4}\n${line5}\n`;
     await writeFile(filePath, firstChunk + secondChunk);
 
     // Parse from offset — full canonical snapshot includes ALL messages.
@@ -379,10 +358,7 @@ describe("codexSessionDriver.parse", () => {
   });
 
   it("returns a result with empty messages for empty file", async () => {
-    const filePath = join(
-      tmpDir,
-      "rollout-2025-01-15T10-30-00-empty123.jsonl",
-    );
+    const filePath = join(tmpDir, "rollout-2025-01-15T10-30-00-empty123.jsonl");
     await writeFile(filePath, "");
 
     const results = await codexSessionDriver.parse(filePath, {
@@ -407,10 +383,7 @@ describe("codexSessionDriver.parse", () => {
   });
 
   it("includes tool calls in parsed messages", async () => {
-    const filePath = join(
-      tmpDir,
-      "rollout-2025-01-15T10-30-00-tools123.jsonl",
-    );
+    const filePath = join(tmpDir, "rollout-2025-01-15T10-30-00-tools123.jsonl");
     const lines = [
       sessionMeta("ses-tools", "/project", "2025-01-15T10:30:00Z"),
       turnContext("o3-mini"),
@@ -418,7 +391,7 @@ describe("codexSessionDriver.parse", () => {
       functionCall("shell", '{"command":"ls"}', "2025-01-15T10:30:02Z"),
       agentMsg("Done!", "2025-01-15T10:30:03Z"),
     ];
-    await writeFile(filePath, lines.join("\n") + "\n");
+    await writeFile(filePath, `${lines.join("\n")}\n`);
 
     const results = await codexSessionDriver.parse(filePath, {
       kind: "codex",
@@ -433,7 +406,7 @@ describe("codexSessionDriver.parse", () => {
       (m) => m.role === "tool",
     );
     expect(toolMsg).toBeDefined();
-    expect(toolMsg!.toolName).toBe("shell");
+    expect(toolMsg?.toolName).toBe("shell");
   });
 });
 

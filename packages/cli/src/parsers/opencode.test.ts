@@ -7,18 +7,18 @@
  * patch, file, compaction. Token accumulation, edge cases.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, writeFile, mkdir, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { OcMessage, OcPart, OcSession } from "./opencode";
 import {
-  parseOpenCodeMessages,
-  parseOpenCodeJsonSession,
-  parseOpenCodeSqliteSession,
-  extractProjectRef,
   extractProjectName,
+  extractProjectRef,
+  parseOpenCodeJsonSession,
+  parseOpenCodeMessages,
+  parseOpenCodeSqliteSession,
 } from "./opencode";
-import type { OcSession, OcMessage, OcPart } from "./opencode";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -35,11 +35,7 @@ function buildSession(overrides: Partial<OcSession> = {}): OcSession {
   };
 }
 
-function userMsg(
-  id: string,
-  text: string,
-  ts: number,
-): OcMessage {
+function userMsg(id: string, text: string, ts: number): OcMessage {
   return {
     id,
     sessionID: "ses_test123",
@@ -162,7 +158,12 @@ describe("parseOpenCodeMessages", () => {
       }),
     ];
 
-    const result = parseOpenCodeMessages(session, messages, "json", "/test/path");
+    const result = parseOpenCodeMessages(
+      session,
+      messages,
+      "json",
+      "/test/path",
+    );
     expect(result.canonical.sessionKey).toBe("opencode:ses_test123");
     expect(result.canonical.source).toBe("opencode");
     expect(result.canonical.messages).toHaveLength(2);
@@ -317,11 +318,7 @@ describe("parseOpenCodeMessages — tool parts", () => {
       userMsg("msg_1", "Run something", 1700000000000),
       assistantMsg("msg_2", "Running...", 1700000001000, {
         toolParts: [
-          runningToolPart(
-            "bash",
-            { command: "npm test" },
-            1700000001500,
-          ),
+          runningToolPart("bash", { command: "npm test" }, 1700000001500),
         ],
       }),
     ];
@@ -370,8 +367,18 @@ describe("parseOpenCodeMessages — tool parts", () => {
       userMsg("msg_1", "Read two files", 1700000000000),
       assistantMsg("msg_2", "Reading both.", 1700000001000, {
         toolParts: [
-          completedToolPart("read", { path: "a.ts" }, "content-a", 1700000001500),
-          completedToolPart("read", { path: "b.ts" }, "content-b", 1700000002000),
+          completedToolPart(
+            "read",
+            { path: "a.ts" },
+            "content-a",
+            1700000001500,
+          ),
+          completedToolPart(
+            "read",
+            { path: "b.ts" },
+            "content-b",
+            1700000002000,
+          ),
         ],
       }),
     ];
@@ -486,9 +493,7 @@ describe("parseOpenCodeMessages — tool parts", () => {
     const result = parseOpenCodeMessages(session, messages, "json", "/test");
     // user + text + tool invocation (no result because empty output)
     expect(result.canonical.messages).toHaveLength(3);
-    const toolMsgs = result.canonical.messages.filter(
-      (m) => m.role === "tool",
-    );
+    const toolMsgs = result.canonical.messages.filter((m) => m.role === "tool");
     expect(toolMsgs).toHaveLength(1);
     expect(toolMsgs[0].toolResult).toBeUndefined();
   });
@@ -525,7 +530,9 @@ describe("parseOpenCodeMessages — skipped part types", () => {
 
     const result = parseOpenCodeMessages(session, messages, "json", "/test");
     expect(result.canonical.messages).toHaveLength(2);
-    expect(result.canonical.messages[0].content).toBe("Hello, help me debug this.");
+    expect(result.canonical.messages[0].content).toBe(
+      "Hello, help me debug this.",
+    );
   });
 
   it("skips reasoning parts", () => {
@@ -634,9 +641,7 @@ describe("parseOpenCodeMessages — edge cases", () => {
         id: "msg_1",
         role: "user",
         time: { created: 1700000000000 },
-        parts: [
-          { id: "prt_1", type: "text", text: "", synthetic: false },
-        ],
+        parts: [{ id: "prt_1", type: "text", text: "", synthetic: false }],
       },
     ];
 
@@ -826,7 +831,12 @@ describe("parseOpenCodeMessages — edge cases", () => {
       assistantMsg("msg_2", "Hi!", 1700000001000),
     ];
 
-    const result = parseOpenCodeMessages(session, messages, "json", "/test/path");
+    const result = parseOpenCodeMessages(
+      session,
+      messages,
+      "json",
+      "/test/path",
+    );
     expect(result.raw.sessionKey).toBe("opencode:ses_test123");
     expect(result.raw.source).toBe("opencode");
     expect(result.raw.sourceFiles).toHaveLength(1);
@@ -877,9 +887,7 @@ describe("parseOpenCodeMessages — edge cases", () => {
         role: "assistant",
         time: { created: 1700000003000 },
         // no modelID
-        parts: [
-          { id: "prt_4", type: "text", text: "Reply 2" },
-        ],
+        parts: [{ id: "prt_4", type: "text", text: "Reply 2" }],
       },
     ];
 
@@ -1127,7 +1135,12 @@ describe("parseOpenCodeJsonSession", () => {
   it("raw archive preserves original file content verbatim", async () => {
     // Write session with extra whitespace to verify content is preserved as-is
     const sessionContent = JSON.stringify(
-      { id: "ses_raw", projectID: "proj_raw", title: "Raw Test", time: { created: 1700000000000, updated: 1700000001000 } },
+      {
+        id: "ses_raw",
+        projectID: "proj_raw",
+        title: "Raw Test",
+        time: { created: 1700000000000, updated: 1700000001000 },
+      },
       null,
       2,
     );
@@ -1137,7 +1150,12 @@ describe("parseOpenCodeJsonSession", () => {
     const msgDir = join(messageDir, "ses_raw");
     await mkdir(msgDir, { recursive: true });
     const msgContent = JSON.stringify(
-      { id: "msg_r1", sessionID: "ses_raw", role: "user", time: { created: 1700000000000 } },
+      {
+        id: "msg_r1",
+        sessionID: "ses_raw",
+        role: "user",
+        time: { created: 1700000000000 },
+      },
       null,
       2,
     );
@@ -1146,13 +1164,23 @@ describe("parseOpenCodeJsonSession", () => {
     const pDir = join(partDir, "msg_r1");
     await mkdir(pDir, { recursive: true });
     const partContent = JSON.stringify(
-      { id: "prt_r1", type: "text", text: "verbatim check", messageID: "msg_r1", sessionID: "ses_raw" },
+      {
+        id: "prt_r1",
+        type: "text",
+        text: "verbatim check",
+        messageID: "msg_r1",
+        sessionID: "ses_raw",
+      },
       null,
       2,
     );
     await writeFile(join(pDir, "prt_r1.json"), partContent);
 
-    const result = await parseOpenCodeJsonSession(sessionPath, messageDir, partDir);
+    const result = await parseOpenCodeJsonSession(
+      sessionPath,
+      messageDir,
+      partDir,
+    );
 
     // 1 session + 1 message + 1 part = 3 source files
     expect(result.raw.sourceFiles).toHaveLength(3);
@@ -1498,9 +1526,21 @@ describe("parseOpenCodeSqliteSession", () => {
     ];
 
     const rawSourceFiles = [
-      { path: "/db.sqlite#session/ses_test123", format: "sqlite-export" as const, content: '{"id":"ses_test123"}' },
-      { path: "/db.sqlite#message/msg_1", format: "sqlite-export" as const, content: '{"id":"msg_1","role":"user"}' },
-      { path: "/db.sqlite#message/msg_2", format: "sqlite-export" as const, content: '{"id":"msg_2","role":"assistant"}' },
+      {
+        path: "/db.sqlite#session/ses_test123",
+        format: "sqlite-export" as const,
+        content: '{"id":"ses_test123"}',
+      },
+      {
+        path: "/db.sqlite#message/msg_1",
+        format: "sqlite-export" as const,
+        content: '{"id":"msg_1","role":"user"}',
+      },
+      {
+        path: "/db.sqlite#message/msg_2",
+        format: "sqlite-export" as const,
+        content: '{"id":"msg_2","role":"assistant"}',
+      },
     ];
 
     const result = parseOpenCodeSqliteSession(
@@ -1511,7 +1551,9 @@ describe("parseOpenCodeSqliteSession", () => {
     );
 
     expect(result.raw.sourceFiles).toHaveLength(3);
-    expect(result.raw.sourceFiles[0].path).toBe("/db.sqlite#session/ses_test123");
+    expect(result.raw.sourceFiles[0].path).toBe(
+      "/db.sqlite#session/ses_test123",
+    );
     expect(result.raw.sourceFiles[0].content).toBe('{"id":"ses_test123"}');
     // Not a synthetic JSON.stringify of messages array
     for (const f of result.raw.sourceFiles) {

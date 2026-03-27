@@ -9,12 +9,7 @@
  * Parsers and discovery functions are unchanged; drivers are thin wrappers.
  */
 
-import type {
-  Source,
-  FileCursorBase,
-  FileCursor,
-  ParseResult,
-} from "@pika/core";
+import type { FileCursorBase, ParseResult, Source } from "@pika/core";
 import type { FileFingerprint } from "../utils/file-changed";
 
 // Re-export for convenience -- consumers import from drivers/types
@@ -162,10 +157,16 @@ export interface FileDriver<TCursor extends FileCursorBase = FileCursorBase> {
   discover(opts: DiscoverOpts): Promise<string[]>;
 
   /** Fast skip: has this file changed since last cursor? Uses fileUnchanged() internally. */
-  shouldSkip(cursor: TCursor | undefined, fingerprint: FileFingerprint): boolean;
+  shouldSkip(
+    cursor: TCursor | undefined,
+    fingerprint: FileFingerprint,
+  ): boolean;
 
   /** Extract incremental resume state from cursor (offset, lastIndex, etc.) */
-  resumeState(cursor: TCursor | undefined, fingerprint: FileFingerprint): ResumeState;
+  resumeState(
+    cursor: TCursor | undefined,
+    fingerprint: FileFingerprint,
+  ): ResumeState;
 
   /** Parse file from resume point, return all sessions found */
   parse(filePath: string, resume: ResumeState): Promise<ParseResult[]>;
@@ -203,7 +204,10 @@ export interface DbDriver<TCursor = unknown> {
    *
    * Reads cross-driver state (messageKeys) from ctx for dedup.
    */
-  run(prevCursor: TCursor | undefined, ctx: SyncContext): Promise<DbDriverResult<TCursor>>;
+  run(
+    prevCursor: TCursor | undefined,
+    ctx: SyncContext,
+  ): Promise<DbDriverResult<TCursor>>;
 }
 
 // ---------------------------------------------------------------------------

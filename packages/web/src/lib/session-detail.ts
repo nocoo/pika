@@ -73,10 +73,7 @@ export function buildSessionDetailQuery(
  * Build canonical R2 key from session metadata.
  * Pattern: `{userId}/{sessionKey}/canonical.json.gz`
  */
-export function canonicalR2Key(
-  userId: string,
-  sessionKey: string,
-): string {
+export function canonicalR2Key(userId: string, sessionKey: string): string {
   return `${userId}/${sessionKey}/canonical.json.gz`;
 }
 

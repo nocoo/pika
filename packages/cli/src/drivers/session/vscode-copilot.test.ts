@@ -4,11 +4,11 @@
  * Covers: discover, shouldSkip, resumeState, parse, buildCursor
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, writeFile, mkdir, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { VscodeCopilotCursor } from "@pika/core";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { FileFingerprint } from "../../utils/file-changed";
 import { vscodeCopilotSessionDriver } from "./vscode-copilot";
 
@@ -87,7 +87,7 @@ function makeRequest(opts?: {
 
 /** Build a minimal session JSONL file content string */
 function buildSessionContent(lines: string[]): string {
-  return lines.join("\n") + "\n";
+  return `${lines.join("\n")}\n`;
 }
 
 const fp = (overrides: Partial<FileFingerprint> = {}): FileFingerprint => ({
@@ -161,11 +161,7 @@ describe("vscodeCopilotSessionDriver.discover", () => {
   });
 
   it("discovers global session files", async () => {
-    const globalDir = join(
-      tmpDir,
-      "globalStorage",
-      "emptyWindowChatSessions",
-    );
+    const globalDir = join(tmpDir, "globalStorage", "emptyWindowChatSessions");
     await mkdir(globalDir, { recursive: true });
     await writeFile(join(globalDir, "global-session.jsonl"), "{}");
 
@@ -178,21 +174,12 @@ describe("vscodeCopilotSessionDriver.discover", () => {
 
   it("discovers files from both workspace and global dirs", async () => {
     // Workspace
-    const chatDir = join(
-      tmpDir,
-      "workspaceStorage",
-      "ws1",
-      "chatSessions",
-    );
+    const chatDir = join(tmpDir, "workspaceStorage", "ws1", "chatSessions");
     await mkdir(chatDir, { recursive: true });
     await writeFile(join(chatDir, "ws.jsonl"), "{}");
 
     // Global
-    const globalDir = join(
-      tmpDir,
-      "globalStorage",
-      "emptyWindowChatSessions",
-    );
+    const globalDir = join(tmpDir, "globalStorage", "emptyWindowChatSessions");
     await mkdir(globalDir, { recursive: true });
     await writeFile(join(globalDir, "global.jsonl"), "{}");
 
@@ -263,9 +250,7 @@ describe("vscodeCopilotSessionDriver.discover", () => {
 
 describe("vscodeCopilotSessionDriver.shouldSkip", () => {
   it("returns false when cursor is undefined (first scan)", () => {
-    expect(vscodeCopilotSessionDriver.shouldSkip(undefined, fp())).toBe(
-      false,
-    );
+    expect(vscodeCopilotSessionDriver.shouldSkip(undefined, fp())).toBe(false);
   });
 
   it("returns true when inode + mtimeMs + size all match", () => {
@@ -383,13 +368,18 @@ describe("vscodeCopilotSessionDriver.parse", () => {
     content: string,
     opts?: { workspaceFolder?: string; fileName?: string },
   ): Promise<string> {
-    const wsHash = "ws-" + Math.random().toString(36).slice(2, 8);
+    const wsHash = `ws-${Math.random().toString(36).slice(2, 8)}`;
     const chatDir = join(tmpDir, "workspaceStorage", wsHash, "chatSessions");
     await mkdir(chatDir, { recursive: true });
 
     // Write workspace.json for project ref resolution
     if (opts?.workspaceFolder) {
-      const wsJsonPath = join(tmpDir, "workspaceStorage", wsHash, "workspace.json");
+      const wsJsonPath = join(
+        tmpDir,
+        "workspaceStorage",
+        wsHash,
+        "workspace.json",
+      );
       await writeFile(
         wsJsonPath,
         JSON.stringify({ folder: `file://${opts.workspaceFolder}` }),
@@ -405,9 +395,7 @@ describe("vscodeCopilotSessionDriver.parse", () => {
   it("parses a simple conversation", async () => {
     const content = buildSessionContent([
       snapshotOp({ sessionId: "ses-001" }),
-      appendRequestOp(
-        makeRequest({ requestId: "req-001", text: "Hello" }),
-      ),
+      appendRequestOp(makeRequest({ requestId: "req-001", text: "Hello" })),
       appendResponseChunkOp(0, { value: "Hi there!" }),
       setResultOp(0, {
         metadata: { promptTokens: 100, outputTokens: 50 },
@@ -680,10 +668,11 @@ describe("vscodeCopilotSessionDriver.buildCursor", () => {
         setModelStateOp(0, { value: 1 }),
       ]);
       await writeFile(join(chatDir, "session.jsonl"), content);
-      await vscodeCopilotSessionDriver.parse(
-        join(chatDir, "session.jsonl"),
-        { kind: "vscode-copilot", startOffset: 0, processedRequestIds: [] },
-      );
+      await vscodeCopilotSessionDriver.parse(join(chatDir, "session.jsonl"), {
+        kind: "vscode-copilot",
+        startOffset: 0,
+        processedRequestIds: [],
+      });
 
       const fingerprint = fp({ size: 2048 });
       const cursor = vscodeCopilotSessionDriver.buildCursor(fingerprint, []);

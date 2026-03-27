@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { resolveUser } from "@/lib/cli-auth";
-import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
-import { getD1Client } from "@/lib/d1";
 import { auth } from "@/lib/auth";
+import { resolveUser } from "@/lib/cli-auth";
+import { getD1Client } from "@/lib/d1";
+import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
 import { validatePresignRequest } from "@/lib/ingest";
 import { getR2Client } from "@/lib/r2";
 
@@ -21,7 +21,10 @@ export async function POST(request: Request) {
     getSession: async () => {
       const session = await auth();
       if (!session?.user?.id) return null;
-      return { userId: session.user.id, email: session.user.email ?? undefined };
+      return {
+        userId: session.user.id,
+        email: session.user.email ?? undefined,
+      };
     },
     db,
   });
@@ -50,7 +53,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ url, key });
   } catch (err) {
     return NextResponse.json(
-      { error: `Failed to generate presigned URL: ${err instanceof Error ? err.message : String(err)}` },
+      {
+        error: `Failed to generate presigned URL: ${err instanceof Error ? err.message : String(err)}`,
+      },
       { status: 500 },
     );
   }

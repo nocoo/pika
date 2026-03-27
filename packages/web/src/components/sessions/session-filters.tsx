@@ -1,8 +1,8 @@
 "use client";
 
+import type { Source } from "@pika/core";
 import { useCallback, useEffect, useState } from "react";
 import { Select } from "@/components/ui/select";
-import type { Source } from "@pika/core";
 import type { SessionSort } from "@/lib/sessions";
 
 // ── Types ──────────────────────────────────────────────────────

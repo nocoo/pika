@@ -13,19 +13,22 @@
  * Same retry strategy as metadata upload.
  */
 
-import { gzip } from "node:zlib";
 import { promisify } from "node:util";
+import { gzip } from "node:zlib";
+import type { CanonicalSession, RawSessionArchive } from "@pika/core";
 import {
-  MAX_UPLOAD_RETRIES,
-  INITIAL_BACKOFF_MS,
   CONTENT_UPLOAD_CONCURRENCY,
+  INITIAL_BACKOFF_MS,
+  MAX_UPLOAD_RETRIES,
 } from "@pika/core";
-import type {
-  CanonicalSession,
-  RawSessionArchive,
-} from "@pika/core";
-import { sha256, parseRetryAfter, AuthError, RetryExhaustedError, ClientError } from "./engine";
 import type { PrecomputedHashes } from "./engine";
+import {
+  AuthError,
+  ClientError,
+  parseRetryAfter,
+  RetryExhaustedError,
+  sha256,
+} from "./engine";
 
 const gzipAsync = promisify(gzip);
 
@@ -126,9 +129,7 @@ async function putWithRetry(
 
     // 429 — rate limited
     if (response.status === 429) {
-      const retryAfter = parseRetryAfter(
-        response.headers.get("Retry-After"),
-      );
+      const retryAfter = parseRetryAfter(response.headers.get("Retry-After"));
       await sleepFn(retryAfter);
       continue;
     }
@@ -142,9 +143,8 @@ async function putWithRetry(
     // 5xx — retry with exponential backoff
     if (response.status >= 500) {
       if (attempt < MAX_UPLOAD_RETRIES) {
-        const backoff = INITIAL_BACKOFF_MS * Math.pow(2, attempt);
+        const backoff = INITIAL_BACKOFF_MS * 2 ** attempt;
         await sleepFn(backoff);
-        continue;
       }
     }
   }
@@ -188,7 +188,10 @@ export async function requestPresignedUrl(
 
   const data = (await response.json()) as PresignResponse;
   if (!data.url || !data.key) {
-    throw new ClientError(response.status, "Invalid presign response: missing url or key");
+    throw new ClientError(
+      response.status,
+      "Invalid presign response: missing url or key",
+    );
   }
 
   return data;
@@ -227,7 +230,7 @@ export async function uploadToPresignedUrl(
     // 5xx — retry with exponential backoff
     if (response.status >= 500) {
       if (attempt < MAX_UPLOAD_RETRIES) {
-        const backoff = INITIAL_BACKOFF_MS * Math.pow(2, attempt);
+        const backoff = INITIAL_BACKOFF_MS * 2 ** attempt;
         await sleepFn(backoff);
         continue;
       }
@@ -392,7 +395,11 @@ export interface BatchContentUploadResult {
  * AuthError propagates immediately and aborts all inflight work.
  */
 export async function uploadContentBatch(
-  sessions: Array<{ canonical: CanonicalSession; raw: RawSessionArchive; precomputed?: PrecomputedHashes }>,
+  sessions: Array<{
+    canonical: CanonicalSession;
+    raw: RawSessionArchive;
+    precomputed?: PrecomputedHashes;
+  }>,
   opts: ContentUploadOptions,
   concurrency: number = CONTENT_UPLOAD_CONCURRENCY,
 ): Promise<BatchContentUploadResult> {
@@ -415,7 +422,12 @@ export async function uploadContentBatch(
 
       const { canonical, raw, precomputed } = sessions[idx];
       try {
-        const contentResult = await uploadSessionContent(canonical, raw, opts, precomputed);
+        const contentResult = await uploadSessionContent(
+          canonical,
+          raw,
+          opts,
+          precomputed,
+        );
         if (contentResult.canonicalUploaded || contentResult.rawUploaded) {
           result.uploaded++;
         } else {

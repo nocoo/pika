@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { resolveUser } from "@/lib/cli-auth";
-import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
-import { getD1Client } from "@/lib/d1";
 import { auth } from "@/lib/auth";
+import { resolveUser } from "@/lib/cli-auth";
+import { getD1Client } from "@/lib/d1";
+import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
 import { buildToggleStarQuery } from "@/lib/sessions";
 
 async function authenticate(request: Request) {
@@ -13,7 +13,10 @@ async function authenticate(request: Request) {
     getSession: async () => {
       const session = await auth();
       if (!session?.user?.id) return null;
-      return { userId: session.user.id, email: session.user.email ?? undefined };
+      return {
+        userId: session.user.id,
+        email: session.user.email ?? undefined,
+      };
     },
     db,
   });
@@ -48,7 +51,11 @@ export async function PATCH(
     );
   }
 
-  const { sql, params: qParams } = buildToggleStarQuery(id, user.userId, starred);
+  const { sql, params: qParams } = buildToggleStarQuery(
+    id,
+    user.userId,
+    starred,
+  );
   await d1.execute(sql, qParams);
 
   return NextResponse.json({ starred });

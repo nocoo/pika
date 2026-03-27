@@ -1,11 +1,15 @@
 "use client";
 
-import Link from "next/link";
-import { cn } from "@/lib/utils";
-import { sourceLabel, formatDuration, relativeTime, projectDisplayName } from "@/lib/format";
-import { formatTokens } from "@/lib/utils";
-import { agentColor } from "@/lib/palette";
 import type { Source } from "@pika/core";
+import Link from "next/link";
+import {
+  formatDuration,
+  projectDisplayName,
+  relativeTime,
+  sourceLabel,
+} from "@/lib/format";
+import { agentColor } from "@/lib/palette";
+import { cn, formatTokens } from "@/lib/utils";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -31,8 +35,17 @@ interface RecentSessionsProps {
 export function RecentSessions({ sessions, className }: RecentSessionsProps) {
   if (sessions.length === 0) {
     return (
-      <div className={cn("flex items-center justify-center py-8 text-sm text-muted-foreground", className)}>
-        No sessions yet. Run <code className="px-1.5 py-0.5 rounded bg-secondary text-xs font-mono">pika sync</code> to get started.
+      <div
+        className={cn(
+          "flex items-center justify-center py-8 text-sm text-muted-foreground",
+          className,
+        )}
+      >
+        No sessions yet. Run{" "}
+        <code className="px-1.5 py-0.5 rounded bg-secondary text-xs font-mono">
+          pika sync
+        </code>{" "}
+        to get started.
       </div>
     );
   }
@@ -58,7 +71,10 @@ export function RecentSessions({ sessions, className }: RecentSessionsProps) {
               {session.title ?? "Untitled session"}
             </p>
             <p className="text-xs text-muted-foreground truncate">
-              {session.project_name ? projectDisplayName(session.project_name) : "No project"} · {sourceLabel(session.source)}
+              {session.project_name
+                ? projectDisplayName(session.project_name)
+                : "No project"}{" "}
+              · {sourceLabel(session.source)}
             </p>
           </div>
 
@@ -66,7 +82,12 @@ export function RecentSessions({ sessions, className }: RecentSessionsProps) {
           <div className="hidden sm:flex items-center gap-4 text-xs text-muted-foreground shrink-0">
             <span>{session.total_messages} msgs</span>
             <span>{formatDuration(session.duration_seconds)}</span>
-            <span>{formatTokens(session.total_input_tokens + session.total_output_tokens)} tokens</span>
+            <span>
+              {formatTokens(
+                session.total_input_tokens + session.total_output_tokens,
+              )}{" "}
+              tokens
+            </span>
           </div>
 
           {/* Time */}

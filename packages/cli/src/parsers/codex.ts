@@ -23,13 +23,17 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { basename } from "node:path";
 import { createInterface } from "node:readline";
-
-import { PARSER_REVISION, SCHEMA_VERSION, generateTitle, getFirstUserMessage } from "@pika/core";
 import type {
   CanonicalMessage,
   CanonicalSession,
-  RawSessionArchive,
   ParseResult,
+  RawSessionArchive,
+} from "@pika/core";
+import {
+  generateTitle,
+  getFirstUserMessage,
+  PARSER_REVISION,
+  SCHEMA_VERSION,
 } from "@pika/core";
 import { hashProjectRef } from "../utils/hash-project-ref";
 
@@ -87,9 +91,7 @@ function toNonNegInt(value: unknown): number {
  * Format: rollout-YYYY-MM-DDTHH-MM-SS-{uuid}.jsonl
  * The UUID is the part after the datetime prefix.
  */
-export function extractSessionIdFromFilename(
-  filePath: string,
-): string | null {
+export function extractSessionIdFromFilename(filePath: string): string | null {
   const name = basename(filePath);
   // Match: rollout-YYYY-MM-DDTHH-MM-SS-{uuid}.jsonl
   const match = name.match(
@@ -119,9 +121,7 @@ export function extractProjectName(cwd: string | null): string | null {
 
 // ── Content extraction ──────────────────────────────────────────
 
-function extractContentFromBlocks(
-  blocks: unknown[],
-): string {
+function extractContentFromBlocks(blocks: unknown[]): string {
   const parts: string[] = [];
   for (const block of blocks) {
     if (
@@ -138,10 +138,7 @@ function extractContentFromBlocks(
 
 // ── Line processing ─────────────────────────────────────────────
 
-function processLine(
-  line: string,
-  accum: SessionAccum,
-): void {
+function processLine(line: string, accum: SessionAccum): void {
   let obj: CodexLine;
   try {
     obj = JSON.parse(line);
@@ -151,8 +148,7 @@ function processLine(
 
   if (!obj || typeof obj.type !== "string") return;
 
-  const timestamp =
-    typeof obj.timestamp === "string" ? obj.timestamp : null;
+  const timestamp = typeof obj.timestamp === "string" ? obj.timestamp : null;
 
   accum.lines.push(line);
 
@@ -291,7 +287,8 @@ function processResponseItem(
           accum.messages.push({
             role: role === "user" ? "user" : "assistant",
             content: text,
-            model: role === "assistant" ? (accum.lastModel ?? undefined) : undefined,
+            model:
+              role === "assistant" ? (accum.lastModel ?? undefined) : undefined,
             timestamp: ts,
           });
         }
@@ -300,12 +297,9 @@ function processResponseItem(
       break;
     }
     case "function_call": {
-      const name =
-        typeof payload.name === "string" ? payload.name : undefined;
+      const name = typeof payload.name === "string" ? payload.name : undefined;
       const args =
-        typeof payload.arguments === "string"
-          ? payload.arguments
-          : undefined;
+        typeof payload.arguments === "string" ? payload.arguments : undefined;
       accum.messages.push({
         role: "tool",
         content: "",
@@ -316,8 +310,7 @@ function processResponseItem(
       break;
     }
     case "function_call_output": {
-      const output =
-        typeof payload.output === "string" ? payload.output : "";
+      const output = typeof payload.output === "string" ? payload.output : "";
       accum.messages.push({
         role: "tool",
         content: output,
@@ -332,10 +325,7 @@ function processResponseItem(
 
 // ── Session building ────────────────────────────────────────────
 
-function buildParseResult(
-  accum: SessionAccum,
-  filePath: string,
-): ParseResult {
+function buildParseResult(accum: SessionAccum, filePath: string): ParseResult {
   const startedAt = accum.startedAt ?? new Date().toISOString();
   const lastMessageAt = accum.lastMessageAt ?? startedAt;
   const durationMs =
@@ -354,7 +344,10 @@ function buildParseResult(
     projectRef: extractProjectRef(accum.cwd),
     projectName: extractProjectName(accum.cwd),
     model: accum.lastModel,
-    title: generateTitle(extractProjectName(accum.cwd), getFirstUserMessage(accum.messages)),
+    title: generateTitle(
+      extractProjectName(accum.cwd),
+      getFirstUserMessage(accum.messages),
+    ),
     messages: accum.messages,
     totalInputTokens: accum.totalInputTokens,
     totalOutputTokens: accum.totalOutputTokens,
@@ -427,7 +420,7 @@ export async function parseCodexFile(
   startOffset = 0,
 ): Promise<ParseResult> {
   const st = await stat(filePath).catch(() => null);
-  if (!st || !st.isFile() || st.size === 0) return buildEmptyResult(filePath);
+  if (!st?.isFile() || st.size === 0) return buildEmptyResult(filePath);
 
   if (startOffset >= st.size) return buildEmptyResult(filePath);
 

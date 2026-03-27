@@ -161,7 +161,8 @@ export function parseSearchParams(
 
   return {
     q,
-    source: source && VALID_SOURCES.has(source) ? (source as Source) : undefined,
+    source:
+      source && VALID_SOURCES.has(source) ? (source as Source) : undefined,
     from,
     to,
     limit,

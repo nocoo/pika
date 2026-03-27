@@ -1,37 +1,37 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
-import type { ElementType } from "react";
 import {
-  LayoutDashboard,
-  MessagesSquare,
+  ChevronUp,
   FolderKanban,
+  LayoutDashboard,
+  LogOut,
+  MessagesSquare,
+  PanelLeft,
   Search,
   Tags,
   Trash2,
-  PanelLeft,
-  LogOut,
-  ChevronUp,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { APP_VERSION } from "@/lib/version";
-import logo256 from "../../../public/logo-256.png";
-import { NAV_GROUPS, type NavGroupDef } from "@/lib/navigation";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { signOut, useSession } from "next-auth/react";
+import type { ElementType } from "react";
+import { useEffect, useState } from "react";
+import { SearchDialog } from "@/components/search/search-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { NAV_GROUPS, type NavGroupDef } from "@/lib/navigation";
+import { cn } from "@/lib/utils";
+import { APP_VERSION } from "@/lib/version";
+import logo256 from "../../../public/logo-256.png";
 import { useSidebar } from "./sidebar-context";
-import { SearchDialog } from "@/components/search/search-dialog";
 
 // ---------------------------------------------------------------------------
 // Map icon names to Lucide components
@@ -130,10 +130,7 @@ function NavGroupSection({
                       : "text-muted-foreground hover:bg-accent hover:text-foreground",
                   )}
                 >
-                  <item.icon
-                    className="h-4 w-4 shrink-0"
-                    strokeWidth={1.5}
-                  />
+                  <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
                   <span className="flex-1 text-left">{item.label}</span>
                 </Link>
               );
@@ -293,9 +290,18 @@ export function Sidebar() {
             <div className="px-3 h-14 flex items-center">
               <div className="flex w-full items-center justify-between px-3">
                 <div className="flex items-center gap-3">
-                  <Image src={logo256} alt="Pika" width={24} height={24} className="shrink-0" />
+                  <Image
+                    src={logo256}
+                    alt="Pika"
+                    width={24}
+                    height={24}
+                    className="shrink-0"
+                  />
                   <span className="text-lg font-bold text-primary">Pika</span>
-                  <Badge variant="secondary" className="px-1.5 py-0 text-[10px] font-normal text-muted-foreground">
+                  <Badge
+                    variant="secondary"
+                    className="px-1.5 py-0 text-[10px] font-normal text-muted-foreground"
+                  >
                     v{APP_VERSION}
                   </Badge>
                 </div>
@@ -342,9 +348,7 @@ export function Sidebar() {
             <div className="px-4 py-3">
               <div className="flex items-center gap-3">
                 <Avatar className="h-9 w-9 shrink-0">
-                  {userImage && (
-                    <AvatarImage src={userImage} alt={userName} />
-                  )}
+                  {userImage && <AvatarImage src={userImage} alt={userName} />}
                   <AvatarFallback className="text-xs bg-primary text-primary-foreground">
                     {userInitial}
                   </AvatarFallback>

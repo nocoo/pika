@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { D1Client, D1Error, getD1Client, resetD1Client } from "./d1";
 
 // ── Mock fetch ─────────────────────────────────────────────────
@@ -75,17 +75,17 @@ describe("D1Client.query", () => {
           Authorization: "Bearer tok-1",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ sql: "SELECT * FROM users WHERE id = ?", params: ["1"] }),
+        body: JSON.stringify({
+          sql: "SELECT * FROM users WHERE id = ?",
+          params: ["1"],
+        }),
       },
     );
   });
 
   it("returns typed results and meta", async () => {
     mockFetch.mockResolvedValue(
-      okResponse(
-        [{ id: "1", email: "a@b.com" }],
-        { changes: 0, duration: 5 },
-      ),
+      okResponse([{ id: "1", email: "a@b.com" }], { changes: 0, duration: 5 }),
     );
     const client = new D1Client(cfg);
 
@@ -109,10 +109,9 @@ describe("D1Client.query", () => {
 
   it("returns empty results when API returns no result array", async () => {
     mockFetch.mockResolvedValue(
-      new Response(
-        JSON.stringify({ success: true, result: [{}] }),
-        { status: 200 },
-      ),
+      new Response(JSON.stringify({ success: true, result: [{}] }), {
+        status: 200,
+      }),
     );
     const client = new D1Client(cfg);
 
@@ -123,7 +122,9 @@ describe("D1Client.query", () => {
   });
 
   it("throws D1Error on HTTP error response", async () => {
-    mockFetch.mockResolvedValue(errorResponse(400, "SQLITE_ERROR: no such table"));
+    mockFetch.mockResolvedValue(
+      errorResponse(400, "SQLITE_ERROR: no such table"),
+    );
     const client = new D1Client(cfg);
 
     const err = await client.query("SELECT * FROM nonexistent").catch((e) => e);
@@ -178,15 +179,12 @@ describe("D1Client.query", () => {
 
 describe("D1Client.execute", () => {
   it("returns meta from write query", async () => {
-    mockFetch.mockResolvedValue(
-      okResponse([], { changes: 1, duration: 2 }),
-    );
+    mockFetch.mockResolvedValue(okResponse([], { changes: 1, duration: 2 }));
     const client = new D1Client(cfg);
 
-    const meta = await client.execute(
-      "INSERT INTO users (id) VALUES (?)",
-      ["1"],
-    );
+    const meta = await client.execute("INSERT INTO users (id) VALUES (?)", [
+      "1",
+    ]);
 
     expect(meta.changes).toBe(1);
     expect(meta.duration).toBe(2);
@@ -197,9 +195,7 @@ describe("D1Client.execute", () => {
 
 describe("D1Client.firstOrNull", () => {
   it("returns first row when results exist", async () => {
-    mockFetch.mockResolvedValue(
-      okResponse([{ id: "1" }, { id: "2" }]),
-    );
+    mockFetch.mockResolvedValue(okResponse([{ id: "1" }, { id: "2" }]));
     const client = new D1Client(cfg);
 
     const row = await client.firstOrNull<{ id: string }>(
@@ -213,7 +209,9 @@ describe("D1Client.firstOrNull", () => {
     mockFetch.mockResolvedValue(okResponse([]));
     const client = new D1Client(cfg);
 
-    const row = await client.firstOrNull("SELECT * FROM users WHERE id = ?", ["nope"]);
+    const row = await client.firstOrNull("SELECT * FROM users WHERE id = ?", [
+      "nope",
+    ]);
 
     expect(row).toBeNull();
   });

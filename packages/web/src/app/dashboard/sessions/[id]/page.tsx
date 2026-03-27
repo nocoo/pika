@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
 import { SessionReplay } from "@/components/sessions/session-replay";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { SessionDetailResponse } from "@/lib/session-detail";
 
 export default function SessionDetailPage() {
@@ -115,7 +115,9 @@ export default function SessionDetailPage() {
 
       <SessionReplay
         session={data.session}
-        contentUrl={data.session.content_key ? `/api/sessions/${id}/content` : null}
+        contentUrl={
+          data.session.content_key ? `/api/sessions/${id}/content` : null
+        }
       />
     </div>
   );

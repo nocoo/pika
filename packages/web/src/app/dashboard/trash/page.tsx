@@ -1,23 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  useReactTable,
   getCoreRowModel,
-  type SortingState,
   type RowSelectionState,
+  type SortingState,
+  useReactTable,
 } from "@tanstack/react-table";
-import { DataTable } from "@/components/ui/data-table";
-import { DataTablePagination } from "@/components/ui/data-table-pagination";
-import {
-  DataTableBulkBar,
-  TRASH_BULK_ACTIONS,
-  type BulkAction,
-} from "@/components/ui/data-table-bulk-bar";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   getTrashColumns,
   type TrashRowData,
 } from "@/components/sessions/trash-columns";
+import { DataTable } from "@/components/ui/data-table";
+import {
+  type BulkAction,
+  DataTableBulkBar,
+  TRASH_BULK_ACTIONS,
+} from "@/components/ui/data-table-bulk-bar";
+import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import type { SessionListResponse, SessionSort } from "@/lib/sessions";
 
 // ── Sort mapping ─────────────────────────────────────────────
@@ -70,7 +70,7 @@ export default function TrashPage() {
           : updaterOrValue;
 
       if (newSorting.length > 0) {
-        const apiSort = COLUMN_TO_SORT[newSorting[0]!.id];
+        const apiSort = COLUMN_TO_SORT[newSorting[0]?.id];
         if (apiSort) {
           setSort(apiSort);
           setPage(1);
@@ -132,7 +132,7 @@ export default function TrashPage() {
   useEffect(() => {
     setRowSelection({});
     setSelectAllMode(false);
-  }, [sort, page, pageSize]);
+  }, []);
 
   // Batch action handler
   const handleBulkAction = useCallback(
@@ -154,8 +154,12 @@ export default function TrashPage() {
         });
 
         if (!res.ok) {
-          const err = await res.json().catch(() => ({ error: "Unknown error" }));
-          setError((err as { error: string }).error ?? "Batch operation failed");
+          const err = await res
+            .json()
+            .catch(() => ({ error: "Unknown error" }));
+          setError(
+            (err as { error: string }).error ?? "Batch operation failed",
+          );
           return;
         }
 
@@ -179,7 +183,8 @@ export default function TrashPage() {
           Trash
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Deleted sessions. Restore them or they stay here until permanently removed.
+          Deleted sessions. Restore them or they stay here until permanently
+          removed.
         </p>
       </div>
 
@@ -199,9 +204,7 @@ export default function TrashPage() {
       />
 
       {/* Error state */}
-      {error && (
-        <div className="text-sm text-destructive py-4">{error}</div>
-      )}
+      {error && <div className="text-sm text-destructive py-4">{error}</div>}
 
       {/* Data table */}
       <DataTable

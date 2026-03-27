@@ -9,16 +9,17 @@
  * Parser: parseGeminiFile(filePath, startIndex) -> single ParseResult
  */
 
+import type { Dirent } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { GeminiCursor, ParseResult } from "@pika/core";
-import { fileUnchanged } from "../../utils/file-changed";
-import { parseGeminiFile } from "../../parsers/gemini";
 import type { GeminiParseResult } from "../../parsers/gemini";
+import { parseGeminiFile } from "../../parsers/gemini";
+import { fileUnchanged } from "../../utils/file-changed";
 import type {
-  FileDriver,
-  DiscoverOpts,
   ArrayIndexResumeState,
+  DiscoverOpts,
+  FileDriver,
   FileFingerprint,
 } from "../types";
 
@@ -26,9 +27,7 @@ import type {
 // Discovery: find session-*.json files under {geminiDir}/tmp/*/chats/
 // ---------------------------------------------------------------------------
 
-async function discoverGeminiFiles(
-  geminiDir: string,
-): Promise<string[]> {
+async function discoverGeminiFiles(geminiDir: string): Promise<string[]> {
   const tmpDir = join(geminiDir, "tmp");
 
   try {
@@ -40,7 +39,7 @@ async function discoverGeminiFiles(
   const results: string[] = [];
 
   // Walk tmp/ for project hash directories
-  let projectDirs;
+  let projectDirs: Dirent[];
   try {
     projectDirs = await readdir(tmpDir, { withFileTypes: true });
   } catch {
@@ -51,7 +50,7 @@ async function discoverGeminiFiles(
     if (!projEntry.isDirectory()) continue;
 
     const chatsDir = join(tmpDir, projEntry.name, "chats");
-    let chatFiles;
+    let chatFiles: Dirent[];
     try {
       chatFiles = await readdir(chatsDir, { withFileTypes: true });
     } catch {
@@ -142,8 +141,7 @@ export const geminiSessionDriver: FileDriver<GeminiCursor> = {
 
     if (results.length > 0) {
       const session = results[0].canonical;
-      lastTotalTokens =
-        session.totalInputTokens + session.totalOutputTokens;
+      lastTotalTokens = session.totalInputTokens + session.totalOutputTokens;
       lastModel = session.model;
       // Use source message count (not canonical), because startIndex
       // indexes into the raw session.messages[] array where source→canonical

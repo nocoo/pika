@@ -1,2 +1,2 @@
-export { ConfigManager } from "./config/manager";
 export type { PikaConfig } from "./config/manager";
+export { ConfigManager } from "./config/manager";

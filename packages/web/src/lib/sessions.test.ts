@@ -1,21 +1,21 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  buildSessionListQuery,
-  buildSessionCountQuery,
-  buildToggleStarQuery,
-  buildFilterOptionsQuery,
-  buildSoftDeleteQuery,
-  buildRestoreQuery,
-  buildBatchByIdsQuery,
   buildBatchByFilterQuery,
-  encodeCursor,
+  buildBatchByIdsQuery,
+  buildFilterOptionsQuery,
+  buildRestoreQuery,
+  buildSessionCountQuery,
+  buildSessionListQuery,
+  buildSoftDeleteQuery,
+  buildToggleStarQuery,
   decodeCursor,
-  validateSort,
-  shapeSessionListResponse,
-  shapeOffsetResponse,
+  encodeCursor,
   parseSessionListParams,
   type SessionRow,
   type SessionSort,
+  shapeOffsetResponse,
+  shapeSessionListResponse,
+  validateSort,
 } from "./sessions";
 
 // ── validateSort ───────────────────────────────────────────────
@@ -545,14 +545,24 @@ describe("parseSessionListParams", () => {
   });
 
   it("page is undefined for invalid values", () => {
-    expect(parseSessionListParams(new URLSearchParams({ page: "abc" })).page).toBeUndefined();
-    expect(parseSessionListParams(new URLSearchParams({ page: "0" })).page).toBeUndefined();
-    expect(parseSessionListParams(new URLSearchParams({ page: "-1" })).page).toBeUndefined();
+    expect(
+      parseSessionListParams(new URLSearchParams({ page: "abc" })).page,
+    ).toBeUndefined();
+    expect(
+      parseSessionListParams(new URLSearchParams({ page: "0" })).page,
+    ).toBeUndefined();
+    expect(
+      parseSessionListParams(new URLSearchParams({ page: "-1" })).page,
+    ).toBeUndefined();
   });
 
   it("parses valid page number", () => {
-    expect(parseSessionListParams(new URLSearchParams({ page: "1" })).page).toBe(1);
-    expect(parseSessionListParams(new URLSearchParams({ page: "5" })).page).toBe(5);
+    expect(
+      parseSessionListParams(new URLSearchParams({ page: "1" })).page,
+    ).toBe(1);
+    expect(
+      parseSessionListParams(new URLSearchParams({ page: "5" })).page,
+    ).toBe(5);
   });
 
   it("model is undefined for empty string", () => {
@@ -606,7 +616,9 @@ describe("buildFilterOptionsQuery", () => {
 
   it("builds projects query scoped to user", () => {
     const { projectsSql, projectsParams } = buildFilterOptionsQuery("u1");
-    expect(projectsSql).toContain("SELECT DISTINCT s.project_ref, s.project_name");
+    expect(projectsSql).toContain(
+      "SELECT DISTINCT s.project_ref, s.project_name",
+    );
     expect(projectsSql).toContain("s.user_id = ?");
     expect(projectsSql).toContain("s.project_ref IS NOT NULL");
     expect(projectsSql).toContain("s.deleted_at IS NULL");
@@ -653,12 +665,16 @@ describe("parseSessionListParams — deleted", () => {
   });
 
   it("deleted is true when param is 'true'", () => {
-    const params = parseSessionListParams(new URLSearchParams({ deleted: "true" }));
+    const params = parseSessionListParams(
+      new URLSearchParams({ deleted: "true" }),
+    );
     expect(params.deleted).toBe(true);
   });
 
   it("deleted is undefined when param is 'false'", () => {
-    const params = parseSessionListParams(new URLSearchParams({ deleted: "false" }));
+    const params = parseSessionListParams(
+      new URLSearchParams({ deleted: "false" }),
+    );
     expect(params.deleted).toBeUndefined();
   });
 });
@@ -729,19 +745,21 @@ describe("buildBatchByIdsQuery", () => {
     expect(sql).toContain("SET is_starred = 0");
   });
 
-  it.each(["delete", "restore", "star", "unstar"] as const)(
-    "action %s produces valid SQL",
-    (action) => {
-      const { sql, params } = buildBatchByIdsQuery({
-        action,
-        ids: ["s1"],
-        userId: "u1",
-      });
-      expect(sql).toContain("UPDATE sessions");
-      expect(sql).toContain("WHERE id IN (?)");
-      expect(params).toEqual(["s1", "u1"]);
-    },
-  );
+  it.each([
+    "delete",
+    "restore",
+    "star",
+    "unstar",
+  ] as const)("action %s produces valid SQL", (action) => {
+    const { sql, params } = buildBatchByIdsQuery({
+      action,
+      ids: ["s1"],
+      userId: "u1",
+    });
+    expect(sql).toContain("UPDATE sessions");
+    expect(sql).toContain("WHERE id IN (?)");
+    expect(params).toEqual(["s1", "u1"]);
+  });
 });
 
 // ── buildBatchByFilterQuery ───────────────────────────────────

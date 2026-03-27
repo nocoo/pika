@@ -16,17 +16,13 @@
  * Limit: max 50 sessions per request (METADATA_BATCH_SIZE).
  */
 
+import type { CanonicalSession, SessionSnapshot } from "@pika/core";
 import {
+  chunkMessages,
+  MAX_DECOMPRESSED_CONTENT_BYTES,
   METADATA_BATCH_SIZE,
   PIKA_VERSION,
-  MAX_DECOMPRESSED_CONTENT_BYTES,
   validateSessionSnapshot,
-  chunkMessages,
-} from "@pika/core";
-import type {
-  SessionSnapshot,
-  CanonicalSession,
-  CanonicalMessage,
 } from "@pika/core";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -257,7 +253,8 @@ export async function handleSessionIngest(
     if (conflicts.length > 0) {
       return Response.json(
         {
-          error: "Version conflict: incoming version is older than existing data",
+          error:
+            "Version conflict: incoming version is older than existing data",
           conflicts,
         },
         { status: 409 },
@@ -390,17 +387,32 @@ export async function handleCanonicalUpload(
   env: Env,
 ): Promise<Response> {
   const contentHash = request.headers.get("X-Content-Hash");
-  const parserRevision = parseInt(request.headers.get("X-Parser-Revision") ?? "", 10);
-  const schemaVersion = parseInt(request.headers.get("X-Schema-Version") ?? "", 10);
+  const parserRevision = parseInt(
+    request.headers.get("X-Parser-Revision") ?? "",
+    10,
+  );
+  const schemaVersion = parseInt(
+    request.headers.get("X-Schema-Version") ?? "",
+    10,
+  );
 
   if (!contentHash) {
-    return Response.json({ error: "Missing X-Content-Hash header" }, { status: 400 });
+    return Response.json(
+      { error: "Missing X-Content-Hash header" },
+      { status: 400 },
+    );
   }
-  if (isNaN(parserRevision) || parserRevision < 1) {
-    return Response.json({ error: "Invalid X-Parser-Revision header" }, { status: 400 });
+  if (Number.isNaN(parserRevision) || parserRevision < 1) {
+    return Response.json(
+      { error: "Invalid X-Parser-Revision header" },
+      { status: 400 },
+    );
   }
-  if (isNaN(schemaVersion) || schemaVersion < 1) {
-    return Response.json({ error: "Invalid X-Schema-Version header" }, { status: 400 });
+  if (Number.isNaN(schemaVersion) || schemaVersion < 1) {
+    return Response.json(
+      { error: "Invalid X-Schema-Version header" },
+      { status: 400 },
+    );
   }
 
   try {
@@ -512,13 +524,20 @@ export async function handleCanonicalUpload(
     // Update session content_key + content_size
     const r2Key = `${userId}/${sessionKey}/canonical.json.gz`;
     stmts.push(
-      env.DB.prepare(UPDATE_CANONICAL_SQL).bind(r2Key, compressedSize, sessionId),
+      env.DB.prepare(UPDATE_CANONICAL_SQL).bind(
+        r2Key,
+        compressedSize,
+        sessionId,
+      ),
     );
 
     // 6. PUT to R2 FIRST — if this fails, no D1 state is corrupted.
     // R2 PUT is idempotent, so retries re-upload harmlessly.
     await env.BUCKET.put(r2Key, compressedBytes, {
-      httpMetadata: { contentEncoding: "gzip", contentType: "application/json" },
+      httpMetadata: {
+        contentEncoding: "gzip",
+        contentType: "application/json",
+      },
     });
 
     // 7. Execute D1 batch SECOND — sets content_key only after R2 succeeds.
@@ -560,7 +579,10 @@ export async function handleRawUpload(
   const rawHash = request.headers.get("X-Raw-Hash");
 
   if (!rawHash) {
-    return Response.json({ error: "Missing X-Raw-Hash header" }, { status: 400 });
+    return Response.json(
+      { error: "Missing X-Raw-Hash header" },
+      { status: 400 },
+    );
   }
 
   try {
@@ -592,7 +614,10 @@ export async function handleRawUpload(
     // 4. PUT to R2 — content-addressed, immutable path
     const r2Key = `${userId}/${sessionKey}/raw/${rawHash}.json.gz`;
     await env.BUCKET.put(r2Key, compressedBytes, {
-      httpMetadata: { contentEncoding: "gzip", contentType: "application/json" },
+      httpMetadata: {
+        contentEncoding: "gzip",
+        contentType: "application/json",
+      },
     });
 
     // 5. Update session with raw_key + raw_size
@@ -642,7 +667,13 @@ export async function handleLive(env: Env): Promise<Response> {
     const latencyMs = Date.now() - start;
 
     return Response.json(
-      { status: "ok", version, uptime, timestamp, d1: { latencyMs } } satisfies WorkerLiveResult,
+      {
+        status: "ok",
+        version,
+        uptime,
+        timestamp,
+        d1: { latencyMs },
+      } satisfies WorkerLiveResult,
       {
         headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
       },
@@ -653,7 +684,13 @@ export async function handleLive(env: Env): Promise<Response> {
     const message = raw.replace(/\bok\b/gi, "***");
 
     return Response.json(
-      { status: "error", version, uptime, timestamp, error: message } satisfies WorkerLiveResult,
+      {
+        status: "error",
+        version,
+        uptime,
+        timestamp,
+        error: message,
+      } satisfies WorkerLiveResult,
       {
         status: 503,
         headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
@@ -704,11 +741,17 @@ async function handleContentRead(
 
   // R2 stores canonical/raw files with contentEncoding: "gzip".
   // The body is raw gzip bytes — decompress via DecompressionStream.
-  const isGzip = obj.httpMetadata?.contentEncoding === "gzip" || key.endsWith(".gz");
+  const isGzip =
+    obj.httpMetadata?.contentEncoding === "gzip" || key.endsWith(".gz");
 
   let body: ReadableStream | ArrayBuffer;
   if (isGzip) {
-    body = obj.body.pipeThrough(new DecompressionStream("gzip") as unknown as TransformStream<Uint8Array, Uint8Array>);
+    body = obj.body.pipeThrough(
+      new DecompressionStream("gzip") as unknown as TransformStream<
+        Uint8Array,
+        Uint8Array
+      >,
+    );
   } else {
     body = obj.body;
   }
@@ -740,7 +783,10 @@ export default {
     if (request.method === "POST" && url.pathname === "/ingest/sessions") {
       const userId = request.headers.get("X-User-Id");
       if (!userId) {
-        return Response.json({ error: "Missing X-User-Id header" }, { status: 400 });
+        return Response.json(
+          { error: "Missing X-User-Id header" },
+          { status: 400 },
+        );
       }
 
       let body: unknown;
@@ -760,7 +806,10 @@ export default {
     if (request.method === "GET" && url.pathname.startsWith("/content/")) {
       const userId = request.headers.get("X-User-Id");
       if (!userId) {
-        return Response.json({ error: "Missing X-User-Id header" }, { status: 400 });
+        return Response.json(
+          { error: "Missing X-User-Id header" },
+          { status: 400 },
+        );
       }
       const key = decodeURIComponent(url.pathname.slice("/content/".length));
       return handleContentRead(key, userId, env);
@@ -772,7 +821,10 @@ export default {
       if (parsed) {
         const userId = request.headers.get("X-User-Id");
         if (!userId) {
-          return Response.json({ error: "Missing X-User-Id header" }, { status: 400 });
+          return Response.json(
+            { error: "Missing X-User-Id header" },
+            { status: 400 },
+          );
         }
 
         if (parsed.type === "canonical") {

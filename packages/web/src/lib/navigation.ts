@@ -38,7 +38,11 @@ export const NAV_GROUPS: NavGroupDef[] = [
     label: "Browse",
     defaultOpen: true,
     items: [
-      { href: "/dashboard/sessions", label: "Sessions", icon: "MessagesSquare" },
+      {
+        href: "/dashboard/sessions",
+        label: "Sessions",
+        icon: "MessagesSquare",
+      },
       { href: "/dashboard/projects", label: "Projects", icon: "FolderKanban" },
       { href: "/dashboard/trash", label: "Trash", icon: "Trash2" },
     ],
@@ -46,9 +50,7 @@ export const NAV_GROUPS: NavGroupDef[] = [
   {
     label: "Settings",
     defaultOpen: false,
-    items: [
-      { href: "/dashboard/settings/tags", label: "Tags", icon: "Tags" },
-    ],
+    items: [{ href: "/dashboard/settings/tags", label: "Tags", icon: "Tags" }],
   },
 ];
 
@@ -68,7 +70,9 @@ export const ROUTE_LABELS: Record<string, string> = {
 
 export function breadcrumbsFromPathname(pathname: string) {
   const segments = pathname.split("/").filter(Boolean);
-  const items: { label: string; href?: string }[] = [{ label: "Home", href: "/dashboard" }];
+  const items: { label: string; href?: string }[] = [
+    { label: "Home", href: "/dashboard" },
+  ];
 
   let href = "";
   for (let i = 0; i < segments.length; i++) {

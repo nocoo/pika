@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { mkdtempSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ConfigManager } from "./manager";
 
 describe("ConfigManager", () => {
@@ -25,29 +25,29 @@ describe("ConfigManager", () => {
   });
 
   it("writes and reads config", () => {
-    manager.write({ token: "pk_" + "a".repeat(32) });
+    manager.write({ token: `pk_${"a".repeat(32)}` });
     const config = manager.read();
-    expect(config.token).toBe("pk_" + "a".repeat(32));
+    expect(config.token).toBe(`pk_${"a".repeat(32)}`);
   });
 
   it("preserves existing fields on partial write", () => {
-    manager.write({ token: "pk_" + "a".repeat(32), deviceId: "uuid-1" });
-    manager.write({ token: "pk_" + "b".repeat(32) });
+    manager.write({ token: `pk_${"a".repeat(32)}`, deviceId: "uuid-1" });
+    manager.write({ token: `pk_${"b".repeat(32)}` });
     const config = manager.read();
-    expect(config.token).toBe("pk_" + "b".repeat(32));
+    expect(config.token).toBe(`pk_${"b".repeat(32)}`);
     expect(config.deviceId).toBe("uuid-1");
   });
 
   it("creates config directory if missing", () => {
     const nestedDir = join(tempDir, "deep", "nested");
     const mgr = new ConfigManager(nestedDir);
-    mgr.write({ token: "pk_" + "c".repeat(32) });
+    mgr.write({ token: `pk_${"c".repeat(32)}` });
     const config = mgr.read();
-    expect(config.token).toBe("pk_" + "c".repeat(32));
+    expect(config.token).toBe(`pk_${"c".repeat(32)}`);
   });
 
   it("writes config file with 0600 permissions", () => {
-    manager.write({ token: "pk_" + "x".repeat(32) });
+    manager.write({ token: `pk_${"x".repeat(32)}` });
     const configPath = join(tempDir, "config.json");
     const mode = statSync(configPath).mode & 0o777;
     expect(mode).toBe(0o600);
@@ -57,7 +57,7 @@ describe("ConfigManager", () => {
 
   it("reads dev config separately", () => {
     const devManager = new ConfigManager(tempDir, true);
-    devManager.write({ token: "pk_" + "d".repeat(32) });
+    devManager.write({ token: `pk_${"d".repeat(32)}` });
 
     // Regular config should be empty
     const regular = manager.read();
@@ -65,7 +65,7 @@ describe("ConfigManager", () => {
 
     // Dev config should have the token
     const dev = devManager.read();
-    expect(dev.token).toBe("pk_" + "d".repeat(32));
+    expect(dev.token).toBe(`pk_${"d".repeat(32)}`);
   });
 
   // ── token helpers ──────────────────────────────────────────
@@ -75,8 +75,8 @@ describe("ConfigManager", () => {
   });
 
   it("getToken returns stored token", () => {
-    manager.write({ token: "pk_" + "e".repeat(32) });
-    expect(manager.getToken()).toBe("pk_" + "e".repeat(32));
+    manager.write({ token: `pk_${"e".repeat(32)}` });
+    expect(manager.getToken()).toBe(`pk_${"e".repeat(32)}`);
   });
 
   it("isLoggedIn returns false when no token", () => {
@@ -84,7 +84,7 @@ describe("ConfigManager", () => {
   });
 
   it("isLoggedIn returns true when token exists", () => {
-    manager.write({ token: "pk_" + "f".repeat(32) });
+    manager.write({ token: `pk_${"f".repeat(32)}` });
     expect(manager.isLoggedIn()).toBe(true);
   });
 

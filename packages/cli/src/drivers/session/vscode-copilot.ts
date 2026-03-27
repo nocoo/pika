@@ -13,20 +13,21 @@
  * Parser: parseVscodeCopilotFile(filePath, startOffset, processedRequestIds, workspaceFolder)
  */
 
-import { readdir, stat } from "node:fs/promises";
+import type { Dirent } from "node:fs";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
-import type { VscodeCopilotCursor, ParseResult } from "@pika/core";
-import { fileUnchanged } from "../../utils/file-changed";
+import type { ParseResult, VscodeCopilotCursor } from "@pika/core";
 import {
-  parseVscodeCopilotFile,
   extractWorkspaceFolder,
+  parseVscodeCopilotFile,
   type VscodeCopilotParseResult,
 } from "../../parsers/vscode-copilot";
+import { fileUnchanged } from "../../utils/file-changed";
 import type {
-  FileDriver,
   DiscoverOpts,
-  VscodeCopilotResumeState,
+  FileDriver,
   FileFingerprint,
+  VscodeCopilotResumeState,
 } from "../types";
 
 // ---------------------------------------------------------------------------
@@ -38,7 +39,7 @@ import type {
  * Returns empty array if dir does not exist or is unreadable.
  */
 async function collectJsonl(dir: string): Promise<string[]> {
-  let entries;
+  let entries: Dirent[];
   try {
     entries = await readdir(dir, { withFileTypes: true });
   } catch {
@@ -79,11 +80,7 @@ async function discoverInBaseDir(baseDir: string): Promise<string[]> {
   }
 
   // 2. Global sessions: globalStorage/emptyWindowChatSessions/*.jsonl
-  const globalDir = join(
-    baseDir,
-    "globalStorage",
-    "emptyWindowChatSessions",
-  );
+  const globalDir = join(baseDir, "globalStorage", "emptyWindowChatSessions");
   const globalFiles = await collectJsonl(globalDir);
   results.push(...globalFiles);
 
@@ -140,12 +137,20 @@ export const vscodeCopilotSessionDriver: FileDriver<VscodeCopilotCursor> = {
   ): VscodeCopilotResumeState {
     // No cursor or different inode → full scan
     if (!cursor || cursor.inode !== fingerprint.inode) {
-      return { kind: "vscode-copilot", startOffset: 0, processedRequestIds: [] };
+      return {
+        kind: "vscode-copilot",
+        startOffset: 0,
+        processedRequestIds: [],
+      };
     }
 
     // File shrunk → full re-scan (file was re-written)
     if (cursor.offset > fingerprint.size) {
-      return { kind: "vscode-copilot", startOffset: 0, processedRequestIds: [] };
+      return {
+        kind: "vscode-copilot",
+        startOffset: 0,
+        processedRequestIds: [],
+      };
     }
 
     // Resume from where we left off

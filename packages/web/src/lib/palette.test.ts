@@ -1,16 +1,16 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  withAlpha,
-  chart,
+  agentColor,
   CHART_COLORS,
   CHART_TOKENS,
+  chart,
   chartAxis,
   chartMuted,
-  chartPositive,
   chartNegative,
+  chartPositive,
   chartPrimary,
-  agentColor,
   modelColor,
+  withAlpha,
 } from "./palette";
 
 // ── Constants ──────────────────────────────────────────────────

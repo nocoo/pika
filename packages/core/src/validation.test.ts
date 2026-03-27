@@ -1,21 +1,21 @@
-import { describe, it, expect } from "vitest";
-import {
-  isValidSource,
-  isValidMessageRole,
-  isValidApiKey,
-  isValidISOTimestamp,
-  isValidSessionKey,
-  validateCanonicalMessage,
-  validateCanonicalSession,
-  validateSessionSnapshot,
-  validateParseError,
-} from "./validation";
+import { describe, expect, it } from "vitest";
 import type {
   CanonicalMessage,
   CanonicalSession,
-  SessionSnapshot,
   ParseError,
+  SessionSnapshot,
 } from "./types";
+import {
+  isValidApiKey,
+  isValidISOTimestamp,
+  isValidMessageRole,
+  isValidSessionKey,
+  isValidSource,
+  validateCanonicalMessage,
+  validateCanonicalSession,
+  validateParseError,
+  validateSessionSnapshot,
+} from "./validation";
 
 // ── Source validation ──────────────────────────────────────────
 
@@ -55,22 +55,22 @@ describe("isValidMessageRole", () => {
 
 describe("isValidApiKey", () => {
   it("accepts valid api key", () => {
-    expect(isValidApiKey("pk_" + "a".repeat(32))).toBe(true);
-    expect(isValidApiKey("pk_" + "0123456789abcdef".repeat(2))).toBe(true);
+    expect(isValidApiKey(`pk_${"a".repeat(32)}`)).toBe(true);
+    expect(isValidApiKey(`pk_${"0123456789abcdef".repeat(2)}`)).toBe(true);
   });
 
   it("rejects keys without prefix", () => {
-    expect(isValidApiKey("xx_" + "a".repeat(32))).toBe(false);
+    expect(isValidApiKey(`xx_${"a".repeat(32)}`)).toBe(false);
   });
 
   it("rejects keys with wrong length", () => {
-    expect(isValidApiKey("pk_" + "a".repeat(31))).toBe(false);
-    expect(isValidApiKey("pk_" + "a".repeat(33))).toBe(false);
+    expect(isValidApiKey(`pk_${"a".repeat(31)}`)).toBe(false);
+    expect(isValidApiKey(`pk_${"a".repeat(33)}`)).toBe(false);
   });
 
   it("rejects keys with non-hex chars", () => {
-    expect(isValidApiKey("pk_" + "g".repeat(32))).toBe(false);
-    expect(isValidApiKey("pk_" + "Z".repeat(32))).toBe(false);
+    expect(isValidApiKey(`pk_${"g".repeat(32)}`)).toBe(false);
+    expect(isValidApiKey(`pk_${"Z".repeat(32)}`)).toBe(false);
   });
 
   it("rejects empty string", () => {

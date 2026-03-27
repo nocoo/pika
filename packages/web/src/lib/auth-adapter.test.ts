@@ -1,13 +1,15 @@
-import { describe, it, expect, vi } from "vitest";
+import type { AdapterAccount } from "next-auth/adapters";
+import { describe, expect, it, vi } from "vitest";
 import { D1AuthAdapter } from "./auth-adapter";
 import type { D1Client } from "./d1";
-import type { AdapterAccount } from "next-auth/adapters";
 
 // ── Mock D1 client ─────────────────────────────────────────────
 
 function createMockD1Client(overrides?: Partial<D1Client>): D1Client {
   return {
-    query: vi.fn().mockResolvedValue({ results: [], meta: { changes: 0, duration: 0 } }),
+    query: vi
+      .fn()
+      .mockResolvedValue({ results: [], meta: { changes: 0, duration: 0 } }),
     execute: vi.fn().mockResolvedValue({ changes: 1, duration: 0 }),
     firstOrNull: vi.fn().mockResolvedValue(null),
     ...overrides,
@@ -22,7 +24,7 @@ describe("D1AuthAdapter", () => {
       const client = createMockD1Client();
       const adapter = D1AuthAdapter(client);
 
-      const result = await adapter.createUser!({
+      const result = await adapter.createUser?.({
         email: "test@example.com",
         name: "Test User",
         image: "https://example.com/avatar.png",
@@ -43,7 +45,7 @@ describe("D1AuthAdapter", () => {
       const client = createMockD1Client();
       const adapter = D1AuthAdapter(client);
 
-      const result = await adapter.createUser!({
+      const result = await adapter.createUser?.({
         id: "custom-id-123",
         email: "user@e.com",
         name: null,
@@ -62,13 +64,14 @@ describe("D1AuthAdapter", () => {
       const client = createMockD1Client();
       const adapter = D1AuthAdapter(client);
 
-      const result = await adapter.createUser!({
+      const result = await adapter.createUser?.({
         email: "minimal@e.com",
         emailVerified: null,
       } as any);
 
       expect(result.email).toBe("minimal@e.com");
-      const params = (client.execute as ReturnType<typeof vi.fn>).mock.calls[0][1];
+      const params = (client.execute as ReturnType<typeof vi.fn>).mock
+        .calls[0][1];
       // name, image, emailVerified should be null
       expect(params[2]).toBeNull(); // name
       expect(params[3]).toBeNull(); // image
@@ -89,7 +92,7 @@ describe("D1AuthAdapter", () => {
       });
       const adapter = D1AuthAdapter(client);
 
-      const result = await adapter.getUser!("u1");
+      const result = await adapter.getUser?.("u1");
 
       expect(result).toEqual({
         id: "u1",
@@ -104,7 +107,7 @@ describe("D1AuthAdapter", () => {
       const client = createMockD1Client();
       const adapter = D1AuthAdapter(client);
 
-      expect(await adapter.getUser!("nonexistent")).toBeNull();
+      expect(await adapter.getUser?.("nonexistent")).toBeNull();
     });
   });
 
@@ -121,7 +124,7 @@ describe("D1AuthAdapter", () => {
       });
       const adapter = D1AuthAdapter(client);
 
-      const result = await adapter.getUserByEmail!("u@e.com");
+      const result = await adapter.getUserByEmail?.("u@e.com");
 
       expect(result).toEqual({
         id: "u1",
@@ -136,7 +139,7 @@ describe("D1AuthAdapter", () => {
       const client = createMockD1Client();
       const adapter = D1AuthAdapter(client);
 
-      expect(await adapter.getUserByEmail!("nobody@e.com")).toBeNull();
+      expect(await adapter.getUserByEmail?.("nobody@e.com")).toBeNull();
     });
   });
 
@@ -153,7 +156,7 @@ describe("D1AuthAdapter", () => {
       });
       const adapter = D1AuthAdapter(client);
 
-      const result = await adapter.getUserByAccount!({
+      const result = await adapter.getUserByAccount?.({
         provider: "google",
         providerAccountId: "google-123",
       });
@@ -176,7 +179,7 @@ describe("D1AuthAdapter", () => {
       const adapter = D1AuthAdapter(client);
 
       expect(
-        await adapter.getUserByAccount!({
+        await adapter.getUserByAccount?.({
           provider: "google",
           providerAccountId: "unknown",
         }),
@@ -197,7 +200,7 @@ describe("D1AuthAdapter", () => {
       });
       const adapter = D1AuthAdapter(client);
 
-      const result = await adapter.updateUser!({
+      const result = await adapter.updateUser?.({
         id: "u1",
         name: "New Name",
         email: "new@e.com",
@@ -223,7 +226,7 @@ describe("D1AuthAdapter", () => {
       });
       const adapter = D1AuthAdapter(client);
 
-      const result = await adapter.updateUser!({ id: "u1" } as any);
+      const result = await adapter.updateUser?.({ id: "u1" } as any);
 
       expect(result.id).toBe("u1");
       // execute should NOT be called (no fields to update)
@@ -242,12 +245,14 @@ describe("D1AuthAdapter", () => {
       });
       const adapter = D1AuthAdapter(client);
 
-      const result = await adapter.updateUser!({
+      const result = await adapter.updateUser?.({
         id: "u1",
         emailVerified: new Date("2026-03-01T00:00:00Z"),
       } as any);
 
-      expect(result.emailVerified).toEqual(new Date("2026-03-01T00:00:00.000Z"));
+      expect(result.emailVerified).toEqual(
+        new Date("2026-03-01T00:00:00.000Z"),
+      );
       expect(client.execute).toHaveBeenCalledWith(
         expect.stringContaining("email_verified = ?"),
         expect.arrayContaining(["2026-03-01T00:00:00.000Z", "u1"]),
@@ -270,7 +275,7 @@ describe("D1AuthAdapter", () => {
         expires_at: 1700000000,
       };
 
-      const result = await adapter.linkAccount!(account);
+      const result = await adapter.linkAccount?.(account);
 
       expect(result).toEqual(account);
       expect(client.execute).toHaveBeenCalledWith(
@@ -298,9 +303,10 @@ describe("D1AuthAdapter", () => {
         providerAccountId: "google-456",
       };
 
-      await adapter.linkAccount!(account);
+      await adapter.linkAccount?.(account);
 
-      const params = (client.execute as ReturnType<typeof vi.fn>).mock.calls[0][1];
+      const params = (client.execute as ReturnType<typeof vi.fn>).mock
+        .calls[0][1];
       // access_token, refresh_token, expires_at should be null
       expect(params[5]).toBeNull();
       expect(params[6]).toBeNull();

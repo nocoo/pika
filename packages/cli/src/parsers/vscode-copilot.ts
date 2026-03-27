@@ -28,17 +28,15 @@
  * Project ref: SHA-256 hash of workspace folder from sibling workspace.json
  */
 
-import { createReadStream } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { createInterface } from "node:readline";
-import { PARSER_REVISION, SCHEMA_VERSION } from "@pika/core";
 import type {
   CanonicalMessage,
   CanonicalSession,
-  RawSessionArchive,
   ParseResult,
+  RawSessionArchive,
 } from "@pika/core";
+import { PARSER_REVISION, SCHEMA_VERSION } from "@pika/core";
 import { hashProjectRef } from "../utils/hash-project-ref";
 
 // ── Types ───────────────────────────────────────────────────────
@@ -197,11 +195,7 @@ function applySet(op: CrdtOp, state: SessionState): void {
   }
 
   // inputState.selectedModel
-  if (
-    k.length === 2 &&
-    k[0] === "inputState" &&
-    k[1] === "selectedModel"
-  ) {
+  if (k.length === 2 && k[0] === "inputState" && k[1] === "selectedModel") {
     if (typeof op.v === "string") {
       state.selectedModel = op.v;
     }
@@ -233,9 +227,7 @@ function applyAppend(op: CrdtOp, state: SessionState): void {
   // Append to top-level requests array
   if (k.length === 1 && k[0] === "requests") {
     if (op.v && typeof op.v === "object" && !Array.isArray(op.v)) {
-      state.requests.push(
-        normalizeRequest(op.v as Record<string, unknown>),
-      );
+      state.requests.push(normalizeRequest(op.v as Record<string, unknown>));
     }
     return;
   }
@@ -469,7 +461,9 @@ function buildParseResult(
 
   // Find the last request's timestamp or completedAt
   const lastReq = state.requests[state.requests.length - 1];
-  const normalizedCompletedAt = normalizeTimestamp(lastReq?.modelState?.completedAt);
+  const normalizedCompletedAt = normalizeTimestamp(
+    lastReq?.modelState?.completedAt,
+  );
   if (normalizedCompletedAt) {
     lastMessageAt = normalizedCompletedAt;
   } else if (lastReq?.timestamp) {
@@ -633,9 +627,11 @@ export async function parseVscodeCopilotFile(
   workspaceFolder: string | null = null,
 ): Promise<VscodeCopilotParseResult> {
   const st = await stat(filePath).catch(() => null);
-  if (!st || !st.isFile() || st.size === 0) return { ...buildEmptyResult(filePath), newRequestIds: [] };
+  if (!st?.isFile() || st.size === 0)
+    return { ...buildEmptyResult(filePath), newRequestIds: [] };
 
-  if (startOffset >= st.size) return { ...buildEmptyResult(filePath), newRequestIds: [] };
+  if (startOffset >= st.size)
+    return { ...buildEmptyResult(filePath), newRequestIds: [] };
 
   // Read file content
   let rawContent: string;
@@ -650,22 +646,28 @@ export async function parseVscodeCopilotFile(
   // full state. The byte offset is used by the driver to know how much raw
   // content was already archived, but CRDT replay must be complete.
   const ops = parseCrdtOps(rawContent);
-  if (ops.length === 0) return { ...buildEmptyResult(filePath), newRequestIds: [] };
+  if (ops.length === 0)
+    return { ...buildEmptyResult(filePath), newRequestIds: [] };
 
   // Replay CRDT to reconstruct session state
   const state = replayCrdt(ops);
-  if (state.requests.length === 0) return { ...buildEmptyResult(filePath), newRequestIds: [] };
+  if (state.requests.length === 0)
+    return { ...buildEmptyResult(filePath), newRequestIds: [] };
 
   // Extract messages (skipping previously processed requests)
   const processedSet = new Set(processedRequestIds);
   const { accum, newRequestIds } = extractMessages(state, processedSet);
 
-  if (accum.messages.length === 0) return { ...buildEmptyResult(filePath), newRequestIds: [] };
+  if (accum.messages.length === 0)
+    return { ...buildEmptyResult(filePath), newRequestIds: [] };
 
   // Resolve workspace folder if not provided
   const folder = workspaceFolder ?? (await extractWorkspaceFolder(filePath));
 
   // Always include full raw content for complete snapshots.
   // startOffset is only used as a "has new data?" gate above.
-  return { ...buildParseResult(state, accum, filePath, rawContent, folder), newRequestIds };
+  return {
+    ...buildParseResult(state, accum, filePath, rawContent, folder),
+    newRequestIds,
+  };
 }

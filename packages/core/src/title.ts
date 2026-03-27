@@ -72,9 +72,9 @@ function truncateAtWord(text: string, maxLen: number): string {
   const lastSpace = text.lastIndexOf(" ", cutoff);
 
   if (lastSpace > 0) {
-    return text.slice(0, lastSpace) + "…";
+    return `${text.slice(0, lastSpace)}…`;
   }
 
   // No word boundary found — hard truncate
-  return text.slice(0, cutoff) + "…";
+  return `${text.slice(0, cutoff)}…`;
 }

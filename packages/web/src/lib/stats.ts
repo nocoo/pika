@@ -98,10 +98,7 @@ ORDER BY count DESC
 /**
  * Sessions per day for the last N days (default 90).
  */
-export function buildDailyActivityQuery(
-  userId: string,
-  days = 90,
-): BuiltQuery {
+export function buildDailyActivityQuery(userId: string, days = 90): BuiltQuery {
   return {
     sql: `
 SELECT date(started_at) AS date, COUNT(*) AS count
@@ -135,7 +132,12 @@ LIMIT 10
 // ── Assemble overview stats from query results ─────────────────
 
 export function assembleOverviewStats(
-  overviewRow: { total_sessions: number; total_messages: number; total_input_tokens: number; total_output_tokens: number } | null,
+  overviewRow: {
+    total_sessions: number;
+    total_messages: number;
+    total_input_tokens: number;
+    total_output_tokens: number;
+  } | null,
   weekRow: { count: number } | null,
 ): OverviewStats {
   return {

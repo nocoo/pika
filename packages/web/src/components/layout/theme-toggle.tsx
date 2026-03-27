@@ -1,6 +1,6 @@
 "use client";
 
-import { Moon, Sun, Monitor } from "lucide-react";
+import { Monitor, Moon, Sun } from "lucide-react";
 import { useCallback, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -51,7 +51,11 @@ function getServerSnapshot(): Theme {
   return "system";
 }
 
-const ICON_PROPS = { className: "h-4 w-4", "aria-hidden": true as const, strokeWidth: 1.5 };
+const ICON_PROPS = {
+  className: "h-4 w-4",
+  "aria-hidden": true as const,
+  strokeWidth: 1.5,
+};
 
 export function ThemeToggle() {
   const theme = useSyncExternalStore(

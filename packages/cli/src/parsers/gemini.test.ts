@@ -5,14 +5,14 @@
  * token accumulation, incremental parsing, edge cases.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, writeFile, mkdir, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  parseGeminiFile,
-  extractProjectRef,
   extractProjectName,
+  extractProjectRef,
+  parseGeminiFile,
 } from "./gemini";
 
 // ---------------------------------------------------------------------------
@@ -32,7 +32,8 @@ function buildSession(
 ): GeminiSessionData {
   return {
     sessionId: "test-session-id",
-    projectHash: "abc123def456abc123def456abc123def456abc123def456abc123def456abc12345",
+    projectHash:
+      "abc123def456abc123def456abc123def456abc123def456abc123def456abc12345",
     startTime: "2025-01-15T10:00:00.000Z",
     lastUpdated: "2025-01-15T10:05:00.000Z",
     messages: [],
@@ -238,7 +239,8 @@ describe("parseGeminiFile", () => {
 
   it("sets projectRef from projectHash", async () => {
     const session = buildSession({
-      projectHash: "6591e26e96d0e7ef53237d37250b0fdeec5e19e0d4372c5515fe023d673b0f88",
+      projectHash:
+        "6591e26e96d0e7ef53237d37250b0fdeec5e19e0d4372c5515fe023d673b0f88",
       messages: [
         userMsg("Hello", "2025-01-15T10:00:00.000Z"),
         geminiMsg("Hi!", "2025-01-15T10:00:01.000Z"),
@@ -550,10 +552,7 @@ describe("parseGeminiFile — edge cases", () => {
           id: "u1",
           timestamp: "2025-01-15T10:00:00.000Z",
           type: "user",
-          content: [
-            { text: "Part one." },
-            { text: "Part two." },
-          ],
+          content: [{ text: "Part one." }, { text: "Part two." }],
         },
         geminiMsg("Got it.", "2025-01-15T10:00:01.000Z"),
       ],
@@ -674,8 +673,12 @@ describe("parseGeminiFile — edge cases", () => {
     const result = await parseGeminiFile(filePath);
     expect(result.canonical.messages).toHaveLength(2);
     // Timestamps should be ISO strings (fallback to now)
-    expect(new Date(result.canonical.messages[0].timestamp).getTime()).toBeGreaterThan(0);
-    expect(new Date(result.canonical.messages[1].timestamp).getTime()).toBeGreaterThan(0);
+    expect(
+      new Date(result.canonical.messages[0].timestamp).getTime(),
+    ).toBeGreaterThan(0);
+    expect(
+      new Date(result.canonical.messages[1].timestamp).getTime(),
+    ).toBeGreaterThan(0);
   });
 
   it("handles gemini message with model fallback to lastModel", async () => {
@@ -853,9 +856,7 @@ describe("parseGeminiFile — edge cases", () => {
     await writeFile(filePath, JSON.stringify(session));
 
     const result = await parseGeminiFile(filePath);
-    const toolMsgs = result.canonical.messages.filter(
-      (m) => m.role === "tool",
-    );
+    const toolMsgs = result.canonical.messages.filter((m) => m.role === "tool");
     // invocation + result
     expect(toolMsgs).toHaveLength(2);
     expect(toolMsgs[0].toolName).toBe("read_file");
@@ -905,7 +906,12 @@ describe("parseGeminiFile — edge cases", () => {
   it("handles unknown message type gracefully", async () => {
     const session = buildSession({
       messages: [
-        { id: "u1", timestamp: "2025-01-15T10:00:00.000Z", type: "custom", content: "test" },
+        {
+          id: "u1",
+          timestamp: "2025-01-15T10:00:00.000Z",
+          type: "custom",
+          content: "test",
+        },
         userMsg("Hello", "2025-01-15T10:00:01.000Z"),
         geminiMsg("Hi!", "2025-01-15T10:00:02.000Z"),
       ],

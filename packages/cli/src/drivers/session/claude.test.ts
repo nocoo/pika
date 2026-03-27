@@ -4,11 +4,11 @@
  * Covers: discover, shouldSkip, resumeState, parse, buildCursor
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { mkdtemp, writeFile, mkdir, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { ClaudeCursor } from "@pika/core";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { FileFingerprint } from "../../utils/file-changed";
 import { claudeSessionDriver } from "./claude";
 
@@ -40,7 +40,11 @@ function makeLine(
       role: "assistant",
       model: "claude-sonnet-4-20250514",
       content: [{ type: "text", text: content }],
-      usage: { input_tokens: 10, output_tokens: 20, cache_read_input_tokens: 5 },
+      usage: {
+        input_tokens: 10,
+        output_tokens: 20,
+        cache_read_input_tokens: 5,
+      },
     },
     ...extra,
   });
@@ -188,10 +192,7 @@ describe("claudeSessionDriver.resumeState", () => {
       offset: 2048,
       updatedAt: "2024-01-01T00:00:00.000Z",
     };
-    const resume = claudeSessionDriver.resumeState(
-      cursor,
-      fp({ size: 4096 }),
-    );
+    const resume = claudeSessionDriver.resumeState(cursor, fp({ size: 4096 }));
     expect(resume).toEqual({ kind: "byte-offset", startOffset: 2048 });
   });
 
@@ -216,10 +217,7 @@ describe("claudeSessionDriver.resumeState", () => {
       updatedAt: "2024-01-01T00:00:00.000Z",
     };
     // Current file is smaller than cursor offset
-    const resume = claudeSessionDriver.resumeState(
-      cursor,
-      fp({ size: 1024 }),
-    );
+    const resume = claudeSessionDriver.resumeState(cursor, fp({ size: 1024 }));
     expect(resume).toEqual({ kind: "byte-offset", startOffset: 0 });
   });
 });
@@ -245,7 +243,7 @@ describe("claudeSessionDriver.parse", () => {
       makeLine("ses-1", "user", "Hello", "2024-01-01T00:00:00.000Z"),
       makeLine("ses-1", "assistant", "Hi!", "2024-01-01T00:00:01.000Z"),
     ];
-    await writeFile(filePath, lines.join("\n") + "\n");
+    await writeFile(filePath, `${lines.join("\n")}\n`);
 
     const results = await claudeSessionDriver.parse(filePath, {
       kind: "byte-offset",
@@ -258,18 +256,38 @@ describe("claudeSessionDriver.parse", () => {
 
   it("handles incremental parsing from byte offset", async () => {
     const filePath = join(tmpDir, "session.jsonl");
-    const line1 = makeLine("ses-1", "user", "First", "2024-01-01T00:00:00.000Z");
-    const line2 = makeLine("ses-1", "assistant", "Reply1", "2024-01-01T00:00:01.000Z");
-    const line3 = makeLine("ses-1", "user", "Second", "2024-01-01T00:00:02.000Z");
-    const line4 = makeLine("ses-1", "assistant", "Reply2", "2024-01-01T00:00:03.000Z");
+    const line1 = makeLine(
+      "ses-1",
+      "user",
+      "First",
+      "2024-01-01T00:00:00.000Z",
+    );
+    const line2 = makeLine(
+      "ses-1",
+      "assistant",
+      "Reply1",
+      "2024-01-01T00:00:01.000Z",
+    );
+    const line3 = makeLine(
+      "ses-1",
+      "user",
+      "Second",
+      "2024-01-01T00:00:02.000Z",
+    );
+    const line4 = makeLine(
+      "ses-1",
+      "assistant",
+      "Reply2",
+      "2024-01-01T00:00:03.000Z",
+    );
 
     // Write initial lines
-    const firstChunk = line1 + "\n" + line2 + "\n";
+    const firstChunk = `${line1}\n${line2}\n`;
     await writeFile(filePath, firstChunk);
     const offset = Buffer.byteLength(firstChunk, "utf8");
 
     // Append more lines
-    const secondChunk = line3 + "\n" + line4 + "\n";
+    const secondChunk = `${line3}\n${line4}\n`;
     await writeFile(filePath, firstChunk + secondChunk);
 
     // Parse from offset — full canonical snapshot includes ALL messages.
@@ -291,7 +309,7 @@ describe("claudeSessionDriver.parse", () => {
       makeLine("ses-B", "user", "Hello B", "2024-01-01T00:00:02.000Z"),
       makeLine("ses-B", "assistant", "Hi B!", "2024-01-01T00:00:03.000Z"),
     ];
-    await writeFile(filePath, lines.join("\n") + "\n");
+    await writeFile(filePath, `${lines.join("\n")}\n`);
 
     const results = await claudeSessionDriver.parse(filePath, {
       kind: "byte-offset",

@@ -1,13 +1,12 @@
 "use client";
 
+import type { CanonicalMessage, Source } from "@pika/core";
 import { memo, useMemo } from "react";
-import { cn } from "@/lib/utils";
-import { formatTokens } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { ToolCall } from "./tool-call";
+import { cn, formatTokens } from "@/lib/utils";
 import { MarkdownContent } from "./markdown-content";
 import { MessageAvatar } from "./message-avatar";
-import type { CanonicalMessage, Source } from "@pika/core";
+import { ToolCall } from "./tool-call";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -54,7 +53,9 @@ export const MessageBubble = memo(function MessageBubble({
       className={cn("flex flex-col animate-message-in", className)}
       style={{ animationDelay: `${animDelay}ms` }}
       id={`msg-${index}`}
-    >      {/* Timestamp separator — centered line with time label */}
+    >
+      {" "}
+      {/* Timestamp separator — centered line with time label */}
       {showTimestamp && timeLabel && (
         <div className="flex items-center gap-3 py-3">
           <div className="h-px flex-1 bg-border" />
@@ -64,7 +65,6 @@ export const MessageBubble = memo(function MessageBubble({
           <div className="h-px flex-1 bg-border" />
         </div>
       )}
-
       {/* Tool call — indented, special styling */}
       {isTool && toolName && (
         <div className="ml-10 max-w-[85%]">
@@ -75,14 +75,10 @@ export const MessageBubble = memo(function MessageBubble({
           />
         </div>
       )}
-
       {/* Regular message (user / assistant / system) */}
       {!isTool && (
         <div
-          className={cn(
-            "flex items-start gap-3",
-            isUser && "flex-row-reverse",
-          )}
+          className={cn("flex items-start gap-3", isUser && "flex-row-reverse")}
         >
           {/* Role avatar */}
           <div className="mt-0.5 shrink-0">
@@ -102,11 +98,8 @@ export const MessageBubble = memo(function MessageBubble({
             className={cn(
               "relative max-w-[85%] rounded-xl px-4 py-2.5 text-sm leading-relaxed",
               isUser && "bg-primary text-primary-foreground",
-              !isUser &&
-                !isSystem &&
-                "bg-secondary text-secondary-foreground",
-              isSystem &&
-                "bg-muted text-muted-foreground italic text-xs",
+              !isUser && !isSystem && "bg-secondary text-secondary-foreground",
+              isSystem && "bg-muted text-muted-foreground italic text-xs",
             )}
           >
             {/* Content */}
@@ -136,14 +129,12 @@ export const MessageBubble = memo(function MessageBubble({
                 {message.inputTokens != null && message.inputTokens > 0 && (
                   <span>{formatTokens(message.inputTokens)} in</span>
                 )}
-                {message.outputTokens != null &&
-                  message.outputTokens > 0 && (
-                    <span>{formatTokens(message.outputTokens)} out</span>
-                  )}
-                {message.cachedTokens != null &&
-                  message.cachedTokens > 0 && (
-                    <span>{formatTokens(message.cachedTokens)} cached</span>
-                  )}
+                {message.outputTokens != null && message.outputTokens > 0 && (
+                  <span>{formatTokens(message.outputTokens)} out</span>
+                )}
+                {message.cachedTokens != null && message.cachedTokens > 0 && (
+                  <span>{formatTokens(message.cachedTokens)} cached</span>
+                )}
                 {message.model && (
                   <Badge
                     variant="ghost"
@@ -186,9 +177,9 @@ export function parseContentSegments(content: string): ContentSegment[] {
   const segments: ContentSegment[] = [];
   const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
   let lastIndex = 0;
-  let match: RegExpExecArray | null;
+  let match: RegExpExecArray | null = codeBlockRegex.exec(content);
 
-  while ((match = codeBlockRegex.exec(content)) !== null) {
+  while (match !== null) {
     // Text before the code block
     if (match.index > lastIndex) {
       const text = content.slice(lastIndex, match.index).trim();
@@ -202,6 +193,7 @@ export function parseContentSegments(content: string): ContentSegment[] {
     });
 
     lastIndex = match.index + match[0].length;
+    match = codeBlockRegex.exec(content);
   }
 
   // Trailing text
@@ -232,14 +224,15 @@ export function parseInlineCode(text: string): InlinePart[] {
   const parts: InlinePart[] = [];
   const regex = /`([^`]+)`/g;
   let lastIndex = 0;
-  let match: RegExpExecArray | null;
+  let match: RegExpExecArray | null = regex.exec(text);
 
-  while ((match = regex.exec(text)) !== null) {
+  while (match !== null) {
     if (match.index > lastIndex) {
       parts.push({ text: text.slice(lastIndex, match.index), isCode: false });
     }
     parts.push({ text: match[1]!, isCode: true });
     lastIndex = match.index + match[0].length;
+    match = regex.exec(text);
   }
 
   if (lastIndex < text.length) {

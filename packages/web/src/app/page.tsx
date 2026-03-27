@@ -12,7 +12,11 @@ export default function LandingPage() {
           className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-[color] duration-200 hover:text-foreground"
           aria-label="Privacy policy"
         >
-          <ShieldCheck className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+          <ShieldCheck
+            className="h-4 w-4"
+            strokeWidth={1.5}
+            aria-hidden="true"
+          />
         </a>
         <a
           href="https://github.com/nocoo/pika"
@@ -34,7 +38,10 @@ export default function LandingPage() {
         <p className="text-center text-xs text-muted-foreground">
           &copy; {new Date().getFullYear()} Pika
           <span className="mx-1.5">&middot;</span>
-          <a href="/privacy" className="hover:text-foreground transition-colors">
+          <a
+            href="/privacy"
+            className="hover:text-foreground transition-colors"
+          >
             Privacy
           </a>
         </p>

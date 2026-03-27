@@ -79,7 +79,10 @@ export function performLogin(deps: LoginDeps): Promise<LoginResult> {
     // Timeout
     const timer = setTimeout(() => {
       cleanup();
-      resolve({ success: false, error: "Login timeout — no response received" });
+      resolve({
+        success: false,
+        error: "Login timeout — no response received",
+      });
     }, timeoutMs);
 
     function cleanup() {

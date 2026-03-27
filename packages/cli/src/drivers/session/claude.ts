@@ -9,15 +9,16 @@
  * Parser: parseClaudeFileMulti(filePath, startOffset)
  */
 
+import type { Dirent } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { ClaudeCursor, ParseResult } from "@pika/core";
-import { fileUnchanged } from "../../utils/file-changed";
 import { parseClaudeFileMulti } from "../../parsers/claude";
+import { fileUnchanged } from "../../utils/file-changed";
 import type {
-  FileDriver,
-  DiscoverOpts,
   ByteOffsetResumeState,
+  DiscoverOpts,
+  FileDriver,
   FileFingerprint,
 } from "../types";
 
@@ -41,7 +42,7 @@ async function discoverClaudeFiles(claudeDir: string): Promise<string[]> {
 
 /** Recursively collect .jsonl files from a directory tree */
 async function walkJsonl(dir: string, results: string[]): Promise<void> {
-  let entries;
+  let entries: Dirent[];
   try {
     entries = await readdir(dir, { withFileTypes: true });
   } catch {

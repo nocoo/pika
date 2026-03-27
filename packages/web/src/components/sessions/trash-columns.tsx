@@ -1,15 +1,12 @@
 "use client";
 
-import { type ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
-import { Checkbox } from "@/components/ui/checkbox";
 import { AgentBadge } from "@/components/ui/agent-badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ModelBadge } from "@/components/ui/model-badge";
+import { formatDuration, relativeTime } from "@/lib/format";
 import { formatTokens } from "@/lib/utils";
-import {
-  formatDuration,
-  relativeTime,
-} from "@/lib/format";
 import type { SessionCardData } from "./session-card";
 
 // ── Trash-specific row type ───────────────────────────────────
@@ -36,9 +33,7 @@ export function getTrashColumns(): ColumnDef<TrashRowData, unknown>[] {
                 ? "indeterminate"
                 : false
           }
-          onCheckedChange={(value) =>
-            table.toggleAllPageRowsSelected(!!value)
-          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
           aria-label="Select all"
         />
       ),

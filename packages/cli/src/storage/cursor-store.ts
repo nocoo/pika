@@ -1,5 +1,5 @@
-import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { join, dirname } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import type { CursorState } from "@pika/core";
 
 const CURSORS_FILE = "cursors.json";
@@ -33,6 +33,6 @@ export class CursorStore {
   async save(state: CursorState): Promise<void> {
     const dir = dirname(this.filePath);
     await mkdir(dir, { recursive: true });
-    await writeFile(this.filePath, JSON.stringify(state, null, 2) + "\n");
+    await writeFile(this.filePath, `${JSON.stringify(state, null, 2)}\n`);
   }
 }

@@ -1,12 +1,12 @@
-import { describe, it, expect } from "vitest";
+import type { CanonicalMessage } from "@pika/core";
+import { MAX_CHUNK_SIZE } from "@pika/core";
+import { describe, expect, it } from "vitest";
 import {
-  splitText,
   buildToolContext,
   chunkMessage,
   chunkMessages,
+  splitText,
 } from "./chunking";
-import type { CanonicalMessage } from "@pika/core";
-import { MAX_CHUNK_SIZE } from "@pika/core";
 
 // ── splitText ──────────────────────────────────────────────────
 
@@ -51,8 +51,8 @@ describe("splitText", () => {
   it("splits at sentence boundary", () => {
     // sentence1 = 1999 "a"s + "." = 2000 chars, sentence2 = " " + 400 "b"s = 401 chars
     // total = 2401 > MAX_CHUNK_SIZE → triggers split
-    const sentence1 = "a".repeat(1999) + ".";
-    const sentence2 = " " + "b".repeat(400);
+    const sentence1 = `${"a".repeat(1999)}.`;
+    const sentence2 = ` ${"b".repeat(400)}`;
     const text = sentence1 + sentence2;
     const chunks = splitText(text);
     expect(chunks).toHaveLength(2);
@@ -61,8 +61,8 @@ describe("splitText", () => {
   });
 
   it("splits at sentence end with exclamation", () => {
-    const sentence1 = "a".repeat(1999) + "!";
-    const sentence2 = " " + "b".repeat(400);
+    const sentence1 = `${"a".repeat(1999)}!`;
+    const sentence2 = ` ${"b".repeat(400)}`;
     const text = sentence1 + sentence2;
     const chunks = splitText(text);
     expect(chunks).toHaveLength(2);
@@ -70,8 +70,8 @@ describe("splitText", () => {
   });
 
   it("splits at sentence end with question mark", () => {
-    const sentence1 = "a".repeat(1999) + "?";
-    const sentence2 = " " + "b".repeat(400);
+    const sentence1 = `${"a".repeat(1999)}?`;
+    const sentence2 = ` ${"b".repeat(400)}`;
     const text = sentence1 + sentence2;
     const chunks = splitText(text);
     expect(chunks).toHaveLength(2);
@@ -81,7 +81,7 @@ describe("splitText", () => {
   it("does not split at period in middle of word (e.g. filename)", () => {
     // "file.txt" has a dot but next char is "t" (not space/end) — should not split at the dot
     // total = 1995 + 8 = 2003 > 2000, no newlines/spaces → hard cut at 2000
-    const text = "a".repeat(1995) + "file.txt";
+    const text = `${"a".repeat(1995)}file.txt`;
     const chunks = splitText(text);
     expect(chunks).toHaveLength(2);
     expect(chunks[0]).toHaveLength(MAX_CHUNK_SIZE);
@@ -107,7 +107,10 @@ describe("splitText", () => {
   });
 
   it("handles multiple chunks correctly", () => {
-    const text = Array.from({ length: 5 }, (_, i) => `Para ${i + 1}: ${"x".repeat(1800)}`).join("\n\n");
+    const text = Array.from(
+      { length: 5 },
+      (_, i) => `Para ${i + 1}: ${"x".repeat(1800)}`,
+    ).join("\n\n");
     const chunks = splitText(text);
     // Verify all content is preserved
     expect(chunks.join("")).toBe(text);
@@ -127,7 +130,8 @@ describe("splitText", () => {
   });
 
   it("preserves exact content after joining chunks", () => {
-    const text = "The quick brown fox jumps over the lazy dog.\n\nSecond paragraph here with more text.\nThird line.\n\nFinal paragraph.";
+    const text =
+      "The quick brown fox jumps over the lazy dog.\n\nSecond paragraph here with more text.\nThird line.\n\nFinal paragraph.";
     const chunks = splitText(text, 50);
     expect(chunks.join("")).toBe(text);
   });
@@ -230,7 +234,9 @@ describe("buildToolContext", () => {
       toolInput: '{"path":"/src/index.ts"}',
       timestamp: "2026-01-01T00:00:00Z",
     };
-    expect(buildToolContext(msg)).toBe('tool:read_file {"path":"/src/index.ts"}');
+    expect(buildToolContext(msg)).toBe(
+      'tool:read_file {"path":"/src/index.ts"}',
+    );
   });
 });
 
@@ -271,7 +277,9 @@ describe("chunkMessage", () => {
       timestamp: "2026-01-01T00:00:00Z",
     };
     const chunks = chunkMessage(msg);
-    expect(chunks[0].toolContext).toBe('tool:read_file {"path":"/src/index.ts"}');
+    expect(chunks[0].toolContext).toBe(
+      'tool:read_file {"path":"/src/index.ts"}',
+    );
     for (let i = 1; i < chunks.length; i++) {
       expect(chunks[i].toolContext).toBeNull();
     }
@@ -294,9 +302,7 @@ describe("chunkMessage", () => {
       timestamp: "2026-01-01T00:00:00Z",
     };
     const chunks = chunkMessage(msg);
-    expect(chunks).toEqual([
-      { chunkIndex: 0, content: "", toolContext: null },
-    ]);
+    expect(chunks).toEqual([{ chunkIndex: 0, content: "", toolContext: null }]);
   });
 
   it("respects custom maxChunkSize", () => {
@@ -334,8 +340,16 @@ describe("chunkMessages", () => {
   it("handles multi-chunk messages with correct ordinals", () => {
     const messages: CanonicalMessage[] = [
       { role: "user", content: "Short", timestamp: "2026-01-01T00:00:00Z" },
-      { role: "assistant", content: "x".repeat(5000), timestamp: "2026-01-01T00:00:05Z" },
-      { role: "user", content: "Another short", timestamp: "2026-01-01T00:05:00Z" },
+      {
+        role: "assistant",
+        content: "x".repeat(5000),
+        timestamp: "2026-01-01T00:00:05Z",
+      },
+      {
+        role: "user",
+        content: "Another short",
+        timestamp: "2026-01-01T00:05:00Z",
+      },
     ];
     const chunks = chunkMessages(messages);
     // msg 0: 1 chunk, msg 1: 3 chunks, msg 2: 1 chunk = 5 total
@@ -352,7 +366,11 @@ describe("chunkMessages", () => {
 
   it("preserves tool_context in multi-message chunking", () => {
     const messages: CanonicalMessage[] = [
-      { role: "user", content: "Read this file", timestamp: "2026-01-01T00:00:00Z" },
+      {
+        role: "user",
+        content: "Read this file",
+        timestamp: "2026-01-01T00:00:00Z",
+      },
       {
         role: "tool",
         content: "x".repeat(3000),

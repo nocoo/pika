@@ -1,44 +1,43 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ProjectFilters,
-  type MinSessionsValue,
-  type ScopeFilter,
-} from "@/components/projects/project-filters";
-import { parseProjectDisplay } from "@/lib/format";
-import {
-  useReactTable,
   getCoreRowModel,
   type SortingState,
+  useReactTable,
 } from "@tanstack/react-table";
 import {
-  FolderKanban,
-  MessageSquare,
-  Layers,
-  Coins,
   ChevronRight,
+  Coins,
+  FolderKanban,
+  Layers,
+  MessageSquare,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { StatGrid, StatCard } from "@/components/dashboard/stat-card";
-import { ProjectSidebar } from "@/components/projects/project-sidebar";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { StatCard, StatGrid } from "@/components/dashboard/stat-card";
 import { ProjectDetailPanel } from "@/components/projects/project-detail-panel";
+import {
+  type MinSessionsValue,
+  ProjectFilters,
+  type ScopeFilter,
+} from "@/components/projects/project-filters";
 import { ProjectRankingChart } from "@/components/projects/project-ranking-chart";
+import { ProjectSidebar } from "@/components/projects/project-sidebar";
+import type { SessionCardData } from "@/components/sessions/session-card";
+import { getSessionColumns } from "@/components/sessions/session-columns";
 import {
   Collapsible,
-  CollapsibleTrigger,
   CollapsibleContent,
+  CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { getSessionColumns } from "@/components/sessions/session-columns";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatTokens } from "@/lib/utils";
-import type { SessionCardData } from "@/components/sessions/session-card";
-import type { SessionSort, SessionListResponse } from "@/lib/sessions";
+import { parseProjectDisplay } from "@/lib/format";
 import type {
   ProjectItem,
   ProjectOverview,
   ProjectSourceCount,
 } from "@/lib/projects";
+import type { SessionListResponse, SessionSort } from "@/lib/sessions";
+import { cn, formatTokens } from "@/lib/utils";
 
 // ── Sort mapping ─────────────────────────────────────────────
 
@@ -84,7 +83,8 @@ export default function ProjectsPage() {
   const [sessionsError, setSessionsError] = useState<string | null>(null);
   const [sessionsPage, setSessionsPage] = useState(1);
   const [sessionsPageSize, setSessionsPageSize] = useState(25);
-  const [sessionsSort, setSessionsSort] = useState<SessionSort>("last_message_at");
+  const [sessionsSort, setSessionsSort] =
+    useState<SessionSort>("last_message_at");
 
   // Star state (optimistic)
   const [starredMap, setStarredMap] = useState<Map<string, boolean>>(new Map());
@@ -111,7 +111,9 @@ export default function ProjectsPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load projects");
+          setError(
+            err instanceof Error ? err.message : "Failed to load projects",
+          );
         }
       } finally {
         if (!cancelled) {
@@ -186,7 +188,9 @@ export default function ProjectsPage() {
     const groups = new Map<string, ProjectItem[]>();
 
     for (const p of filteredProjects) {
-      const { displayName, scope: pScope } = parseProjectDisplay(p.project_name);
+      const { displayName, scope: pScope } = parseProjectDisplay(
+        p.project_name,
+      );
       const mergeKey = `${displayName}\0${pScope ?? ""}`;
       const existing = groups.get(mergeKey);
       if (existing) {
@@ -352,7 +356,7 @@ export default function ProjectsPage() {
           : updaterOrValue;
 
       if (newSorting.length > 0) {
-        const apiSort = COLUMN_TO_SORT[newSorting[0]!.id];
+        const apiSort = COLUMN_TO_SORT[newSorting[0]?.id];
         if (apiSort) {
           setSessionsSort(apiSort);
           setSessionsPage(1);
@@ -375,7 +379,9 @@ export default function ProjectsPage() {
 
   // ── Selected project name for header ───────────────────────
 
-  const selectedProject = mergedProjects.find((p) => p.project_key === selectedKey);
+  const selectedProject = mergedProjects.find(
+    (p) => p.project_key === selectedKey,
+  );
 
   const handleClose = useCallback(() => {
     setSelectedKey(null);
@@ -398,9 +404,7 @@ export default function ProjectsPage() {
       </div>
 
       {/* Error state */}
-      {error && (
-        <div className="text-sm text-destructive py-4">{error}</div>
-      )}
+      {error && <div className="text-sm text-destructive py-4">{error}</div>}
 
       {/* Filters */}
       {!loading && projects.length > 0 && (

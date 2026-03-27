@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { parseProjectDisplay } from "@/lib/format";
-import type { ProjectScope } from "@/lib/format";
 import { ProjectCard } from "@/components/projects/project-card";
+import type { ProjectScope } from "@/lib/format";
+import { parseProjectDisplay } from "@/lib/format";
 import type { ProjectItem, ProjectSourceCount } from "@/lib/projects";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ export function ProjectSidebar({
     for (const p of projects) {
       const { scope } = parseProjectDisplay(p.project_name);
       const key = scope ?? "other";
-      buckets.get(key)!.push(p);
+      buckets.get(key)?.push(p);
     }
 
     return SCOPE_ORDER.map(({ scope, label }) => ({

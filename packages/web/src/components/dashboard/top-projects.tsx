@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { cn } from "@/lib/utils";
-import { parseProjectDisplay, projectDisplayName } from "@/lib/format";
 import { ScopeBadge } from "@/components/ui/scope-badge";
+import { parseProjectDisplay, projectDisplayName } from "@/lib/format";
 import type { TopProject } from "@/lib/stats";
+import { cn } from "@/lib/utils";
 
 interface TopProjectsProps {
   projects: TopProject[];
@@ -14,7 +14,12 @@ interface TopProjectsProps {
 export function TopProjects({ projects, className }: TopProjectsProps) {
   if (projects.length === 0) {
     return (
-      <div className={cn("flex items-center justify-center py-8 text-sm text-muted-foreground", className)}>
+      <div
+        className={cn(
+          "flex items-center justify-center py-8 text-sm text-muted-foreground",
+          className,
+        )}
+      >
         No projects found
       </div>
     );

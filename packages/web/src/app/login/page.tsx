@@ -1,10 +1,10 @@
 "use client";
 
-import { signIn } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
-import Image from "next/image";
-import { Suspense } from "react";
 import { Github } from "lucide-react";
+import Image from "next/image";
+import { useSearchParams } from "next/navigation";
+import { signIn } from "next-auth/react";
+import { Suspense } from "react";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import logo256 from "../../../public/logo-256.png";
 
@@ -63,7 +63,11 @@ function LoginContent() {
           aria-label="GitHub repository"
           className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
         >
-          <Github className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={1.5} />
+          <Github
+            className="h-[18px] w-[18px]"
+            aria-hidden="true"
+            strokeWidth={1.5}
+          />
         </a>
         <ThemeToggle />
       </div>
@@ -89,12 +93,21 @@ function LoginContent() {
               <div
                 className="h-4 w-8 rounded-full bg-background/80"
                 style={{
-                  boxShadow: "inset 0 1.5px 3px rgba(0,0,0,0.35), inset 0 -0.5px 1px rgba(255,255,255,0.1)",
+                  boxShadow:
+                    "inset 0 1.5px 3px rgba(0,0,0,0.35), inset 0 -0.5px 1px rgba(255,255,255,0.1)",
                 }}
               />
               <div className="flex items-center gap-2">
-                <Image src={logo256} alt="Pika" width={16} height={16} className="brightness-0 invert" />
-                <span className="text-sm font-semibold font-handwriting text-primary-foreground">Pika</span>
+                <Image
+                  src={logo256}
+                  alt="Pika"
+                  width={16}
+                  height={16}
+                  className="brightness-0 invert"
+                />
+                <span className="text-sm font-semibold font-handwriting text-primary-foreground">
+                  Pika
+                </span>
               </div>
               <span className="text-[10px] font-medium uppercase tracking-widest text-primary-foreground/60">
                 DEV
@@ -118,8 +131,12 @@ function LoginContent() {
               <Image src={logo256} alt="Pika" width={80} height={80} />
             </div>
 
-            <p className="mt-5 text-lg font-semibold text-foreground">Replay your sessions</p>
-            <p className="mt-1 text-xs text-muted-foreground">Sign in to view your dashboard</p>
+            <p className="mt-5 text-lg font-semibold text-foreground">
+              Replay your sessions
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Sign in to view your dashboard
+            </p>
 
             {/* Error message */}
             {error && (
@@ -165,7 +182,10 @@ function LoginContent() {
             {/* Terms */}
             <p className="mt-3 text-center text-[10px] leading-relaxed text-muted-foreground/60">
               By signing in you agree to our{" "}
-              <a href="/privacy" className="underline hover:text-muted-foreground transition-colors">
+              <a
+                href="/privacy"
+                className="underline hover:text-muted-foreground transition-colors"
+              >
                 privacy policy
               </a>
             </p>
@@ -175,7 +195,9 @@ function LoginContent() {
           <div className="mt-auto flex items-center justify-center border-t border-border bg-secondary/50 py-2.5">
             <div className="flex items-center gap-1.5">
               <div className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
-              <span className="text-[10px] text-muted-foreground">Secure Auth</span>
+              <span className="text-[10px] text-muted-foreground">
+                Secure Auth
+              </span>
             </div>
           </div>
         </div>
@@ -186,7 +208,13 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>}>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      }
+    >
       <LoginContent />
     </Suspense>
   );

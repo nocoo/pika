@@ -1,8 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   buildSearchQuery,
-  parseSearchParams,
   isSearchError,
+  parseSearchParams,
   sanitizeSnippet,
 } from "./search";
 
@@ -237,12 +237,12 @@ describe("sanitizeSnippet", () => {
   it("escapes HTML tags in user content", () => {
     const raw = '<script>alert("xss")</script>';
     expect(sanitizeSnippet(raw)).toBe(
-      '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;',
+      "&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;",
     );
   });
 
   it("escapes HTML while preserving highlight markers", () => {
-    const raw = '\x01<img src=x onerror=alert(1)>\x02 safe text';
+    const raw = "\x01<img src=x onerror=alert(1)>\x02 safe text";
     expect(sanitizeSnippet(raw)).toBe(
       "<mark>&lt;img src=x onerror=alert(1)&gt;</mark> safe text",
     );

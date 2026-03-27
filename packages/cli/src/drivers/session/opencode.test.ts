@@ -6,11 +6,11 @@
  * openCodeSessionState deposit), buildCursor (with messageDirMtimeMs)
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, writeFile, mkdir, rm, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import type { OpenCodeCursor, ParseResult } from "@pika/core";
+import { join } from "node:path";
+import type { OpenCodeCursor } from "@pika/core";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { FileFingerprint, SyncContext } from "../types";
 import { createOpenCodeJsonDriver } from "./opencode";
 
@@ -31,10 +31,7 @@ function writeSessionJson(
     time: { created: 1700000000000, updated: 1700000300000 },
     ...overrides,
   };
-  return writeFile(
-    join(dir, `${sessionId}.json`),
-    JSON.stringify(data),
-  );
+  return writeFile(join(dir, `${sessionId}.json`), JSON.stringify(data));
 }
 
 function writeMessageJson(
@@ -82,9 +79,7 @@ const fp = (overrides: Partial<FileFingerprint> = {}): FileFingerprint => ({
   ...overrides,
 });
 
-function makeCursor(
-  overrides: Partial<OpenCodeCursor> = {},
-): OpenCodeCursor {
+function makeCursor(overrides: Partial<OpenCodeCursor> = {}): OpenCodeCursor {
   return {
     inode: 12345,
     mtimeMs: 1700000000000,
@@ -185,11 +180,15 @@ describe("openCodeJsonDriver.discover", () => {
     const driver = createOpenCodeJsonDriver(ctx);
 
     // First pass
-    const firstFiles = await driver.discover({ openCodeMessageDir: messageDir });
+    const firstFiles = await driver.discover({
+      openCodeMessageDir: messageDir,
+    });
     expect(firstFiles).toHaveLength(1);
 
     // Second pass: should still return the file (no dir mtime skip)
-    const secondFiles = await driver.discover({ openCodeMessageDir: messageDir });
+    const secondFiles = await driver.discover({
+      openCodeMessageDir: messageDir,
+    });
     expect(secondFiles).toHaveLength(1);
   });
 
@@ -232,7 +231,7 @@ describe("openCodeJsonDriver.discover", () => {
     expect(ctx.openCodeMsgDirMtimes).toBeDefined();
     expect(Object.keys(ctx.openCodeMsgDirMtimes!)).toHaveLength(1);
     const filePath = files[0];
-    expect(ctx.openCodeMsgDirMtimes![filePath]).toBeTypeOf("number");
+    expect(ctx.openCodeMsgDirMtimes?.[filePath]).toBeTypeOf("number");
   });
 
   it("does not include msgDirMtime for sessions without message dir", async () => {
@@ -531,7 +530,7 @@ describe("openCodeJsonDriver.parse", () => {
     await driver.parse(filePath, { kind: "opencode-json" });
 
     expect(ctx.openCodeSessionState).toBeDefined();
-    expect(ctx.openCodeSessionState!.has("opencode:ses_001")).toBe(true);
+    expect(ctx.openCodeSessionState?.has("opencode:ses_001")).toBe(true);
     const info = ctx.openCodeSessionState!.get("opencode:ses_001")!;
     expect(info.totalMessages).toBe(1);
     expect(info.lastMessageAt).toBeDefined();
@@ -539,10 +538,9 @@ describe("openCodeJsonDriver.parse", () => {
 
   it("returns empty result for missing session file", async () => {
     const driver = createOpenCodeJsonDriver();
-    const results = await driver.parse(
-      join(tmpDir, "nonexistent.json"),
-      { kind: "opencode-json" },
-    );
+    const results = await driver.parse(join(tmpDir, "nonexistent.json"), {
+      kind: "opencode-json",
+    });
     expect(results).toHaveLength(1);
     expect(results[0].canonical.messages).toHaveLength(0);
   });

@@ -55,7 +55,11 @@ function findSplitPosition(text: string, maxLen: number): number {
     const ch = searchRegion[i];
     if (ch === "." || ch === "!" || ch === "?") {
       // Check if next char is space, newline, or end of searchRegion
-      if (i + 1 >= searchRegion.length || searchRegion[i + 1] === " " || searchRegion[i + 1] === "\n") {
+      if (
+        i + 1 >= searchRegion.length ||
+        searchRegion[i + 1] === " " ||
+        searchRegion[i + 1] === "\n"
+      ) {
         return i + 1;
       }
     }
@@ -73,7 +77,10 @@ function findSplitPosition(text: string, maxLen: number): number {
  * Split a text string into chunks of at most MAX_CHUNK_SIZE characters,
  * preferring natural boundaries.
  */
-export function splitText(text: string, maxChunkSize = MAX_CHUNK_SIZE): string[] {
+export function splitText(
+  text: string,
+  maxChunkSize = MAX_CHUNK_SIZE,
+): string[] {
   if (!text) return [""];
 
   const chunks: string[] = [];

@@ -1,17 +1,17 @@
-import { defineCommand } from "citty";
-import { join, basename } from "node:path";
-import consola from "consola";
-import { CONFIG_DIR, SOURCES } from "@pika/core";
+import { basename, join } from "node:path";
 import type { OpenCodeSqliteCursor } from "@pika/core";
+import { CONFIG_DIR, SOURCES } from "@pika/core";
+import { defineCommand } from "citty";
+import consola from "consola";
 import { ConfigManager } from "../config/manager";
-import { CursorStore } from "../storage/cursor-store";
-import { buildDriverSet } from "../drivers/registry";
 import type { DriverSet } from "../drivers/registry";
-import { createOpenCodeSqliteDriver } from "../drivers/session/opencode-sqlite";
+import { buildDriverSet } from "../drivers/registry";
 import type { OpenDbFn } from "../drivers/session/opencode-sqlite";
+import { createOpenCodeSqliteDriver } from "../drivers/session/opencode-sqlite";
 import type { DbDriver, SyncContext } from "../drivers/types";
-import { runSyncPipeline } from "./sync-pipeline";
+import { CursorStore } from "../storage/cursor-store";
 import type { SyncProgressLogger } from "./sync-pipeline";
+import { runSyncPipeline } from "./sync-pipeline";
 
 // ── DB driver construction (extracted for testability) ────────
 
@@ -44,7 +44,10 @@ export async function buildDbDriver(
       new bunSqlite.Database(path, { readonly: opts?.readonly ?? true });
   }
 
-  return createOpenCodeSqliteDriver(openDb, driverSet.discoverOpts.openCodeDbPath);
+  return createOpenCodeSqliteDriver(
+    openDb,
+    driverSet.discoverOpts.openCodeDbPath,
+  );
 }
 
 export default defineCommand({
@@ -76,9 +79,13 @@ export default defineCommand({
     let sourceFilter: Set<string> | undefined;
     if (args.source) {
       const requested = (args.source as string).split(",").map((s) => s.trim());
-      const invalid = requested.filter((s) => !(SOURCES as readonly string[]).includes(s));
+      const invalid = requested.filter(
+        (s) => !(SOURCES as readonly string[]).includes(s),
+      );
       if (invalid.length > 0) {
-        consola.error(`Unknown source(s): ${invalid.join(", ")}. Valid: ${SOURCES.join(", ")}`);
+        consola.error(
+          `Unknown source(s): ${invalid.join(", ")}. Valid: ${SOURCES.join(", ")}`,
+        );
         process.exitCode = 1;
         return;
       }
@@ -117,9 +124,7 @@ export default defineCommand({
     const dbDriver = await buildDbDriver(driverSet);
 
     const sourceCount = driverSet.fileDrivers.length + (dbDriver ? 1 : 0);
-    consola.start(
-      `Syncing ${sourceCount} source(s)...`,
-    );
+    consola.start(`Syncing ${sourceCount} source(s)...`);
 
     // Build progress logger backed by consola
     const logger: SyncProgressLogger = {
@@ -130,7 +135,9 @@ export default defineCommand({
         consola.info(`  [${source}] Found ${fileCount} file(s)`);
       },
       parseDone(source, filePath, sessionCount) {
-        consola.info(`  [${source}] Parsed ${sessionCount} session(s) from ${basename(filePath)}`);
+        consola.info(
+          `  [${source}] Parsed ${sessionCount} session(s) from ${basename(filePath)}`,
+        );
       },
       uploadMetadataStart(sessionCount) {
         consola.info(`Uploading metadata for ${sessionCount} session(s)...`);
@@ -208,9 +215,7 @@ export default defineCommand({
     }
 
     if (result.parseErrors.length > 0) {
-      consola.warn(
-        `${result.parseErrors.length} parse error(s) in this run`,
-      );
+      consola.warn(`${result.parseErrors.length} parse error(s) in this run`);
     }
   },
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { Star, StarOff, Trash2, RotateCcw, Loader2 } from "lucide-react";
+import { Loader2, RotateCcw, Star, StarOff, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -11,7 +11,13 @@ interface BulkActionDef {
   action: BulkAction;
   label: string;
   icon: React.ReactNode;
-  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
+  variant?:
+    | "default"
+    | "destructive"
+    | "outline"
+    | "secondary"
+    | "ghost"
+    | "link";
 }
 
 interface DataTableBulkBarProps {
@@ -30,12 +36,25 @@ interface DataTableBulkBarProps {
 
 export const SESSION_BULK_ACTIONS: BulkActionDef[] = [
   { action: "star", label: "Star", icon: <Star className="h-3.5 w-3.5" /> },
-  { action: "unstar", label: "Unstar", icon: <StarOff className="h-3.5 w-3.5" /> },
-  { action: "delete", label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, variant: "destructive" },
+  {
+    action: "unstar",
+    label: "Unstar",
+    icon: <StarOff className="h-3.5 w-3.5" />,
+  },
+  {
+    action: "delete",
+    label: "Delete",
+    icon: <Trash2 className="h-3.5 w-3.5" />,
+    variant: "destructive",
+  },
 ];
 
 export const TRASH_BULK_ACTIONS: BulkActionDef[] = [
-  { action: "restore", label: "Restore", icon: <RotateCcw className="h-3.5 w-3.5" /> },
+  {
+    action: "restore",
+    label: "Restore",
+    icon: <RotateCcw className="h-3.5 w-3.5" />,
+  },
 ];
 
 // ── Component ─────────────────────────────────────────────────
@@ -56,9 +75,13 @@ export function DataTableBulkBar({
     <div className="flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-2">
       <span className="text-sm text-muted-foreground whitespace-nowrap">
         {selectAllMode ? (
-          <>All <strong>{totalCount}</strong> matching selected</>
+          <>
+            All <strong>{totalCount}</strong> matching selected
+          </>
         ) : (
-          <><strong>{selectedCount}</strong> selected</>
+          <>
+            <strong>{selectedCount}</strong> selected
+          </>
         )}
       </span>
 
@@ -85,7 +108,11 @@ export function DataTableBulkBar({
           disabled={loading}
           className="gap-1.5 h-7 text-xs"
         >
-          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : def.icon}
+          {loading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            def.icon
+          )}
           {def.label}
         </Button>
       ))}

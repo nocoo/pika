@@ -1,10 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { generateTitle, getFirstUserMessage } from "./title";
 import type { CanonicalMessage } from "./types";
 
 // ── Helpers ──────────────────────────────────────────────────────
 
-function makeMsg(role: CanonicalMessage["role"], content: string): CanonicalMessage {
+function makeMsg(
+  role: CanonicalMessage["role"],
+  content: string,
+): CanonicalMessage {
   return {
     role,
     content,
@@ -20,10 +23,7 @@ describe("getFirstUserMessage", () => {
   });
 
   it("returns null when no user messages exist", () => {
-    const msgs = [
-      makeMsg("assistant", "Hello"),
-      makeMsg("tool", "result"),
-    ];
+    const msgs = [makeMsg("assistant", "Hello"), makeMsg("tool", "result")];
     expect(getFirstUserMessage(msgs)).toBeNull();
   });
 
@@ -76,9 +76,7 @@ describe("generateTitle", () => {
   });
 
   it("returns message with project prefix", () => {
-    expect(generateTitle("my-app", "fix the bug")).toBe(
-      "[my-app] fix the bug",
-    );
+    expect(generateTitle("my-app", "fix the bug")).toBe("[my-app] fix the bug");
   });
 
   it("extracts last path segment from project name", () => {
@@ -88,20 +86,22 @@ describe("generateTitle", () => {
   });
 
   it("truncates long messages at word boundary", () => {
-    const longMsg = "implement a comprehensive authentication system with OAuth2 support including Google and GitHub providers and session management";
+    const longMsg =
+      "implement a comprehensive authentication system with OAuth2 support including Google and GitHub providers and session management";
     const title = generateTitle(null, longMsg);
-    expect(title!.length).toBeLessThanOrEqual(80);
-    expect(title!.endsWith("…")).toBe(true);
+    expect(title?.length).toBeLessThanOrEqual(80);
+    expect(title?.endsWith("…")).toBe(true);
     // Should not cut in the middle of a word
-    expect(title!.slice(0, -1).endsWith(" ")).toBeFalsy();
+    expect(title?.slice(0, -1).endsWith(" ")).toBeFalsy();
   });
 
   it("truncates with project prefix within 80 chars", () => {
-    const longMsg = "implement a comprehensive authentication system with OAuth2 support including Google and GitHub providers";
+    const longMsg =
+      "implement a comprehensive authentication system with OAuth2 support including Google and GitHub providers";
     const title = generateTitle("my-app", longMsg);
-    expect(title!.length).toBeLessThanOrEqual(80);
-    expect(title!.startsWith("[my-app] ")).toBe(true);
-    expect(title!.endsWith("…")).toBe(true);
+    expect(title?.length).toBeLessThanOrEqual(80);
+    expect(title?.startsWith("[my-app] ")).toBe(true);
+    expect(title?.endsWith("…")).toBe(true);
   });
 
   it("does not truncate short messages", () => {
@@ -117,20 +117,22 @@ describe("generateTitle", () => {
   it("handles exactly 80 char message without truncation", () => {
     const msg = "a".repeat(80);
     expect(generateTitle(null, msg)).toBe(msg);
-    expect(generateTitle(null, msg)!.length).toBe(80);
+    expect(generateTitle(null, msg)?.length).toBe(80);
   });
 
   it("handles 81 char message with truncation", () => {
     const msg = "a".repeat(81);
     const title = generateTitle(null, msg);
-    expect(title!.length).toBeLessThanOrEqual(80);
-    expect(title!.endsWith("…")).toBe(true);
+    expect(title?.length).toBeLessThanOrEqual(80);
+    expect(title?.endsWith("…")).toBe(true);
   });
 
   it("handles single long word without spaces", () => {
-    const msg = "superlongcommandthathasnospacesandexceedsthelimitbyfar".repeat(2);
+    const msg = "superlongcommandthathasnospacesandexceedsthelimitbyfar".repeat(
+      2,
+    );
     const title = generateTitle(null, msg);
-    expect(title!.length).toBeLessThanOrEqual(80);
-    expect(title!.endsWith("…")).toBe(true);
+    expect(title?.length).toBeLessThanOrEqual(80);
+    expect(title?.endsWith("…")).toBe(true);
   });
 });

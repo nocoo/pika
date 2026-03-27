@@ -1,13 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  parseClaudeFile,
-  extractProjectRef,
   extractProjectName,
+  extractProjectRef,
+  parseClaudeFile,
 } from "./claude";
-import type { CanonicalMessage } from "@pika/core";
 
 describe("parseClaudeFile", () => {
   let tempDir: string;
@@ -93,7 +92,7 @@ describe("parseClaudeFile", () => {
     lines: string[],
   ): Promise<string> {
     const filePath = join(tempDir, filename);
-    await writeFile(filePath, lines.join("\n") + "\n");
+    await writeFile(filePath, `${lines.join("\n")}\n`);
     return filePath;
   }
 
@@ -251,9 +250,15 @@ describe("parseClaudeFile", () => {
   it("uses last seen model as session model", async () => {
     const filePath = await writeJsonl("test.jsonl", [
       userLine({}),
-      assistantLine({ model: "claude-3-haiku", timestamp: "2026-01-01T00:00:00Z" }),
+      assistantLine({
+        model: "claude-3-haiku",
+        timestamp: "2026-01-01T00:00:00Z",
+      }),
       userLine({ timestamp: "2026-01-01T00:01:00Z" }),
-      assistantLine({ model: "claude-sonnet-4-20250514", timestamp: "2026-01-01T00:02:00Z" }),
+      assistantLine({
+        model: "claude-sonnet-4-20250514",
+        timestamp: "2026-01-01T00:02:00Z",
+      }),
     ]);
 
     const result = await parseClaudeFile(filePath);
@@ -264,9 +269,17 @@ describe("parseClaudeFile", () => {
 
   it("groups messages by sessionId and returns first session", async () => {
     const filePath = await writeJsonl("test.jsonl", [
-      userLine({ sessionId: "sess-A", content: "Hello A", timestamp: "2026-01-01T00:00:00Z" }),
+      userLine({
+        sessionId: "sess-A",
+        content: "Hello A",
+        timestamp: "2026-01-01T00:00:00Z",
+      }),
       assistantLine({ sessionId: "sess-A", timestamp: "2026-01-01T00:01:00Z" }),
-      userLine({ sessionId: "sess-B", content: "Hello B", timestamp: "2026-01-01T00:02:00Z" }),
+      userLine({
+        sessionId: "sess-B",
+        content: "Hello B",
+        timestamp: "2026-01-01T00:02:00Z",
+      }),
       assistantLine({ sessionId: "sess-B", timestamp: "2026-01-01T00:03:00Z" }),
     ]);
 
@@ -279,9 +292,17 @@ describe("parseClaudeFile", () => {
     // This test uses the multi-session variant
     const { parseClaudeFileMulti } = await import("./claude.js");
     const filePath = await writeJsonl("test.jsonl", [
-      userLine({ sessionId: "sess-A", content: "Hello A", timestamp: "2026-01-01T00:00:00Z" }),
+      userLine({
+        sessionId: "sess-A",
+        content: "Hello A",
+        timestamp: "2026-01-01T00:00:00Z",
+      }),
       assistantLine({ sessionId: "sess-A", timestamp: "2026-01-01T00:01:00Z" }),
-      userLine({ sessionId: "sess-B", content: "Hello B", timestamp: "2026-01-01T00:02:00Z" }),
+      userLine({
+        sessionId: "sess-B",
+        content: "Hello B",
+        timestamp: "2026-01-01T00:02:00Z",
+      }),
       assistantLine({ sessionId: "sess-B", timestamp: "2026-01-01T00:03:00Z" }),
     ]);
 
@@ -338,7 +359,7 @@ describe("parseClaudeFile", () => {
       timestamp: "2026-01-01T00:00:00Z",
       message: { role: "user", content: "No session" },
     });
-    await writeFile(filePath, lineWithoutSessionId + "\n");
+    await writeFile(filePath, `${lineWithoutSessionId}\n`);
 
     const result = await parseClaudeFile(filePath);
     expect(result.canonical.messages).toHaveLength(0);
@@ -370,10 +391,7 @@ describe("parseClaudeFile", () => {
         content: [{ type: "text", text: "No usage" }],
       },
     });
-    await writeFile(
-      filePath,
-      userLine({}) + "\n" + line + "\n",
-    );
+    await writeFile(filePath, `${userLine({})}\n${line}\n`);
 
     const result = await parseClaudeFile(filePath);
     expect(result.canonical.messages[1].inputTokens).toBeUndefined();
@@ -413,7 +431,7 @@ describe("parseClaudeFile", () => {
     expect(full.canonical.messages).toHaveLength(2);
 
     // Offset after first line (line + newline)
-    const offset = Buffer.byteLength(line1 + "\n");
+    const offset = Buffer.byteLength(`${line1}\n`);
 
     // Resume from offset: startOffset is only a "has new data?" gate.
     // Parsing always starts from byte 0 to produce full canonical snapshots.
@@ -433,7 +451,7 @@ describe("extractProjectRef", () => {
     );
     expect(ref).toBeTruthy();
     expect(typeof ref).toBe("string");
-    expect(ref!.length).toBe(16); // SHA-256 truncated to 16 hex chars
+    expect(ref?.length).toBe(16); // SHA-256 truncated to 16 hex chars
   });
 
   it("returns null when projects dir not found in path", () => {

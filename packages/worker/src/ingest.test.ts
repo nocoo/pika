@@ -1,19 +1,19 @@
-import { describe, it, expect, vi } from "vitest";
+import { PIKA_VERSION } from "@pika/core";
+import { describe, expect, it, vi } from "vitest";
 import {
+  checkVersionConflicts,
+  DecompressionLimitError,
+  decompressBody,
+  type Env,
+  handleCanonicalUpload,
+  handleLive,
+  handleRawUpload,
+  handleSessionIngest,
+  type IngestSessionPayload,
+  parseContentPath,
   validateIngestRequest,
   validateWorkerAuth,
-  handleSessionIngest,
-  handleCanonicalUpload,
-  handleRawUpload,
-  handleLive,
-  parseContentPath,
-  decompressBody,
-  DecompressionLimitError,
-  checkVersionConflicts,
-  type IngestSessionPayload,
-  type Env,
 } from "./index";
-import { PIKA_VERSION } from "@pika/core";
 
 // ── Test data ──────────────────────────────────────────────────
 
@@ -47,7 +47,11 @@ const validPayload: IngestSessionPayload = {
 
 function makeRequest(
   url: string,
-  options?: { method?: string; headers?: Record<string, string>; body?: unknown },
+  options?: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: unknown;
+  },
 ): Request {
   const { method = "POST", headers = {}, body } = options ?? {};
   return new Request(url, {
@@ -76,11 +80,13 @@ function mockD1(
   let callIndex = 0;
   const results = batchResults ?? [
     [{ results: [] }], // version check: no existing sessions (new)
-    [],                 // upsert: success
+    [], // upsert: success
   ];
 
   const mockFirst = vi.fn().mockResolvedValue(opts?.firstResult ?? null);
-  const mockRun = vi.fn().mockResolvedValue(opts?.runResult ?? { success: true });
+  const mockRun = vi
+    .fn()
+    .mockResolvedValue(opts?.runResult ?? { success: true });
 
   return {
     prepare: vi.fn().mockReturnValue({
@@ -227,9 +233,7 @@ describe("validateIngestRequest", () => {
     };
     const result = validateIngestRequest(payload);
     expect(result.valid).toBe(false);
-    expect(result.errors).toContainEqual(
-      expect.stringContaining("sessionKey"),
-    );
+    expect(result.errors).toContainEqual(expect.stringContaining("sessionKey"));
   });
 
   it("validates content hash is present", () => {
@@ -274,17 +278,23 @@ describe("checkVersionConflicts", () => {
     const db = mockD1([
       [{ results: [] }], // no existing row
     ]);
-    const conflicts = await checkVersionConflicts(
-      "user-1",
-      [validSession],
-      db,
-    );
+    const conflicts = await checkVersionConflicts("user-1", [validSession], db);
     expect(conflicts).toEqual([]);
   });
 
   it("returns empty when incoming version equals existing", async () => {
     const db = mockD1([
-      [{ results: [{ session_key: "claude:abc-123", parser_revision: 1, schema_version: 1 }] }],
+      [
+        {
+          results: [
+            {
+              session_key: "claude:abc-123",
+              parser_revision: 1,
+              schema_version: 1,
+            },
+          ],
+        },
+      ],
     ]);
     const conflicts = await checkVersionConflicts(
       "user-1",
@@ -296,7 +306,17 @@ describe("checkVersionConflicts", () => {
 
   it("returns empty when incoming version is newer", async () => {
     const db = mockD1([
-      [{ results: [{ session_key: "claude:abc-123", parser_revision: 1, schema_version: 1 }] }],
+      [
+        {
+          results: [
+            {
+              session_key: "claude:abc-123",
+              parser_revision: 1,
+              schema_version: 1,
+            },
+          ],
+        },
+      ],
     ]);
     const conflicts = await checkVersionConflicts(
       "user-1",
@@ -308,7 +328,17 @@ describe("checkVersionConflicts", () => {
 
   it("detects older parser_revision", async () => {
     const db = mockD1([
-      [{ results: [{ session_key: "claude:abc-123", parser_revision: 3, schema_version: 1 }] }],
+      [
+        {
+          results: [
+            {
+              session_key: "claude:abc-123",
+              parser_revision: 3,
+              schema_version: 1,
+            },
+          ],
+        },
+      ],
     ]);
     const conflicts = await checkVersionConflicts(
       "user-1",
@@ -328,7 +358,17 @@ describe("checkVersionConflicts", () => {
 
   it("detects older schema_version", async () => {
     const db = mockD1([
-      [{ results: [{ session_key: "claude:abc-123", parser_revision: 1, schema_version: 2 }] }],
+      [
+        {
+          results: [
+            {
+              session_key: "claude:abc-123",
+              parser_revision: 1,
+              schema_version: 2,
+            },
+          ],
+        },
+      ],
     ]);
     const conflicts = await checkVersionConflicts(
       "user-1",
@@ -354,7 +394,15 @@ describe("checkVersionConflicts", () => {
     const db = mockD1([
       [
         { results: [] }, // first session: new
-        { results: [{ session_key: "claude:stale-one", parser_revision: 5, schema_version: 1 }] },
+        {
+          results: [
+            {
+              session_key: "claude:stale-one",
+              parser_revision: 5,
+              schema_version: 1,
+            },
+          ],
+        },
       ],
     ]);
     const conflicts = await checkVersionConflicts("user-1", sessions, db);
@@ -376,36 +424,43 @@ describe("handleSessionIngest", () => {
 
   it("returns 400 for invalid payload", async () => {
     const env = mockEnv();
-    const res = await handleSessionIngest(
-      { userId: "", sessions: [] },
-      env,
-    );
+    const res = await handleSessionIngest({ userId: "", sessions: [] }, env);
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string[] };
+    const body = (await res.json()) as { error: string[] };
     expect(body.error.length).toBeGreaterThan(0);
   });
 
   it("inserts new sessions successfully (version check returns empty)", async () => {
     const env = mockEnv([
       [{ results: [] }], // version check: no existing
-      [],                 // upsert: ok
+      [], // upsert: ok
     ]);
     const res = await handleSessionIngest(validPayload, env);
     expect(res.status).toBe(200);
 
-    const body = await res.json() as { ingested: number };
+    const body = (await res.json()) as { ingested: number };
     expect(body.ingested).toBe(1);
     expect(env.DB.batch).toHaveBeenCalledTimes(2); // version check + upsert
   });
 
   it("returns 409 when incoming version is older than existing", async () => {
     const env = mockEnv([
-      [{ results: [{ session_key: "claude:abc-123", parser_revision: 5, schema_version: 1 }] }],
+      [
+        {
+          results: [
+            {
+              session_key: "claude:abc-123",
+              parser_revision: 5,
+              schema_version: 1,
+            },
+          ],
+        },
+      ],
     ]);
     const res = await handleSessionIngest(validPayload, env);
     expect(res.status).toBe(409);
 
-    const body = await res.json() as { error: string; conflicts: unknown[] };
+    const body = (await res.json()) as { error: string; conflicts: unknown[] };
     expect(body.error).toContain("Version conflict");
     expect(body.conflicts).toHaveLength(1);
     // Upsert batch should NOT have been called
@@ -414,7 +469,17 @@ describe("handleSessionIngest", () => {
 
   it("proceeds when incoming version equals existing", async () => {
     const env = mockEnv([
-      [{ results: [{ session_key: "claude:abc-123", parser_revision: 1, schema_version: 1 }] }],
+      [
+        {
+          results: [
+            {
+              session_key: "claude:abc-123",
+              parser_revision: 1,
+              schema_version: 1,
+            },
+          ],
+        },
+      ],
       [], // upsert
     ]);
     const res = await handleSessionIngest(validPayload, env);
@@ -428,7 +493,17 @@ describe("handleSessionIngest", () => {
       sessions: [{ ...validSession, parserRevision: 3 }],
     };
     const env = mockEnv([
-      [{ results: [{ session_key: "claude:abc-123", parser_revision: 1, schema_version: 1 }] }],
+      [
+        {
+          results: [
+            {
+              session_key: "claude:abc-123",
+              parser_revision: 1,
+              schema_version: 1,
+            },
+          ],
+        },
+      ],
       [], // upsert
     ]);
     const res = await handleSessionIngest(payload, env);
@@ -438,7 +513,8 @@ describe("handleSessionIngest", () => {
   it("returns 500 when D1 batch fails", async () => {
     const db = {
       prepare: vi.fn().mockReturnValue({ bind: vi.fn().mockReturnValue({}) }),
-      batch: vi.fn()
+      batch: vi
+        .fn()
         .mockResolvedValueOnce([{ results: [] }]) // version check ok
         .mockRejectedValueOnce(new Error("D1 write quota exceeded")), // upsert fails
     } as unknown as D1Database;
@@ -446,7 +522,7 @@ describe("handleSessionIngest", () => {
     const env: Env = { DB: db, BUCKET: mockR2(), WORKER_SECRET: "secret" };
     const res = await handleSessionIngest(validPayload, env);
     expect(res.status).toBe(500);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toContain("D1 batch failed");
   });
 });
@@ -455,7 +531,9 @@ describe("handleSessionIngest", () => {
 
 describe("parseContentPath", () => {
   it("parses canonical path", () => {
-    const result = parseContentPath("/ingest/content/claude%3Aabc-123/canonical");
+    const result = parseContentPath(
+      "/ingest/content/claude%3Aabc-123/canonical",
+    );
     expect(result).toEqual({ sessionKey: "claude:abc-123", type: "canonical" });
   });
 
@@ -501,7 +579,9 @@ describe("decompressBody", () => {
     const original = "y".repeat(10_000);
     const compressed = await gzipCompress(original);
     const stream = new Blob([compressed]).stream();
-    await expect(decompressBody(stream, 100)).rejects.toThrow(DecompressionLimitError);
+    await expect(decompressBody(stream, 100)).rejects.toThrow(
+      DecompressionLimitError,
+    );
   });
 
   it("allows data within the specified limit", async () => {
@@ -530,7 +610,11 @@ describe("handleCanonicalUpload", () => {
     title: "Test",
     messages: [
       { role: "user", content: "Hello", timestamp: "2026-01-15T10:00:00Z" },
-      { role: "assistant", content: "Hi there!", timestamp: "2026-01-15T10:00:05Z" },
+      {
+        role: "assistant",
+        content: "Hi there!",
+        timestamp: "2026-01-15T10:00:05Z",
+      },
     ],
     totalInputTokens: 100,
     totalOutputTokens: 200,
@@ -544,18 +628,21 @@ describe("handleCanonicalUpload", () => {
   ): Promise<Request> {
     const json = body ?? JSON.stringify(canonicalSession);
     const compressed = await gzipCompress(json);
-    return new Request("http://worker/ingest/content/claude%3Aabc-123/canonical", {
-      method: "PUT",
-      headers: {
-        "Content-Encoding": "gzip",
-        "Content-Type": "application/octet-stream",
-        "X-Content-Hash": "newhash123",
-        "X-Parser-Revision": "1",
-        "X-Schema-Version": "1",
-        ...headers,
+    return new Request(
+      "http://worker/ingest/content/claude%3Aabc-123/canonical",
+      {
+        method: "PUT",
+        headers: {
+          "Content-Encoding": "gzip",
+          "Content-Type": "application/octet-stream",
+          "X-Content-Hash": "newhash123",
+          "X-Parser-Revision": "1",
+          "X-Schema-Version": "1",
+          ...headers,
+        },
+        body: compressed,
       },
-      body: compressed,
-    });
+    );
   }
 
   function mockEnvForCanonical(sessionRow: unknown): Env {
@@ -574,9 +661,14 @@ describe("handleCanonicalUpload", () => {
       body: "test",
     });
     const env = mockEnvForCanonical(null);
-    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    const res = await handleCanonicalUpload(
+      "claude:abc-123",
+      "user-1",
+      req,
+      env,
+    );
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toContain("X-Content-Hash");
   });
 
@@ -591,9 +683,14 @@ describe("handleCanonicalUpload", () => {
       body: "test",
     });
     const env = mockEnvForCanonical(null);
-    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    const res = await handleCanonicalUpload(
+      "claude:abc-123",
+      "user-1",
+      req,
+      env,
+    );
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toContain("X-Parser-Revision");
   });
 
@@ -608,21 +705,33 @@ describe("handleCanonicalUpload", () => {
       body: "test",
     });
     const env = mockEnvForCanonical(null);
-    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    const res = await handleCanonicalUpload(
+      "claude:abc-123",
+      "user-1",
+      req,
+      env,
+    );
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toContain("X-Schema-Version");
   });
 
   it("returns 404 when session not found", async () => {
     const req = await makeCanonicalRequest();
     const env = mockEnvForCanonical(null);
-    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    const res = await handleCanonicalUpload(
+      "claude:abc-123",
+      "user-1",
+      req,
+      env,
+    );
     expect(res.status).toBe(404);
   });
 
   it("returns 204 when content_hash is unchanged and content already stored (idempotent no-op)", async () => {
-    const req = await makeCanonicalRequest({ "X-Content-Hash": "existing-hash" });
+    const req = await makeCanonicalRequest({
+      "X-Content-Hash": "existing-hash",
+    });
     const env = mockEnvForCanonical({
       id: "session-id-1",
       content_hash: "existing-hash",
@@ -632,14 +741,21 @@ describe("handleCanonicalUpload", () => {
       parser_revision: 1,
       schema_version: 1,
     });
-    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    const res = await handleCanonicalUpload(
+      "claude:abc-123",
+      "user-1",
+      req,
+      env,
+    );
     expect(res.status).toBe(204);
     // R2 should not be called
     expect(env.BUCKET.put).not.toHaveBeenCalled();
   });
 
   it("proceeds when content_hash matches but content_key is null (first-time storage)", async () => {
-    const req = await makeCanonicalRequest({ "X-Content-Hash": "existing-hash" });
+    const req = await makeCanonicalRequest({
+      "X-Content-Hash": "existing-hash",
+    });
     const env = mockEnvForCanonical({
       id: "session-id-1",
       content_hash: "existing-hash",
@@ -649,7 +765,12 @@ describe("handleCanonicalUpload", () => {
       parser_revision: 1,
       schema_version: 1,
     });
-    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    const res = await handleCanonicalUpload(
+      "claude:abc-123",
+      "user-1",
+      req,
+      env,
+    );
     expect(res.status).toBe(200);
     // R2 should have been called to store the content
     expect(env.BUCKET.put).toHaveBeenCalledTimes(1);
@@ -666,9 +787,14 @@ describe("handleCanonicalUpload", () => {
       parser_revision: 3,
       schema_version: 1,
     });
-    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    const res = await handleCanonicalUpload(
+      "claude:abc-123",
+      "user-1",
+      req,
+      env,
+    );
     expect(res.status).toBe(409);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toContain("Version conflict");
   });
 
@@ -683,10 +809,19 @@ describe("handleCanonicalUpload", () => {
       parser_revision: 1,
       schema_version: 1,
     });
-    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    const res = await handleCanonicalUpload(
+      "claude:abc-123",
+      "user-1",
+      req,
+      env,
+    );
     expect(res.status).toBe(200);
 
-    const body = await res.json() as { stored: boolean; messages: number; chunks: number };
+    const body = (await res.json()) as {
+      stored: boolean;
+      messages: number;
+      chunks: number;
+    };
     expect(body.stored).toBe(true);
     expect(body.messages).toBe(2);
     expect(body.chunks).toBe(2); // 2 messages, each fits in 1 chunk
@@ -719,9 +854,14 @@ describe("handleCanonicalUpload", () => {
       parser_revision: 1,
       schema_version: 1,
     });
-    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    const res = await handleCanonicalUpload(
+      "claude:abc-123",
+      "user-1",
+      req,
+      env,
+    );
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toContain("Missing request body");
   });
 
@@ -730,10 +870,17 @@ describe("handleCanonicalUpload", () => {
       ...canonicalSession,
       messages: [
         { role: "user", content: "Hello", timestamp: "2026-01-15T10:00:00Z" },
-        { role: "assistant", content: "x".repeat(5000), timestamp: "2026-01-15T10:00:05Z" },
+        {
+          role: "assistant",
+          content: "x".repeat(5000),
+          timestamp: "2026-01-15T10:00:05Z",
+        },
       ],
     };
-    const req = await makeCanonicalRequest(undefined, JSON.stringify(longSession));
+    const req = await makeCanonicalRequest(
+      undefined,
+      JSON.stringify(longSession),
+    );
     const env = mockEnvForCanonical({
       id: "session-id-1",
       content_hash: "old-hash",
@@ -743,10 +890,19 @@ describe("handleCanonicalUpload", () => {
       parser_revision: 1,
       schema_version: 1,
     });
-    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    const res = await handleCanonicalUpload(
+      "claude:abc-123",
+      "user-1",
+      req,
+      env,
+    );
     expect(res.status).toBe(200);
 
-    const body = await res.json() as { stored: boolean; messages: number; chunks: number };
+    const body = (await res.json()) as {
+      stored: boolean;
+      messages: number;
+      chunks: number;
+    };
     expect(body.messages).toBe(2);
     expect(body.chunks).toBe(4); // 1 chunk for short msg + 3 chunks for 5000-char msg
   });
@@ -764,7 +920,10 @@ describe("handleCanonicalUpload", () => {
         },
       ],
     };
-    const req = await makeCanonicalRequest(undefined, JSON.stringify(toolSession));
+    const req = await makeCanonicalRequest(
+      undefined,
+      JSON.stringify(toolSession),
+    );
     const env = mockEnvForCanonical({
       id: "session-id-1",
       content_hash: "old-hash",
@@ -774,7 +933,12 @@ describe("handleCanonicalUpload", () => {
       parser_revision: 1,
       schema_version: 1,
     });
-    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    const res = await handleCanonicalUpload(
+      "claude:abc-123",
+      "user-1",
+      req,
+      env,
+    );
     expect(res.status).toBe(200);
 
     // Verify D1 batch was called — check that chunk INSERT includes tool_context
@@ -807,9 +971,14 @@ describe("handleCanonicalUpload", () => {
       batch: vi.fn().mockRejectedValue(new Error("D1 write quota exceeded")),
     } as unknown as D1Database;
     const env: Env = { DB: db, BUCKET: bucket, WORKER_SECRET: "secret" };
-    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    const res = await handleCanonicalUpload(
+      "claude:abc-123",
+      "user-1",
+      req,
+      env,
+    );
     expect(res.status).toBe(500);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toContain("Canonical ingest failed");
   });
 
@@ -839,9 +1008,14 @@ describe("handleCanonicalUpload", () => {
       batch: vi.fn().mockResolvedValue([]),
     } as unknown as D1Database;
     const env: Env = { DB: db, BUCKET: bucket, WORKER_SECRET: "secret" };
-    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    const res = await handleCanonicalUpload(
+      "claude:abc-123",
+      "user-1",
+      req,
+      env,
+    );
     expect(res.status).toBe(500);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toContain("Canonical ingest failed");
     // D1 batch must NOT have been called — R2 failed first
     expect(db.batch).not.toHaveBeenCalled();
@@ -870,7 +1044,12 @@ describe("handleCanonicalUpload", () => {
       batch: vi.fn().mockRejectedValue(new Error("D1 write quota exceeded")),
     } as unknown as D1Database;
     const env: Env = { DB: db, BUCKET: bucket, WORKER_SECRET: "secret" };
-    const res = await handleCanonicalUpload("claude:abc-123", "user-1", req, env);
+    const res = await handleCanonicalUpload(
+      "claude:abc-123",
+      "user-1",
+      req,
+      env,
+    );
     expect(res.status).toBe(500);
     // R2 was called (succeeded), then D1 failed
     expect(bucket.put).toHaveBeenCalledTimes(1);
@@ -889,7 +1068,13 @@ describe("handleRawUpload", () => {
       source: "claude-code",
       parserRevision: 1,
       collectedAt: "2026-01-15T10:31:00Z",
-      sourceFiles: [{ path: "/path/to/file.jsonl", format: "jsonl", content: "line1\nline2" }],
+      sourceFiles: [
+        {
+          path: "/path/to/file.jsonl",
+          format: "jsonl",
+          content: "line1\nline2",
+        },
+      ],
     });
     const compressed = await gzipCompress(rawContent);
     return new Request("http://worker/ingest/content/claude%3Aabc-123/raw", {
@@ -920,7 +1105,7 @@ describe("handleRawUpload", () => {
     const env = mockEnvForRaw(null);
     const res = await handleRawUpload("claude:abc-123", "user-1", req, env);
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toContain("X-Raw-Hash");
   });
 
@@ -977,7 +1162,7 @@ describe("handleRawUpload", () => {
     const res = await handleRawUpload("claude:abc-123", "user-1", req, env);
     expect(res.status).toBe(200);
 
-    const body = await res.json() as { stored: boolean };
+    const body = (await res.json()) as { stored: boolean };
     expect(body.stored).toBe(true);
 
     // R2 should have been called with content-addressed path
@@ -1002,14 +1187,16 @@ describe("handleRawUpload", () => {
     });
     const res = await handleRawUpload("claude:abc-123", "user-1", req, env);
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toContain("Missing request body");
   });
 
   it("returns 500 when R2 put fails", async () => {
     const req = await makeRawRequest();
     const bucket = mockR2();
-    (bucket.put as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("R2 write failed"));
+    (bucket.put as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error("R2 write failed"),
+    );
     const db = mockD1(undefined, {
       firstResult: {
         id: "session-id-1",
@@ -1024,7 +1211,7 @@ describe("handleRawUpload", () => {
     const env: Env = { DB: db, BUCKET: bucket, WORKER_SECRET: "secret" };
     const res = await handleRawUpload("claude:abc-123", "user-1", req, env);
     expect(res.status).toBe(500);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toContain("Raw ingest failed");
   });
 });
@@ -1050,7 +1237,9 @@ describe("worker fetch handler", () => {
 
   it("rejects requests without auth with 401", async () => {
     const env = mockEnv();
-    const req = new Request("http://worker/ingest/sessions", { method: "POST" });
+    const req = new Request("http://worker/ingest/sessions", {
+      method: "POST",
+    });
     const res = await workerFetch(req, env);
     expect(res.status).toBe(401);
   });
@@ -1073,7 +1262,7 @@ describe("worker fetch handler", () => {
     });
     const res = await workerFetch(req, env);
     expect(res.status).toBe(200);
-    const body = await res.json() as { ingested: number };
+    const body = (await res.json()) as { ingested: number };
     expect(body.ingested).toBe(1);
   });
 
@@ -1085,7 +1274,7 @@ describe("worker fetch handler", () => {
     });
     const res = await workerFetch(req, env);
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toContain("X-User-Id");
   });
 
@@ -1117,29 +1306,35 @@ describe("worker fetch handler", () => {
   it("returns 400 for PUT content without X-User-Id", async () => {
     const env = mockEnv();
     const body = await gzipCompress("{}");
-    const req = new Request("http://worker/ingest/content/claude%3Aabc/canonical", {
-      method: "PUT",
-      headers: {
-        Authorization: "Bearer test-secret",
-        "X-Content-Hash": "hash",
-        "X-Parser-Revision": "1",
-        "X-Schema-Version": "1",
+    const req = new Request(
+      "http://worker/ingest/content/claude%3Aabc/canonical",
+      {
+        method: "PUT",
+        headers: {
+          Authorization: "Bearer test-secret",
+          "X-Content-Hash": "hash",
+          "X-Parser-Revision": "1",
+          "X-Schema-Version": "1",
+        },
+        body,
       },
-      body,
-    });
+    );
     const res = await workerFetch(req, env);
     expect(res.status).toBe(400);
-    const respBody = await res.json() as { error: string };
+    const respBody = (await res.json()) as { error: string };
     expect(respBody.error).toContain("X-User-Id");
   });
 
   it("returns 405 for POST on content route", async () => {
     const env = mockEnv();
-    const req = makeRequest("http://worker/ingest/content/claude%3Aabc/canonical", {
-      method: "POST",
-      headers: { Authorization: "Bearer test-secret" },
-      body: {},
-    });
+    const req = makeRequest(
+      "http://worker/ingest/content/claude%3Aabc/canonical",
+      {
+        method: "POST",
+        headers: { Authorization: "Bearer test-secret" },
+        body: {},
+      },
+    );
     const res = await workerFetch(req, env);
     expect(res.status).toBe(405);
   });
@@ -1159,7 +1354,12 @@ describe("worker fetch handler", () => {
     const req = new Request("http://worker/live", { method: "GET" });
     const res = await workerFetch(req, env);
     expect(res.status).toBe(200);
-    const body = await res.json() as { status: string; version: string; uptime: number; timestamp: string };
+    const body = (await res.json()) as {
+      status: string;
+      version: string;
+      uptime: number;
+      timestamp: string;
+    };
     expect(body.status).toBe("ok");
     expect(body.version).toBe(PIKA_VERSION);
     expect(body.uptime).toBeGreaterThanOrEqual(0);
@@ -1180,21 +1380,34 @@ describe("handleLive", () => {
     const res = await handleLive(env);
     expect(res.status).toBe(200);
 
-    const body = await res.json() as { status: string; version: string; uptime: number; timestamp: string; d1: { latencyMs: number } };
+    const body = (await res.json()) as {
+      status: string;
+      version: string;
+      uptime: number;
+      timestamp: string;
+      d1: { latencyMs: number };
+    };
     expect(body.status).toBe("ok");
     expect(body.version).toBe(PIKA_VERSION);
     expect(body.d1.latencyMs).toBeGreaterThanOrEqual(0);
     expect(body.uptime).toBeGreaterThanOrEqual(0);
     expect(Number.isInteger(body.uptime)).toBe(true);
     expect(body.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
-    expect(res.headers.get("Cache-Control")).toBe("no-store, no-cache, must-revalidate");
+    expect(res.headers.get("Cache-Control")).toBe(
+      "no-store, no-cache, must-revalidate",
+    );
   });
 
   it("returns 503 error when D1 throws", async () => {
-    const mockFirst = vi.fn().mockRejectedValue(new Error("D1 connection refused"));
+    const mockFirst = vi
+      .fn()
+      .mockRejectedValue(new Error("D1 connection refused"));
     const env: Env = {
       DB: {
-        prepare: vi.fn().mockReturnValue({ first: mockFirst, bind: vi.fn().mockReturnThis() }),
+        prepare: vi.fn().mockReturnValue({
+          first: mockFirst,
+          bind: vi.fn().mockReturnThis(),
+        }),
         batch: vi.fn(),
       } as unknown as D1Database,
       BUCKET: mockR2(),
@@ -1204,19 +1417,29 @@ describe("handleLive", () => {
     const res = await handleLive(env);
     expect(res.status).toBe(503);
 
-    const body = await res.json() as { status: string; error: string; uptime: number; timestamp: string };
+    const body = (await res.json()) as {
+      status: string;
+      error: string;
+      uptime: number;
+      timestamp: string;
+    };
     expect(body.status).toBe("error");
     expect(body.error).toBe("D1 connection refused");
     expect(body.uptime).toBeGreaterThanOrEqual(0);
     expect(body.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-    expect(res.headers.get("Cache-Control")).toBe("no-store, no-cache, must-revalidate");
+    expect(res.headers.get("Cache-Control")).toBe(
+      "no-store, no-cache, must-revalidate",
+    );
   });
 
   it("error response does not contain 'ok'", async () => {
     const mockFirst = vi.fn().mockRejectedValue(new Error("lookup ok failed"));
     const env: Env = {
       DB: {
-        prepare: vi.fn().mockReturnValue({ first: mockFirst, bind: vi.fn().mockReturnThis() }),
+        prepare: vi.fn().mockReturnValue({
+          first: mockFirst,
+          bind: vi.fn().mockReturnThis(),
+        }),
         batch: vi.fn(),
       } as unknown as D1Database,
       BUCKET: mockR2(),
@@ -1236,7 +1459,10 @@ describe("handleLive", () => {
     const mockFirst = vi.fn().mockRejectedValue("string failure");
     const env: Env = {
       DB: {
-        prepare: vi.fn().mockReturnValue({ first: mockFirst, bind: vi.fn().mockReturnThis() }),
+        prepare: vi.fn().mockReturnValue({
+          first: mockFirst,
+          bind: vi.fn().mockReturnThis(),
+        }),
         batch: vi.fn(),
       } as unknown as D1Database,
       BUCKET: mockR2(),
@@ -1246,7 +1472,7 @@ describe("handleLive", () => {
     const res = await handleLive(env);
     expect(res.status).toBe(503);
 
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toBe("string failure");
   });
 });

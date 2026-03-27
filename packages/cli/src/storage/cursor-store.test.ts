@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { ClaudeCursor, CursorState } from "@pika/core";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { CursorStore } from "./cursor-store";
-import type { CursorState, ClaudeCursor } from "@pika/core";
 
 describe("CursorStore", () => {
   let tempDir: string;
@@ -107,7 +107,9 @@ describe("CursorStore", () => {
     const state: CursorState = {
       version: 1,
       files: {},
-      dirMtimes: { "/home/user/.local/share/opencode/storage/message/ses_abc": 1709827200000 },
+      dirMtimes: {
+        "/home/user/.local/share/opencode/storage/message/ses_abc": 1709827200000,
+      },
       openCodeSqlite: {
         inode: 456,
         lastTimeCreated: "2026-03-07T09:00:00Z",

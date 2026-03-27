@@ -4,11 +4,11 @@
  * Covers: discover, shouldSkip, resumeState, parse, buildCursor
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, writeFile, mkdir, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import type { GeminiCursor, ParseResult } from "@pika/core";
+import { join } from "node:path";
+import type { GeminiCursor } from "@pika/core";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { GeminiParseResult } from "../../parsers/gemini";
 import type { FileFingerprint } from "../../utils/file-changed";
 import { geminiSessionDriver } from "./gemini";
@@ -52,7 +52,14 @@ function geminiMsg(
     type: "gemini",
     content,
     model,
-    tokens: tokens ?? { input: 100, output: 20, cached: 0, thoughts: 0, tool: 0, total: 120 },
+    tokens: tokens ?? {
+      input: 100,
+      output: 20,
+      cached: 0,
+      thoughts: 0,
+      tool: 0,
+      total: 120,
+    },
     toolCalls: [],
     thoughts: [],
   };
@@ -65,9 +72,7 @@ const fp = (overrides: Partial<FileFingerprint> = {}): FileFingerprint => ({
   ...overrides,
 });
 
-function makeGeminiCursor(
-  overrides: Partial<GeminiCursor> = {},
-): GeminiCursor {
+function makeGeminiCursor(overrides: Partial<GeminiCursor> = {}): GeminiCursor {
   return {
     inode: 12345,
     mtimeMs: 1700000000000,
@@ -168,10 +173,7 @@ describe("geminiSessionDriver.discover", () => {
   it("ignores files directly in tmp/ (not in project dirs)", async () => {
     const tmpSubDir = join(tmpDir, "tmp");
     await mkdir(tmpSubDir, { recursive: true });
-    await writeFile(
-      join(tmpSubDir, "session-stray.json"),
-      buildSession([]),
-    );
+    await writeFile(join(tmpSubDir, "session-stray.json"), buildSession([]));
 
     const files = await geminiSessionDriver.discover({ geminiDir: tmpDir });
     expect(files).toEqual([]);
@@ -229,10 +231,7 @@ describe("geminiSessionDriver.resumeState", () => {
       lastTotalTokens: 500,
       lastModel: "gemini-3-pro",
     });
-    const resume = geminiSessionDriver.resumeState(
-      cursor,
-      fp({ size: 8192 }),
-    );
+    const resume = geminiSessionDriver.resumeState(cursor, fp({ size: 8192 }));
     expect(resume).toEqual({
       kind: "array-index",
       startIndex: 10,
@@ -261,10 +260,7 @@ describe("geminiSessionDriver.resumeState", () => {
       size: 8192,
       messageIndex: 10,
     });
-    const resume = geminiSessionDriver.resumeState(
-      cursor,
-      fp({ size: 1024 }),
-    );
+    const resume = geminiSessionDriver.resumeState(cursor, fp({ size: 1024 }));
     expect(resume).toEqual({
       kind: "array-index",
       startIndex: 0,
@@ -354,7 +350,12 @@ describe("geminiSessionDriver.parse", () => {
   it("returns result for missing file", async () => {
     const results = await geminiSessionDriver.parse(
       join(tmpDir, "nonexistent.json"),
-      { kind: "array-index", startIndex: 0, lastTotalTokens: 0, lastModel: null },
+      {
+        kind: "array-index",
+        startIndex: 0,
+        lastTotalTokens: 0,
+        lastModel: null,
+      },
     );
     expect(results).toHaveLength(1);
     expect(results[0].canonical.messages).toHaveLength(0);
@@ -383,8 +384,16 @@ describe("geminiSessionDriver.buildCursor", () => {
           model: "gemini-3-flash-preview",
           title: null,
           messages: [
-            { role: "user", content: "Hello", timestamp: "2025-01-15T10:00:00Z" },
-            { role: "assistant", content: "Hi!", timestamp: "2025-01-15T10:00:01Z" },
+            {
+              role: "user",
+              content: "Hello",
+              timestamp: "2025-01-15T10:00:00Z",
+            },
+            {
+              role: "assistant",
+              content: "Hi!",
+              timestamp: "2025-01-15T10:00:01Z",
+            },
           ],
           totalInputTokens: 500,
           totalOutputTokens: 200,

@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
-import { resolveUser } from "@/lib/cli-auth";
-import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
-import { getD1Client } from "@/lib/d1";
 import { auth } from "@/lib/auth";
+import { resolveUser } from "@/lib/cli-auth";
+import { getD1Client } from "@/lib/d1";
+import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
 import {
-  buildSessionListQuery,
   buildSessionCountQuery,
+  buildSessionListQuery,
   parseSessionListParams,
-  shapeSessionListResponse,
-  shapeOffsetResponse,
   type SessionRow,
+  shapeOffsetResponse,
+  shapeSessionListResponse,
 } from "@/lib/sessions";
 
 export async function GET(request: Request) {
@@ -20,7 +20,10 @@ export async function GET(request: Request) {
     getSession: async () => {
       const session = await auth();
       if (!session?.user?.id) return null;
-      return { userId: session.user.id, email: session.user.email ?? undefined };
+      return {
+        userId: session.user.id,
+        email: session.user.email ?? undefined,
+      };
     },
     db,
   });

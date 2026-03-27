@@ -1,44 +1,64 @@
-import { describe, it, expect } from "vitest";
 import type { CursorState, ParseError } from "@pika/core";
+import { describe, expect, it } from "vitest";
+import type { StatusInput, StatusOutput } from "./status-display";
 import {
-  inferSource,
-  formatTimeAgo,
   buildStatus,
-  loadParseErrors,
   formatSourceLabel,
   formatStatusLines,
+  formatTimeAgo,
+  inferSource,
+  loadParseErrors,
 } from "./status-display";
-import type { StatusInput, StatusOutput } from "./status-display";
 
 // ── inferSource ────────────────────────────────────────────────
 
 describe("inferSource", () => {
   it("detects claude-code from .claude/ path", () => {
-    expect(inferSource("/Users/foo/.claude/projects/bar/session.jsonl")).toBe("claude-code");
+    expect(inferSource("/Users/foo/.claude/projects/bar/session.jsonl")).toBe(
+      "claude-code",
+    );
   });
 
   it("detects codex from .codex/ path", () => {
-    expect(inferSource("/Users/foo/.codex/sessions/2025/01/01/rollout.jsonl")).toBe("codex");
+    expect(
+      inferSource("/Users/foo/.codex/sessions/2025/01/01/rollout.jsonl"),
+    ).toBe("codex");
   });
 
   it("detects gemini-cli from .gemini/ path", () => {
-    expect(inferSource("/Users/foo/.gemini/tmp/abc123/chats/session-1.json")).toBe("gemini-cli");
+    expect(
+      inferSource("/Users/foo/.gemini/tmp/abc123/chats/session-1.json"),
+    ).toBe("gemini-cli");
   });
 
   it("detects opencode from opencode/ path", () => {
-    expect(inferSource("/Users/foo/.local/share/opencode/storage/session/proj/ses_1.json")).toBe("opencode");
+    expect(
+      inferSource(
+        "/Users/foo/.local/share/opencode/storage/session/proj/ses_1.json",
+      ),
+    ).toBe("opencode");
   });
 
   it("detects opencode from windows path with backslash", () => {
-    expect(inferSource("C:\\Users\\foo\\opencode\\storage\\session.json")).toBe("opencode");
+    expect(inferSource("C:\\Users\\foo\\opencode\\storage\\session.json")).toBe(
+      "opencode",
+    );
   });
 
   it("detects vscode-copilot from workspaceStorage/ path", () => {
-    expect(inferSource("/Users/foo/Library/Application Support/Code/User/workspaceStorage/abc/chatSessions/s.jsonl")).toBe("vscode-copilot");
+    expect(
+      inferSource(
+        "/Users/foo/Library/Application Support/Code/User/workspaceStorage/abc/chatSessions/s.jsonl",
+      ),
+    ).toBe("vscode-copilot");
   });
 
   it("detects vscode-copilot from globalStorage/ path", () => {
-    expect(inferSource("/Users/foo/Library/Application Support/Code/User/globalStorage/emptyWindowChatSessions/s.jsonl")).toBe("vscode-copilot");
+    expect(
+      inferSource(
+        "/Users/foo/Library/Application Support/Code/User/globalStorage/emptyWindowChatSessions/s.jsonl",
+      ),
+    ).toBe("vscode-copilot");
   });
 
   it("returns null for unknown path", () => {
@@ -178,13 +198,25 @@ describe("buildStatus", () => {
   it("groups files by source", () => {
     const files: CursorState["files"] = {
       "/Users/foo/.claude/projects/a/s1.jsonl": {
-        inode: 1, mtimeMs: 100, size: 10, updatedAt: "2025-01-01T00:00:00Z", offset: 0,
+        inode: 1,
+        mtimeMs: 100,
+        size: 10,
+        updatedAt: "2025-01-01T00:00:00Z",
+        offset: 0,
       } as any,
       "/Users/foo/.claude/projects/b/s2.jsonl": {
-        inode: 2, mtimeMs: 200, size: 20, updatedAt: "2025-01-01T00:00:00Z", offset: 0,
+        inode: 2,
+        mtimeMs: 200,
+        size: 20,
+        updatedAt: "2025-01-01T00:00:00Z",
+        offset: 0,
       } as any,
       "/Users/foo/.codex/sessions/2025/01/01/r.jsonl": {
-        inode: 3, mtimeMs: 300, size: 30, updatedAt: "2025-01-01T00:00:00Z", offset: 0,
+        inode: 3,
+        mtimeMs: 300,
+        size: 30,
+        updatedAt: "2025-01-01T00:00:00Z",
+        offset: 0,
       } as any,
     };
 
@@ -223,23 +255,40 @@ describe("buildStatus", () => {
         updatedAt: "2025-06-15T10:00:00Z",
       },
     };
-    const input: StatusInput = { loggedIn: true, cursorState: state, parseErrors: [] };
+    const input: StatusInput = {
+      loggedIn: true,
+      cursorState: state,
+      parseErrors: [],
+    };
     const out = buildStatus(input, now);
     expect(out.hasOpenCodeDb).toBe(true);
   });
 
   it("passes through parse errors", () => {
     const errors: ParseError[] = [
-      { timestamp: "2025-01-01T00:00:00Z", source: "codex", filePath: "/a.jsonl", error: "bad" },
+      {
+        timestamp: "2025-01-01T00:00:00Z",
+        source: "codex",
+        filePath: "/a.jsonl",
+        error: "bad",
+      },
     ];
-    const input: StatusInput = { loggedIn: true, cursorState: emptyState, parseErrors: errors };
+    const input: StatusInput = {
+      loggedIn: true,
+      cursorState: emptyState,
+      parseErrors: errors,
+    };
     const out = buildStatus(input, now);
     expect(out.parseErrorCount).toBe(1);
     expect(out.recentErrors).toEqual(errors);
   });
 
   it("reflects logged-in status", () => {
-    const input: StatusInput = { loggedIn: false, cursorState: emptyState, parseErrors: [] };
+    const input: StatusInput = {
+      loggedIn: false,
+      cursorState: emptyState,
+      parseErrors: [],
+    };
     expect(buildStatus(input, now).loggedIn).toBe(false);
   });
 });
@@ -410,7 +459,9 @@ describe("formatStatusLines", () => {
     expect(lines).toContain("Parse errors: 2");
     expect(lines).toContain("  [2025-06-15 10:30:00] codex: unexpected EOF");
     expect(lines).toContain("    /foo/bar.jsonl");
-    expect(lines).toContain("  [2025-06-15 09:00:00] claude-code: invalid JSON");
+    expect(lines).toContain(
+      "  [2025-06-15 09:00:00] claude-code: invalid JSON",
+    );
     expect(lines).toContain("    /baz/qux.jsonl");
   });
 

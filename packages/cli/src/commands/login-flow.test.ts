@@ -1,11 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
-import http from "node:http";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConfigManager } from "../config/manager";
-import { performLogin, type LoginDeps } from "./login-flow";
-import { LOGIN_TIMEOUT_MS } from "@pika/core";
+import { type LoginDeps, performLogin } from "./login-flow";
 
 describe("login flow", () => {
   let tempDir: string;
@@ -21,7 +19,7 @@ describe("login flow", () => {
   });
 
   it("saves token on successful callback", async () => {
-    const apiKey = "pk_" + "a".repeat(32);
+    const apiKey = `pk_${"a".repeat(32)}`;
     const email = "user@example.com";
 
     // Mock deps
@@ -62,8 +60,8 @@ describe("login flow", () => {
   });
 
   it("respects force flag (re-login when already logged in)", async () => {
-    config.write({ token: "pk_" + "b".repeat(32) });
-    const newApiKey = "pk_" + "c".repeat(32);
+    config.write({ token: `pk_${"b".repeat(32)}` });
+    const newApiKey = `pk_${"c".repeat(32)}`;
 
     const deps: LoginDeps = {
       openBrowser: vi.fn().mockResolvedValue(undefined),
@@ -192,7 +190,9 @@ describe("login flow", () => {
     expect(res.status).toBe(404);
 
     // Now hit the real callback to let the test finish
-    await fetch(`${cliCallback}?api_key=pk_${"d".repeat(32)}&email=test@test.com`);
+    await fetch(
+      `${cliCallback}?api_key=pk_${"d".repeat(32)}&email=test@test.com`,
+    );
     await loginPromise;
   });
 });

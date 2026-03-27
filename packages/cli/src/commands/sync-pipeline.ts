@@ -17,16 +17,28 @@ import type {
   CursorState,
   FileCursor,
   FileCursorBase,
-  ParseResult,
-  ParseError,
   OpenCodeSqliteCursor,
+  ParseError,
+  ParseResult,
 } from "@pika/core";
-import type { FileDriver, DbDriver, DiscoverOpts, SyncContext } from "../drivers/types";
-import type { FileFingerprint } from "../utils/file-changed";
-import { toSessionSnapshot, uploadMetadataBatches } from "../upload/engine";
-import type { UploadEngineOptions, UploadResult, PrecomputedHashes } from "../upload/engine";
+import type {
+  DbDriver,
+  DiscoverOpts,
+  FileDriver,
+  SyncContext,
+} from "../drivers/types";
+import type {
+  BatchContentUploadResult,
+  ContentUploadOptions,
+} from "../upload/content";
 import { uploadContentBatch } from "../upload/content";
-import type { ContentUploadOptions, BatchContentUploadResult } from "../upload/content";
+import type {
+  PrecomputedHashes,
+  UploadEngineOptions,
+  UploadResult,
+} from "../upload/engine";
+import { toSessionSnapshot, uploadMetadataBatches } from "../upload/engine";
+import type { FileFingerprint } from "../utils/file-changed";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -107,7 +119,9 @@ export interface SyncPipelineResult {
 // ── File fingerprinting ────────────────────────────────────────
 
 /** Get file fingerprint (inode, mtime, size) */
-export async function getFingerprint(filePath: string): Promise<FileFingerprint> {
+export async function getFingerprint(
+  filePath: string,
+): Promise<FileFingerprint> {
   const s = await stat(filePath);
   return {
     inode: s.ino,
@@ -133,15 +147,13 @@ export async function runSyncPipeline(
   input: SyncPipelineInput,
   opts: SyncPipelineOptions,
 ): Promise<SyncPipelineResult> {
-  const {
-    fileDrivers,
-    dbDriver,
-    discoverOpts,
-    syncCtx,
-  } = input;
+  const { fileDrivers, dbDriver, discoverOpts, syncCtx } = input;
   const log = opts.logger;
 
-  let cursorState = { ...input.cursorState, files: { ...input.cursorState.files } };
+  const cursorState = {
+    ...input.cursorState,
+    files: { ...input.cursorState.files },
+  };
 
   const allResults: ParseResult[] = [];
   const parseErrors: ParseError[] = [];
@@ -173,7 +185,9 @@ export async function runSyncPipeline(
         continue;
       }
 
-      const existingCursor = cursorState.files[filePath] as FileCursorBase | undefined;
+      const existingCursor = cursorState.files[filePath] as
+        | FileCursorBase
+        | undefined;
 
       if (driver.shouldSkip(existingCursor, fingerprint)) {
         totalSkipped++;
@@ -190,7 +204,10 @@ export async function runSyncPipeline(
           log?.parseDone(driver.source, filePath, results.length);
 
           // Save previous cursor for rollback and map sessionKeys to filePath
-          prevCursors.set(filePath, cursorState.files[filePath] as FileCursor | undefined);
+          prevCursors.set(
+            filePath,
+            cursorState.files[filePath] as FileCursor | undefined,
+          );
           for (const r of results) {
             sessionKeyToFile.set(r.canonical.sessionKey, filePath);
           }
@@ -266,7 +283,10 @@ export async function runSyncPipeline(
 
     log?.uploadMetadataStart(snapshots.length);
     uploadResult = await uploadMetadataBatches(snapshots, uploadOpts);
-    log?.uploadMetadataDone(uploadResult.totalIngested, uploadResult.totalConflicts);
+    log?.uploadMetadataDone(
+      uploadResult.totalIngested,
+      uploadResult.totalConflicts,
+    );
 
     // Upload content (reusing precomputed JSON + hashes from metadata stage)
     const contentOpts: ContentUploadOptions = {
@@ -295,7 +315,10 @@ export async function runSyncPipeline(
         const response = await originalFetch(input, init);
         // Detect canonical PUT completion by URL pattern
         const url = typeof input === "string" ? input : (input as Request).url;
-        if (url.includes("/api/ingest/content/") && url.endsWith("/canonical")) {
+        if (
+          url.includes("/api/ingest/content/") &&
+          url.endsWith("/canonical")
+        ) {
           const parts = url.split("/");
           const sessionKey = decodeURIComponent(parts[parts.length - 2]);
           if (!completedSessions.has(sessionKey)) {

@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
-import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { useEffect } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { breadcrumbsFromPathname } from "@/lib/navigation";
+import { Breadcrumbs } from "./breadcrumbs";
 import { Sidebar } from "./sidebar";
 import { SidebarProvider, useSidebar } from "./sidebar-context";
 import { ThemeToggle } from "./theme-toggle";
-import { Breadcrumbs } from "./breadcrumbs";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { breadcrumbsFromPathname } from "@/lib/navigation";
 
 // ---------------------------------------------------------------------------
 // AppShell
@@ -26,7 +26,7 @@ function AppShellInner({ children }: AppShellProps) {
   // Close mobile sidebar on route change
   useEffect(() => {
     setMobileOpen(false);
-  }, [pathname, setMobileOpen]);
+  }, [setMobileOpen]);
 
   // Prevent body scroll when mobile sidebar is open
   useEffect(() => {
@@ -50,9 +50,11 @@ function AppShellInner({ children }: AppShellProps) {
       {/* Mobile overlay */}
       {isMobile && mobileOpen && (
         <>
-          <div
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs"
+          <button
+            type="button"
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs appearance-none border-none p-0"
             onClick={() => setMobileOpen(false)}
+            aria-label="Close sidebar"
           />
           <div className="fixed inset-y-0 left-0 z-50 w-[260px]">
             <Sidebar />
@@ -70,7 +72,11 @@ function AppShellInner({ children }: AppShellProps) {
                 aria-label="Open navigation"
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
               >
-                <Menu className="h-5 w-5" aria-hidden="true" strokeWidth={1.5} />
+                <Menu
+                  className="h-5 w-5"
+                  aria-hidden="true"
+                  strokeWidth={1.5}
+                />
               </button>
             )}
             <Breadcrumbs items={breadcrumbs} />
@@ -94,9 +100,7 @@ function AppShellInner({ children }: AppShellProps) {
 export function AppShell({ children }: AppShellProps) {
   return (
     <SidebarProvider>
-      <AppShellInner>
-        {children}
-      </AppShellInner>
+      <AppShellInner>{children}</AppShellInner>
     </SidebarProvider>
   );
 }

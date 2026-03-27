@@ -1,15 +1,15 @@
+import type { Source } from "@pika/core";
 import { NextResponse } from "next/server";
-import { resolveUser } from "@/lib/cli-auth";
-import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
-import { getD1Client } from "@/lib/d1";
 import { auth } from "@/lib/auth";
+import { resolveUser } from "@/lib/cli-auth";
+import { getD1Client } from "@/lib/d1";
+import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
 import {
-  buildBatchByIdsQuery,
-  buildBatchByFilterQuery,
   type BatchAction,
+  buildBatchByFilterQuery,
+  buildBatchByIdsQuery,
   type SessionListParams,
 } from "@/lib/sessions";
-import type { Source } from "@pika/core";
 
 async function authenticate(request: Request) {
   const d1 = getD1Client();
@@ -19,7 +19,10 @@ async function authenticate(request: Request) {
     getSession: async () => {
       const session = await auth();
       if (!session?.user?.id) return null;
-      return { userId: session.user.id, email: session.user.email ?? undefined };
+      return {
+        userId: session.user.id,
+        email: session.user.email ?? undefined,
+      };
     },
     db,
   });
@@ -27,7 +30,12 @@ async function authenticate(request: Request) {
   return { user, d1 };
 }
 
-const VALID_ACTIONS = new Set<BatchAction>(["delete", "restore", "star", "unstar"]);
+const VALID_ACTIONS = new Set<BatchAction>([
+  "delete",
+  "restore",
+  "star",
+  "unstar",
+]);
 const MAX_IDS = 100;
 const CHUNK_SIZE = 50;
 
@@ -69,7 +77,9 @@ export async function POST(request: Request) {
   // Validate action
   if (!body.action || !VALID_ACTIONS.has(body.action)) {
     return NextResponse.json(
-      { error: `Invalid action. Must be one of: ${[...VALID_ACTIONS].join(", ")}` },
+      {
+        error: `Invalid action. Must be one of: ${[...VALID_ACTIONS].join(", ")}`,
+      },
       { status: 400 },
     );
   }
@@ -128,7 +138,10 @@ export async function POST(request: Request) {
     const f = body.filter!;
     const filterParams: SessionListParams = {
       userId: user.userId,
-      source: f.source && VALID_SOURCES.has(f.source) ? (f.source as Source) : undefined,
+      source:
+        f.source && VALID_SOURCES.has(f.source)
+          ? (f.source as Source)
+          : undefined,
       model: f.model || undefined,
       starred: f.starred === true ? true : undefined,
       minMessages: f.minMessages,

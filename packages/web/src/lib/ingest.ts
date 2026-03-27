@@ -115,7 +115,9 @@ export function parseContentPath(
 
   const type = pathSegments[pathSegments.length - 1];
   if (type !== "canonical" && type !== "raw") {
-    return { error: `Invalid content type: ${type}. Expected "canonical" or "raw"` };
+    return {
+      error: `Invalid content type: ${type}. Expected "canonical" or "raw"`,
+    };
   }
 
   const sessionKey = pathSegments.slice(0, -1).join("/");
@@ -163,7 +165,10 @@ export function validatePresignRequest(
 
   // Validate rawHash looks like a hex string
   if (!/^[0-9a-f]{8,128}$/i.test(obj.rawHash)) {
-    return { valid: false, error: "rawHash must be a hex string (8-128 chars)" };
+    return {
+      valid: false,
+      error: "rawHash must be a hex string (8-128 chars)",
+    };
   }
 
   return { valid: true, sessionKey: obj.sessionKey, rawHash: obj.rawHash };
@@ -211,10 +216,17 @@ export function validateConfirmRawRequest(
   }
 
   if (!/^[0-9a-f]{8,128}$/i.test(obj.rawHash)) {
-    return { valid: false, error: "rawHash must be a hex string (8-128 chars)" };
+    return {
+      valid: false,
+      error: "rawHash must be a hex string (8-128 chars)",
+    };
   }
 
-  if (typeof obj.rawSize !== "number" || obj.rawSize <= 0 || !Number.isInteger(obj.rawSize)) {
+  if (
+    typeof obj.rawSize !== "number" ||
+    obj.rawSize <= 0 ||
+    !Number.isInteger(obj.rawSize)
+  ) {
     return { valid: false, error: "rawSize (positive integer) is required" };
   }
 
@@ -239,7 +251,11 @@ export interface ConfirmRawUpdateParams {
  * Build the R2 key for a raw session archive.
  * Key pattern: `{userId}/{sessionKey}/raw/{rawHash}.json.gz`
  */
-export function buildRawR2Key(userId: string, sessionKey: string, rawHash: string): string {
+export function buildRawR2Key(
+  userId: string,
+  sessionKey: string,
+  rawHash: string,
+): string {
   return `${userId}/${sessionKey}/raw/${rawHash}.json.gz`;
 }
 
@@ -273,6 +289,12 @@ export function buildConfirmRawUpdate(params: ConfirmRawUpdateParams): {
     sql: `UPDATE sessions
       SET raw_key = ?, raw_size = ?, raw_hash = ?, updated_at = datetime('now')
       WHERE user_id = ? AND session_key = ?`,
-    params: [r2Key, params.rawSize, params.rawHash, params.userId, params.sessionKey],
+    params: [
+      r2Key,
+      params.rawSize,
+      params.rawHash,
+      params.userId,
+      params.sessionKey,
+    ],
   };
 }

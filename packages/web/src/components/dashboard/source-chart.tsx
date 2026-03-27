@@ -1,10 +1,10 @@
 "use client";
 
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { cn } from "@/lib/utils";
-import { agentColor } from "@/lib/palette";
-import { sourceLabel } from "@/lib/format";
 import type { Source } from "@pika/core";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { sourceLabel } from "@/lib/format";
+import { agentColor } from "@/lib/palette";
+import { cn } from "@/lib/utils";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -18,7 +18,12 @@ interface SourceChartProps {
 export function SourceChart({ data, className }: SourceChartProps) {
   if (data.length === 0) {
     return (
-      <div className={cn("flex items-center justify-center h-[200px] text-sm text-muted-foreground", className)}>
+      <div
+        className={cn(
+          "flex items-center justify-center h-[200px] text-sm text-muted-foreground",
+          className,
+        )}
+      >
         No data yet
       </div>
     );

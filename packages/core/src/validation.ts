@@ -1,14 +1,14 @@
+import { API_KEY_HEX_LENGTH, API_KEY_PREFIX } from "./constants";
 import {
-  SOURCES,
-  MESSAGE_ROLES,
-  type Source,
-  type MessageRole,
   type CanonicalMessage,
   type CanonicalSession,
-  type SessionSnapshot,
+  MESSAGE_ROLES,
+  type MessageRole,
   type ParseError,
+  type SessionSnapshot,
+  SOURCES,
+  type Source,
 } from "./types";
-import { API_KEY_PREFIX, API_KEY_HEX_LENGTH } from "./constants";
 
 // ── Primitive validators ───────────────────────────────────────
 
@@ -30,7 +30,7 @@ export function isValidApiKey(value: string): boolean {
 export function isValidISOTimestamp(value: string): boolean {
   if (!value) return false;
   const date = new Date(value);
-  if (isNaN(date.getTime())) return false;
+  if (Number.isNaN(date.getTime())) return false;
   // Reject strings that parse to a valid date but aren't really ISO format
   // e.g., "2026-13-01T00:00:00Z" -> Date might parse but month 13 is invalid
   const isoRegex =
@@ -82,14 +82,10 @@ export function validateCanonicalSession(session: CanonicalSession): string[] {
     errors.push(`Invalid source: "${session.source}"`);
   }
   if (session.parserRevision < 1) {
-    errors.push(
-      `parserRevision must be >= 1, got ${session.parserRevision}`,
-    );
+    errors.push(`parserRevision must be >= 1, got ${session.parserRevision}`);
   }
   if (session.schemaVersion < 1) {
-    errors.push(
-      `schemaVersion must be >= 1, got ${session.schemaVersion}`,
-    );
+    errors.push(`schemaVersion must be >= 1, got ${session.schemaVersion}`);
   }
   if (!isValidISOTimestamp(session.startedAt)) {
     errors.push(`Invalid startedAt: "${session.startedAt}"`);
@@ -101,27 +97,19 @@ export function validateCanonicalSession(session: CanonicalSession): string[] {
     errors.push(`Invalid snapshotAt: "${session.snapshotAt}"`);
   }
   if (session.durationSeconds < 0) {
-    errors.push(
-      `Negative durationSeconds: ${session.durationSeconds}`,
-    );
+    errors.push(`Negative durationSeconds: ${session.durationSeconds}`);
   }
   if (session.messages.length === 0) {
     errors.push("messages array must not be empty");
   }
   if (session.totalInputTokens < 0) {
-    errors.push(
-      `Negative totalInputTokens: ${session.totalInputTokens}`,
-    );
+    errors.push(`Negative totalInputTokens: ${session.totalInputTokens}`);
   }
   if (session.totalOutputTokens < 0) {
-    errors.push(
-      `Negative totalOutputTokens: ${session.totalOutputTokens}`,
-    );
+    errors.push(`Negative totalOutputTokens: ${session.totalOutputTokens}`);
   }
   if (session.totalCachedTokens < 0) {
-    errors.push(
-      `Negative totalCachedTokens: ${session.totalCachedTokens}`,
-    );
+    errors.push(`Negative totalCachedTokens: ${session.totalCachedTokens}`);
   }
 
   // Validate nested messages
@@ -154,35 +142,25 @@ export function validateSessionSnapshot(snapshot: SessionSnapshot): string[] {
     errors.push(`Invalid snapshotAt: "${snapshot.snapshotAt}"`);
   }
   if (snapshot.durationSeconds < 0) {
-    errors.push(
-      `Negative durationSeconds: ${snapshot.durationSeconds}`,
-    );
+    errors.push(`Negative durationSeconds: ${snapshot.durationSeconds}`);
   }
   if (snapshot.userMessages < 0) {
     errors.push(`Negative userMessages: ${snapshot.userMessages}`);
   }
   if (snapshot.assistantMessages < 0) {
-    errors.push(
-      `Negative assistantMessages: ${snapshot.assistantMessages}`,
-    );
+    errors.push(`Negative assistantMessages: ${snapshot.assistantMessages}`);
   }
   if (snapshot.totalMessages < 0) {
     errors.push(`Negative totalMessages: ${snapshot.totalMessages}`);
   }
   if (snapshot.totalInputTokens < 0) {
-    errors.push(
-      `Negative totalInputTokens: ${snapshot.totalInputTokens}`,
-    );
+    errors.push(`Negative totalInputTokens: ${snapshot.totalInputTokens}`);
   }
   if (snapshot.totalOutputTokens < 0) {
-    errors.push(
-      `Negative totalOutputTokens: ${snapshot.totalOutputTokens}`,
-    );
+    errors.push(`Negative totalOutputTokens: ${snapshot.totalOutputTokens}`);
   }
   if (snapshot.totalCachedTokens < 0) {
-    errors.push(
-      `Negative totalCachedTokens: ${snapshot.totalCachedTokens}`,
-    );
+    errors.push(`Negative totalCachedTokens: ${snapshot.totalCachedTokens}`);
   }
   if (!snapshot.contentHash) {
     errors.push("Missing contentHash");
@@ -191,14 +169,10 @@ export function validateSessionSnapshot(snapshot: SessionSnapshot): string[] {
     errors.push("Missing rawHash");
   }
   if (snapshot.parserRevision < 1) {
-    errors.push(
-      `parserRevision must be >= 1, got ${snapshot.parserRevision}`,
-    );
+    errors.push(`parserRevision must be >= 1, got ${snapshot.parserRevision}`);
   }
   if (snapshot.schemaVersion < 1) {
-    errors.push(
-      `schemaVersion must be >= 1, got ${snapshot.schemaVersion}`,
-    );
+    errors.push(`schemaVersion must be >= 1, got ${snapshot.schemaVersion}`);
   }
 
   return errors;

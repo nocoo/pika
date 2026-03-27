@@ -1,11 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  buildOverviewQuery,
-  buildWeekCountQuery,
-  buildSourceDistributionQuery,
-  buildDailyActivityQuery,
-  buildTopProjectsQuery,
   assembleOverviewStats,
+  buildDailyActivityQuery,
+  buildOverviewQuery,
+  buildSourceDistributionQuery,
+  buildTopProjectsQuery,
+  buildWeekCountQuery,
 } from "./stats";
 
 // ── buildOverviewQuery ─────────────────────────────────────────

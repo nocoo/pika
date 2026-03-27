@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
-import { resolveUser } from "@/lib/cli-auth";
-import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
-import { getD1Client } from "@/lib/d1";
 import { auth } from "@/lib/auth";
+import { resolveUser } from "@/lib/cli-auth";
+import { getD1Client } from "@/lib/d1";
+import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
 import {
+  buildDeleteTagQuery,
   buildGetTagQuery,
   buildUpdateTagQuery,
-  buildDeleteTagQuery,
-  validateUpdateTag,
   type TagRow,
+  validateUpdateTag,
 } from "@/lib/tags";
 
 async function authenticate(request: Request) {
@@ -19,7 +19,10 @@ async function authenticate(request: Request) {
     getSession: async () => {
       const session = await auth();
       if (!session?.user?.id) return null;
-      return { userId: session.user.id, email: session.user.email ?? undefined };
+      return {
+        userId: session.user.id,
+        email: session.user.email ?? undefined,
+      };
     },
     db,
   });
@@ -51,7 +54,11 @@ export async function PATCH(
     return NextResponse.json({ error: validation.errors }, { status: 400 });
   }
 
-  const { sql, params: qParams } = buildUpdateTagQuery(tagId, user.userId, validation.data!);
+  const { sql, params: qParams } = buildUpdateTagQuery(
+    tagId,
+    user.userId,
+    validation.data!,
+  );
 
   try {
     const meta = await d1.execute(sql, qParams);
@@ -62,7 +69,7 @@ export async function PATCH(
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes("UNIQUE")) {
       return NextResponse.json(
-        { error: `Tag name "${validation.data!.name}" already exists` },
+        { error: `Tag name "${validation.data?.name}" already exists` },
         { status: 409 },
       );
     }

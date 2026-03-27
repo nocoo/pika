@@ -1,12 +1,12 @@
 "use client";
 
+import type { ColumnDef, Table } from "@tanstack/react-table";
 import { FolderKanban, X } from "lucide-react";
+import { ProjectActivityChart } from "@/components/projects/project-activity-chart";
+import type { SessionCardData } from "@/components/sessions/session-card";
 import { DataTable } from "@/components/ui/data-table";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
-import { ProjectActivityChart } from "@/components/projects/project-activity-chart";
 import { projectDisplayName } from "@/lib/format";
-import type { Table, ColumnDef } from "@tanstack/react-table";
-import type { SessionCardData } from "@/components/sessions/session-card";
 import type { ProjectItem } from "@/lib/projects";
 
 // ── Types ──────────────────────────────────────────────────────

@@ -1,10 +1,12 @@
-import { describe, it, expect, vi } from "vitest";
-import { D1CliAuthDb } from "./d1-cli-auth-db";
+import { describe, expect, it, vi } from "vitest";
 import type { D1Client } from "./d1";
+import { D1CliAuthDb } from "./d1-cli-auth-db";
 
 function createMockD1Client(overrides?: Partial<D1Client>): D1Client {
   return {
-    query: vi.fn().mockResolvedValue({ results: [], meta: { changes: 0, duration: 0 } }),
+    query: vi
+      .fn()
+      .mockResolvedValue({ results: [], meta: { changes: 0, duration: 0 } }),
     execute: vi.fn().mockResolvedValue({ changes: 0, duration: 0 }),
     firstOrNull: vi.fn().mockResolvedValue(null),
     ...overrides,
@@ -34,9 +36,9 @@ describe("D1CliAuthDb", () => {
       });
       const db = new D1CliAuthDb(client);
 
-      await expect(db.setApiKey("missing-user", "a".repeat(64))).rejects.toThrow(
-        /user missing-user not found in D1/,
-      );
+      await expect(
+        db.setApiKey("missing-user", "a".repeat(64)),
+      ).rejects.toThrow(/user missing-user not found in D1/);
     });
   });
 

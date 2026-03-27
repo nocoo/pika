@@ -2,16 +2,16 @@
 
 import { useEffect, useState } from "react";
 import {
-  AreaChart,
   Area,
-  XAxis,
-  YAxis,
+  AreaChart,
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
-import { chartPrimary, withAlpha } from "@/lib/palette";
 import { Skeleton } from "@/components/ui/skeleton";
+import { chartPrimary } from "@/lib/palette";
 import type { ProjectDailyActivity } from "@/lib/projects";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -34,7 +34,7 @@ const tooltipStyle = {
 // ── Date formatter ────────────────────────────────────────────
 
 function formatXAxis(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
+  const d = new Date(`${dateStr}T00:00:00`);
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
@@ -83,7 +83,9 @@ export function ProjectActivityChart({
   }, [projectKey]);
 
   if (loading) {
-    return <Skeleton className={`h-[200px] w-full rounded-xl ${className ?? ""}`} />;
+    return (
+      <Skeleton className={`h-[200px] w-full rounded-xl ${className ?? ""}`} />
+    );
   }
 
   if (error) {
@@ -112,16 +114,8 @@ export function ProjectActivityChart({
           >
             <defs>
               <linearGradient id="activityGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop
-                  offset="5%"
-                  stopColor={chartPrimary}
-                  stopOpacity={0.3}
-                />
-                <stop
-                  offset="95%"
-                  stopColor={chartPrimary}
-                  stopOpacity={0}
-                />
+                <stop offset="5%" stopColor={chartPrimary} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={chartPrimary} stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid

@@ -51,20 +51,32 @@ export function validateCreateTag(input: unknown): {
 } {
   const errors: ValidationError[] = [];
   if (!input || typeof input !== "object") {
-    return { valid: false, errors: [{ field: "body", message: "Invalid request body" }] };
+    return {
+      valid: false,
+      errors: [{ field: "body", message: "Invalid request body" }],
+    };
   }
 
   const obj = input as Record<string, unknown>;
 
   if (typeof obj.name !== "string" || obj.name.trim().length === 0) {
-    errors.push({ field: "name", message: "name is required and must be a non-empty string" });
+    errors.push({
+      field: "name",
+      message: "name is required and must be a non-empty string",
+    });
   } else if (obj.name.trim().length > TAG_NAME_MAX) {
-    errors.push({ field: "name", message: `name must be at most ${TAG_NAME_MAX} characters` });
+    errors.push({
+      field: "name",
+      message: `name must be at most ${TAG_NAME_MAX} characters`,
+    });
   }
 
   if (obj.color !== undefined && obj.color !== null) {
     if (typeof obj.color !== "string" || !TAG_COLOR_REGEX.test(obj.color)) {
-      errors.push({ field: "color", message: "color must be a hex color (e.g. #ff6b6b)" });
+      errors.push({
+        field: "color",
+        message: "color must be a hex color (e.g. #ff6b6b)",
+      });
     }
   }
 
@@ -89,7 +101,10 @@ export function validateUpdateTag(input: unknown): {
 } {
   const errors: ValidationError[] = [];
   if (!input || typeof input !== "object") {
-    return { valid: false, errors: [{ field: "body", message: "Invalid request body" }] };
+    return {
+      valid: false,
+      errors: [{ field: "body", message: "Invalid request body" }],
+    };
   }
 
   const obj = input as Record<string, unknown>;
@@ -99,9 +114,15 @@ export function validateUpdateTag(input: unknown): {
   if (obj.name !== undefined) {
     hasField = true;
     if (typeof obj.name !== "string" || obj.name.trim().length === 0) {
-      errors.push({ field: "name", message: "name must be a non-empty string" });
+      errors.push({
+        field: "name",
+        message: "name must be a non-empty string",
+      });
     } else if (obj.name.trim().length > TAG_NAME_MAX) {
-      errors.push({ field: "name", message: `name must be at most ${TAG_NAME_MAX} characters` });
+      errors.push({
+        field: "name",
+        message: `name must be at most ${TAG_NAME_MAX} characters`,
+      });
     } else {
       data.name = obj.name.trim();
     }
@@ -111,15 +132,24 @@ export function validateUpdateTag(input: unknown): {
     hasField = true;
     if (obj.color === null) {
       data.color = null;
-    } else if (typeof obj.color !== "string" || !TAG_COLOR_REGEX.test(obj.color)) {
-      errors.push({ field: "color", message: "color must be a hex color (e.g. #ff6b6b) or null" });
+    } else if (
+      typeof obj.color !== "string" ||
+      !TAG_COLOR_REGEX.test(obj.color)
+    ) {
+      errors.push({
+        field: "color",
+        message: "color must be a hex color (e.g. #ff6b6b) or null",
+      });
     } else {
       data.color = obj.color;
     }
   }
 
   if (!hasField) {
-    errors.push({ field: "body", message: "At least one field (name or color) must be provided" });
+    errors.push({
+      field: "body",
+      message: "At least one field (name or color) must be provided",
+    });
   }
 
   if (errors.length > 0) {

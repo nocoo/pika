@@ -13,16 +13,17 @@
  * for SQLite driver cross-source dedup.
  */
 
+import type { Dirent } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
-import { join, dirname, basename } from "node:path";
+import { basename, dirname, join } from "node:path";
 import type { OpenCodeCursor, ParseResult } from "@pika/core";
-import { fileUnchanged } from "../../utils/file-changed";
 import { parseOpenCodeJsonSession } from "../../parsers/opencode";
+import { fileUnchanged } from "../../utils/file-changed";
 import type {
-  FileDriver,
   DiscoverOpts,
-  OpenCodeJsonResumeState,
+  FileDriver,
   FileFingerprint,
+  OpenCodeJsonResumeState,
   SyncContext,
 } from "../types";
 
@@ -62,7 +63,7 @@ async function discoverOpenCodeJsonFiles(
     return [];
   }
 
-  let projectDirs;
+  let projectDirs: Dirent[];
   try {
     projectDirs = await readdir(sessionDir, { withFileTypes: true });
   } catch {
@@ -77,7 +78,7 @@ async function discoverOpenCodeJsonFiles(
 
     const projDir = join(sessionDir, projEntry.name);
 
-    let sessionFiles;
+    let sessionFiles: Dirent[];
     try {
       sessionFiles = await readdir(projDir, { withFileTypes: true });
     } catch {
@@ -175,12 +176,18 @@ export function createOpenCodeJsonDriver(
           if (cursor.messageDirMtimeMs === undefined) return false;
 
           // If message dir mtime changed, re-parse
-          if (currentMsgMtime !== undefined && currentMsgMtime !== cursor.messageDirMtimeMs) {
+          if (
+            currentMsgMtime !== undefined &&
+            currentMsgMtime !== cursor.messageDirMtimeMs
+          ) {
             return false;
           }
 
           // If message dir appeared (didn't exist before, exists now), re-parse
-          if (cursor.messageDirMtimeMs === undefined && currentMsgMtime !== undefined) {
+          if (
+            cursor.messageDirMtimeMs === undefined &&
+            currentMsgMtime !== undefined
+          ) {
             return false;
           }
         }
@@ -206,9 +213,9 @@ export function createOpenCodeJsonDriver(
       // Session file: storage/session/{projectId}/ses_*.json
       // Message dir:  storage/message/
       // Part dir:     storage/part/
-      const sessionDir = dirname(filePath);         // storage/session/{projectId}
+      const sessionDir = dirname(filePath); // storage/session/{projectId}
       const projectSessionDir = dirname(sessionDir); // storage/session
-      const storageDir = dirname(projectSessionDir);  // storage
+      const storageDir = dirname(projectSessionDir); // storage
       const messageDir = join(storageDir, "message");
       const partDir = join(storageDir, "part");
 

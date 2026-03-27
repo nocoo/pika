@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -77,10 +77,14 @@ export default function TagsSettingsPage() {
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(typeof data.error === "string" ? data.error : "Failed to create tag");
+        throw new Error(
+          typeof data.error === "string" ? data.error : "Failed to create tag",
+        );
       }
       const data = await res.json();
-      setTags((prev) => [...prev, data.tag].sort((a, b) => a.name.localeCompare(b.name)));
+      setTags((prev) =>
+        [...prev, data.tag].sort((a, b) => a.name.localeCompare(b.name)),
+      );
       setNewName("");
       setNewColor(null);
     } catch (err) {
@@ -110,7 +114,9 @@ export default function TagsSettingsPage() {
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(typeof data.error === "string" ? data.error : "Failed to update tag");
+        throw new Error(
+          typeof data.error === "string" ? data.error : "Failed to update tag",
+        );
       }
       const data = await res.json();
       setTags((prev) =>
@@ -154,9 +160,7 @@ export default function TagsSettingsPage() {
       </div>
 
       {/* Error */}
-      {error && (
-        <div className="text-sm text-destructive py-2">{error}</div>
-      )}
+      {error && <div className="text-sm text-destructive py-2">{error}</div>}
 
       {/* Create form */}
       <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
@@ -186,7 +190,9 @@ export default function TagsSettingsPage() {
           <button
             onClick={() => setNewColor(null)}
             className={`h-5 w-5 rounded-full border-2 transition-all ${
-              newColor === null ? "border-foreground scale-110" : "border-border"
+              newColor === null
+                ? "border-foreground scale-110"
+                : "border-border"
             } bg-muted`}
             title="No color"
           />
@@ -195,7 +201,9 @@ export default function TagsSettingsPage() {
               key={c}
               onClick={() => setNewColor(c)}
               className={`h-5 w-5 rounded-full border-2 transition-all ${
-                newColor === c ? "border-foreground scale-110" : "border-transparent"
+                newColor === c
+                  ? "border-foreground scale-110"
+                  : "border-transparent"
               }`}
               style={{ backgroundColor: c }}
               title={c}
@@ -209,7 +217,11 @@ export default function TagsSettingsPage() {
             <Badge
               variant="outline"
               className="text-xs"
-              style={newColor ? { borderColor: newColor, color: newColor } : undefined}
+              style={
+                newColor
+                  ? { borderColor: newColor, color: newColor }
+                  : undefined
+              }
             >
               {newName.trim()}
             </Badge>
@@ -269,7 +281,9 @@ export default function TagsSettingsPage() {
                     <button
                       onClick={() => setEditColor(null)}
                       className={`h-4 w-4 rounded-full border-2 transition-all ${
-                        editColor === null ? "border-foreground scale-110" : "border-border"
+                        editColor === null
+                          ? "border-foreground scale-110"
+                          : "border-border"
                       } bg-muted`}
                       title="No color"
                     />
@@ -278,7 +292,9 @@ export default function TagsSettingsPage() {
                         key={c}
                         onClick={() => setEditColor(c)}
                         className={`h-4 w-4 rounded-full border-2 transition-all ${
-                          editColor === c ? "border-foreground scale-110" : "border-transparent"
+                          editColor === c
+                            ? "border-foreground scale-110"
+                            : "border-transparent"
                         }`}
                         style={{ backgroundColor: c }}
                         title={c}
@@ -292,7 +308,11 @@ export default function TagsSettingsPage() {
                   <Badge
                     variant="outline"
                     className="text-xs"
-                    style={tag.color ? { borderColor: tag.color, color: tag.color } : undefined}
+                    style={
+                      tag.color
+                        ? { borderColor: tag.color, color: tag.color }
+                        : undefined
+                    }
                   >
                     {tag.name}
                   </Badge>

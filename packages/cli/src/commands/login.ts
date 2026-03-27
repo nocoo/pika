@@ -1,8 +1,8 @@
+import { homedir, platform } from "node:os";
+import { join } from "node:path";
+import { CONFIG_DIR, LOGIN_TIMEOUT_MS } from "@pika/core";
 import { defineCommand } from "citty";
 import consola from "consola";
-import { join } from "node:path";
-import { homedir, platform } from "node:os";
-import { CONFIG_DIR, LOGIN_TIMEOUT_MS } from "@pika/core";
 import { ConfigManager } from "../config/manager";
 import { performLogin } from "./login-flow";
 

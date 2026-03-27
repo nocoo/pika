@@ -1,6 +1,6 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { join } from "node:path";
 import { randomUUID } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { CONFIG_FILE, DEV_CONFIG_FILE } from "@pika/core";
 
 const PROD_API_URL = "https://pika.hexly.ai";
@@ -40,7 +40,7 @@ export class ConfigManager {
     }
     const existing = this.read();
     const merged = { ...existing, ...partial };
-    writeFileSync(this.configPath, JSON.stringify(merged, null, 2) + "\n", {
+    writeFileSync(this.configPath, `${JSON.stringify(merged, null, 2)}\n`, {
       mode: 0o600,
     });
   }

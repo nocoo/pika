@@ -1,10 +1,12 @@
 "use client";
 
 import {
-  flexRender,
   type ColumnDef,
+  flexRender,
   type Table as TanStackTable,
 } from "@tanstack/react-table";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -13,8 +15,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -75,7 +75,9 @@ export function DataTable<TData>({
                       <div
                         className={cn(
                           "flex items-center",
-                          header.column.columnDef.meta?.headerClassName?.includes("text-right") && "justify-end",
+                          header.column.columnDef.meta?.headerClassName?.includes(
+                            "text-right",
+                          ) && "justify-end",
                         )}
                       >
                         {flexRender(
@@ -124,10 +126,7 @@ export function DataTable<TData>({
                     key={cell.id}
                     className={cell.column.columnDef.meta?.cellClassName}
                   >
-                    {flexRender(
-                      cell.column.columnDef.cell,
-                      cell.getContext(),
-                    )}
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
               </TableRow>

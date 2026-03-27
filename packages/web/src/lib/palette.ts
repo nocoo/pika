@@ -15,13 +15,13 @@ export const withAlpha = (token: string, alpha: number) =>
 // -- 8 sequential chart colors --
 
 export const chart = {
-  gold:      v("chart-1"),  // Brand gold (= --primary)
-  sky:       v("chart-2"),
-  jade:      v("chart-3"),
-  green:     v("chart-4"),
-  lime:      v("chart-5"),
-  amber:     v("chart-6"),
-  orange:    v("chart-7"),
+  gold: v("chart-1"), // Brand gold (= --primary)
+  sky: v("chart-2"),
+  jade: v("chart-3"),
+  green: v("chart-4"),
+  lime: v("chart-5"),
+  amber: v("chart-6"),
+  orange: v("chart-7"),
   vermilion: v("chart-8"),
 } as const;
 
@@ -29,7 +29,10 @@ export const chart = {
 export const CHART_COLORS = Object.values(chart);
 
 /** CSS variable names (without --) matching CHART_COLORS order — for withAlpha(). */
-export const CHART_TOKENS = Array.from({ length: 8 }, (_, i) => `chart-${i + 1}`) as readonly string[];
+export const CHART_TOKENS = Array.from(
+  { length: 8 },
+  (_, i) => `chart-${i + 1}`,
+) as readonly string[];
 
 // -- Semantic aliases --
 
@@ -61,11 +64,11 @@ export interface ChartColor {
  * Every agent always renders the same color across all charts.
  */
 const AGENT_COLOR_MAP: Record<string, ChartColor> = {
-  "claude-code":    { color: chart.gold,      token: "chart-1" },
-  "codex":          { color: chart.sky,        token: "chart-2" },
-  "gemini-cli":     { color: chart.jade,       token: "chart-3" },
-  "opencode":       { color: chart.green,      token: "chart-4" },
-  "vscode-copilot": { color: chart.amber,      token: "chart-6" },
+  "claude-code": { color: chart.gold, token: "chart-1" },
+  codex: { color: chart.sky, token: "chart-2" },
+  "gemini-cli": { color: chart.jade, token: "chart-3" },
+  opencode: { color: chart.green, token: "chart-4" },
+  "vscode-copilot": { color: chart.amber, token: "chart-6" },
 };
 
 /** Default color for unknown agents. */

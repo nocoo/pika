@@ -20,12 +20,17 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { createInterface } from "node:readline";
-import { PARSER_REVISION, SCHEMA_VERSION, generateTitle, getFirstUserMessage } from "@pika/core";
 import type {
   CanonicalMessage,
   CanonicalSession,
-  RawSessionArchive,
   ParseResult,
+  RawSessionArchive,
+} from "@pika/core";
+import {
+  generateTitle,
+  getFirstUserMessage,
+  PARSER_REVISION,
+  SCHEMA_VERSION,
 } from "@pika/core";
 import { hashProjectRef } from "../utils/hash-project-ref";
 
@@ -188,10 +193,7 @@ function processToolResults(
 
 // ── Line processing ─────────────────────────────────────────────
 
-function processLine(
-  line: string,
-  sessions: Map<string, SessionAccum>,
-): void {
+function processLine(line: string, sessions: Map<string, SessionAccum>): void {
   let obj: ClaudeLine;
   try {
     obj = JSON.parse(line);
@@ -290,10 +292,7 @@ function processLine(
 
 // ── Session building ────────────────────────────────────────────
 
-function buildParseResult(
-  accum: SessionAccum,
-  filePath: string,
-): ParseResult {
+function buildParseResult(accum: SessionAccum, filePath: string): ParseResult {
   const startedAt = accum.startedAt ?? new Date().toISOString();
   const lastMessageAt = accum.lastMessageAt ?? startedAt;
   const durationMs =
@@ -310,7 +309,10 @@ function buildParseResult(
     projectRef: extractProjectRef(filePath),
     projectName: extractProjectName(filePath),
     model: accum.lastModel,
-    title: generateTitle(extractProjectName(filePath), getFirstUserMessage(accum.messages)),
+    title: generateTitle(
+      extractProjectName(filePath),
+      getFirstUserMessage(accum.messages),
+    ),
     messages: accum.messages,
     totalInputTokens: accum.totalInputTokens,
     totalOutputTokens: accum.totalOutputTokens,
@@ -426,7 +428,7 @@ export async function parseClaudeFileMulti(
   startOffset = 0,
 ): Promise<ParseResult[]> {
   const st = await stat(filePath).catch(() => null);
-  if (!st || !st.isFile() || st.size === 0) return [];
+  if (!st?.isFile() || st.size === 0) return [];
 
   if (startOffset >= st.size) return [];
 

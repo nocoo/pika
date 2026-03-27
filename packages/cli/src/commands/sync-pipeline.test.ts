@@ -1,24 +1,23 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { runSyncPipeline, getFingerprint } from "./sync-pipeline";
-import type { SyncPipelineInput, SyncPipelineOptions } from "./sync-pipeline";
 import type {
-  CursorState,
-  ParseResult,
   CanonicalSession,
-  RawSessionArchive,
+  CursorState,
   FileCursorBase,
   OpenCodeSqliteCursor,
+  ParseResult,
+  RawSessionArchive,
 } from "@pika/core";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
-  FileDriver,
   DbDriver,
-  DiscoverOpts,
-  SyncContext,
-  ResumeState,
-  FileFingerprint,
   DbDriverResult,
+  FileDriver,
+  FileFingerprint,
+  ResumeState,
+  SyncContext,
 } from "../drivers/types";
 import { AuthError } from "../upload/engine";
+import type { SyncPipelineInput, SyncPipelineOptions } from "./sync-pipeline";
+import { getFingerprint, runSyncPipeline } from "./sync-pipeline";
 
 // ── Fixtures ───────────────────────────────────────────────────
 
@@ -64,7 +63,9 @@ function makeCursorState(): CursorState {
   return { version: 1, files: {}, updatedAt: null };
 }
 
-function makeFingerprint(overrides?: Partial<FileFingerprint>): FileFingerprint {
+function _makeFingerprint(
+  overrides?: Partial<FileFingerprint>,
+): FileFingerprint {
   return { inode: 12345, mtimeMs: 1700000000000, size: 1024, ...overrides };
 }
 
@@ -78,19 +79,25 @@ function makeCursor(overrides?: Partial<FileCursorBase>): FileCursorBase {
   };
 }
 
-function mockFileDriver(overrides?: Partial<FileDriver<FileCursorBase>>): FileDriver<FileCursorBase> {
+function mockFileDriver(
+  overrides?: Partial<FileDriver<FileCursorBase>>,
+): FileDriver<FileCursorBase> {
   return {
     source: "claude-code",
     discover: vi.fn().mockResolvedValue([]),
     shouldSkip: vi.fn().mockReturnValue(false),
-    resumeState: vi.fn().mockReturnValue({ kind: "byte-offset", startOffset: 0 } as ResumeState),
+    resumeState: vi
+      .fn()
+      .mockReturnValue({ kind: "byte-offset", startOffset: 0 } as ResumeState),
     parse: vi.fn().mockResolvedValue([]),
     buildCursor: vi.fn().mockReturnValue(makeCursor()),
     ...overrides,
   };
 }
 
-function makeOpts(overrides?: Partial<SyncPipelineOptions>): SyncPipelineOptions {
+function makeOpts(
+  overrides?: Partial<SyncPipelineOptions>,
+): SyncPipelineOptions {
   return {
     upload: false,
     apiUrl: "https://pika.test",
@@ -145,17 +152,19 @@ describe("runSyncPipeline", () => {
   it("sets updatedAt on cursor state", async () => {
     const result = await runSyncPipeline(makeInput(), makeOpts());
     expect(result.cursorState.updatedAt).toBeTruthy();
-    expect(new Date(result.cursorState.updatedAt!).getTime()).toBeGreaterThan(0);
+    expect(new Date(result.cursorState.updatedAt!).getTime()).toBeGreaterThan(
+      0,
+    );
   });
 });
 
 // ── File driver discovery + parse ──────────────────────────────
 
 describe("runSyncPipeline: file drivers", () => {
-  let mockFetch: ReturnType<typeof vi.fn>;
+  let _mockFetch: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    mockFetch = vi.fn();
+    _mockFetch = vi.fn();
   });
 
   it("discovers files and parses them", async () => {
@@ -195,7 +204,11 @@ describe("runSyncPipeline: file drivers", () => {
   });
 
   it("updates cursor state after successful parse", async () => {
-    const newCursor = makeCursor({ inode: 99999, mtimeMs: 2000000000000, size: 2048 });
+    const newCursor = makeCursor({
+      inode: 99999,
+      mtimeMs: 2000000000000,
+      size: 2048,
+    });
     const driver = mockFileDriver({
       discover: vi.fn().mockResolvedValue([__filename]),
       parse: vi.fn().mockResolvedValue([makeParseResult()]),
@@ -247,7 +260,8 @@ describe("runSyncPipeline: file drivers", () => {
     const otherFile = __filename.replace(".test.ts", ".ts");
     const driver = mockFileDriver({
       discover: vi.fn().mockResolvedValue([__filename, otherFile]),
-      parse: vi.fn()
+      parse: vi
+        .fn()
         .mockRejectedValueOnce(new Error("first failed"))
         .mockResolvedValueOnce([makeParseResult("claude-code:s2")]),
     });
@@ -319,10 +333,7 @@ describe("runSyncPipeline: DB driver", () => {
       } satisfies DbDriverResult<OpenCodeSqliteCursor>),
     };
 
-    const result = await runSyncPipeline(
-      makeInput({ dbDriver }),
-      makeOpts(),
-    );
+    const result = await runSyncPipeline(makeInput({ dbDriver }), makeOpts());
 
     expect(result.totalParsed).toBe(1);
     expect(result.cursorState.openCodeSqlite).toEqual(dbCursor);
@@ -335,7 +346,10 @@ describe("runSyncPipeline: DB driver", () => {
     };
 
     const result = await runSyncPipeline(
-      makeInput({ dbDriver, discoverOpts: { openCodeDbPath: "/test/opencode.db" } }),
+      makeInput({
+        dbDriver,
+        discoverOpts: { openCodeDbPath: "/test/opencode.db" },
+      }),
       makeOpts(),
     );
 
@@ -387,8 +401,8 @@ describe("runSyncPipeline: DB driver", () => {
     );
 
     // Content upload should have errors
-    expect(result.contentResult!.errors).toHaveLength(1);
-    expect(result.contentResult!.errors[0].sessionKey).toBe("opencode:s1");
+    expect(result.contentResult?.errors).toHaveLength(1);
+    expect(result.contentResult?.errors[0].sessionKey).toBe("opencode:s1");
 
     // DB cursor should be rolled back to previous value
     expect(result.cursorState.openCodeSqlite).toEqual(prevDbCursor);
@@ -431,10 +445,13 @@ describe("runSyncPipeline: DB driver", () => {
     mockFetch.mockResolvedValueOnce(new Response(null, { status: 201 }));
     // content: presign request
     mockFetch.mockResolvedValueOnce(
-      new Response(JSON.stringify({ url: "https://r2.example.com/presigned", key: "k" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }),
+      new Response(
+        JSON.stringify({ url: "https://r2.example.com/presigned", key: "k" }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
     );
     // content: R2 PUT
     mockFetch.mockResolvedValueOnce(new Response(null, { status: 200 }));
@@ -452,7 +469,7 @@ describe("runSyncPipeline: DB driver", () => {
     );
 
     // Content upload should succeed
-    expect(result.contentResult!.errors).toHaveLength(0);
+    expect(result.contentResult?.errors).toHaveLength(0);
 
     // DB cursor should be the new one
     expect(result.cursorState.openCodeSqlite).toEqual(newDbCursor);
@@ -467,10 +484,7 @@ describe("runSyncPipeline: dirMtimes no longer persisted", () => {
   it("does not persist dirMtimes from syncCtx to cursor state", async () => {
     const syncCtx: SyncContext = {};
 
-    const result = await runSyncPipeline(
-      makeInput({ syncCtx }),
-      makeOpts(),
-    );
+    const result = await runSyncPipeline(makeInput({ syncCtx }), makeOpts());
 
     // dirMtimes should NOT be set (optimization removed)
     expect(result.cursorState.dirMtimes).toBeUndefined();
@@ -504,7 +518,9 @@ describe("runSyncPipeline: upload", () => {
     // content: canonical PUT
     mockFetch.mockResolvedValueOnce(new Response(null, { status: 201 }));
     // content: presign request
-    mockFetch.mockResolvedValueOnce(jsonResponse({ url: "https://r2.example.com/presigned", key: "k" }));
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ url: "https://r2.example.com/presigned", key: "k" }),
+    );
     // content: R2 PUT
     mockFetch.mockResolvedValueOnce(new Response(null, { status: 200 }));
     // content: confirm raw
@@ -516,9 +532,9 @@ describe("runSyncPipeline: upload", () => {
     );
 
     expect(result.uploadResult).toBeDefined();
-    expect(result.uploadResult!.totalIngested).toBe(1);
+    expect(result.uploadResult?.totalIngested).toBe(1);
     expect(result.contentResult).toBeDefined();
-    expect(result.contentResult!.uploaded).toBe(1);
+    expect(result.contentResult?.uploaded).toBe(1);
     expect(mockFetch).toHaveBeenCalledTimes(5);
   });
 
@@ -555,7 +571,9 @@ describe("runSyncPipeline: upload", () => {
       parse: vi.fn().mockResolvedValue([makeParseResult()]),
     });
 
-    mockFetch.mockResolvedValueOnce(jsonResponse({ error: "Unauthorized" }, 401));
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ error: "Unauthorized" }, 401),
+    );
 
     await expect(
       runSyncPipeline(
@@ -583,20 +601,28 @@ describe("runSyncPipeline: upload", () => {
     );
 
     // Content upload should have errors
-    expect(result.contentResult!.errors).toHaveLength(1);
-    expect(result.contentResult!.errors[0].sessionKey).toBe("claude-code:s1");
+    expect(result.contentResult?.errors).toHaveLength(1);
+    expect(result.contentResult?.errors[0].sessionKey).toBe("claude-code:s1");
 
     // Cursor should be rolled back — file was not in cursor before, so it should be removed
     expect(result.cursorState.files[__filename]).toBeUndefined();
   });
 
   it("restores previous cursor on content upload failure", async () => {
-    const prevCursor = makeCursor({ inode: 11111, mtimeMs: 1600000000000, size: 512 });
+    const prevCursor = makeCursor({
+      inode: 11111,
+      mtimeMs: 1600000000000,
+      size: 512,
+    });
     const cursorState = makeCursorState();
     cursorState.files[__filename] = prevCursor;
 
     const parseResult1 = makeParseResult("claude-code:s1");
-    const newCursor = makeCursor({ inode: 99999, mtimeMs: 2000000000000, size: 2048 });
+    const newCursor = makeCursor({
+      inode: 99999,
+      mtimeMs: 2000000000000,
+      size: 2048,
+    });
     const driver = mockFileDriver({
       discover: vi.fn().mockResolvedValue([__filename]),
       parse: vi.fn().mockResolvedValue([parseResult1]),
@@ -627,10 +653,12 @@ describe("runSyncPipeline: upload", () => {
 
     const driver = mockFileDriver({
       discover: vi.fn().mockResolvedValue([__filename, otherFile]),
-      parse: vi.fn()
+      parse: vi
+        .fn()
         .mockResolvedValueOnce([parseResult1])
         .mockResolvedValueOnce([parseResult2]),
-      buildCursor: vi.fn()
+      buildCursor: vi
+        .fn()
         .mockReturnValueOnce(newCursor1)
         .mockReturnValueOnce(newCursor2),
     });
@@ -640,7 +668,9 @@ describe("runSyncPipeline: upload", () => {
     // s1: canonical PUT — success
     mockFetch.mockResolvedValueOnce(new Response(null, { status: 201 }));
     // s1: presign request
-    mockFetch.mockResolvedValueOnce(jsonResponse({ url: "https://r2.example.com/presigned", key: "k1" }));
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ url: "https://r2.example.com/presigned", key: "k1" }),
+    );
     // s1: R2 PUT
     mockFetch.mockResolvedValueOnce(new Response(null, { status: 200 }));
     // s1: confirm raw

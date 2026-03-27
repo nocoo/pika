@@ -22,12 +22,17 @@
  */
 
 import { readFile, stat } from "node:fs/promises";
-import { PARSER_REVISION, SCHEMA_VERSION, generateTitle, getFirstUserMessage } from "@pika/core";
 import type {
   CanonicalMessage,
   CanonicalSession,
-  RawSessionArchive,
   ParseResult,
+  RawSessionArchive,
+} from "@pika/core";
+import {
+  generateTitle,
+  getFirstUserMessage,
+  PARSER_REVISION,
+  SCHEMA_VERSION,
 } from "@pika/core";
 import { hashProjectRef } from "../utils/hash-project-ref";
 
@@ -150,10 +155,7 @@ interface SessionAccum {
   lastModel: string | null;
 }
 
-function processUserMessage(
-  msg: GeminiMessage,
-  accum: SessionAccum,
-): void {
+function processUserMessage(msg: GeminiMessage, accum: SessionAccum): void {
   const text = extractUserContent(msg.content);
   if (!text) return;
 
@@ -164,10 +166,7 @@ function processUserMessage(
   });
 }
 
-function processGeminiMessage(
-  msg: GeminiMessage,
-  accum: SessionAccum,
-): void {
+function processGeminiMessage(msg: GeminiMessage, accum: SessionAccum): void {
   const ts = msg.timestamp ?? new Date().toISOString();
 
   // Track model
@@ -261,7 +260,10 @@ function buildParseResult(
     projectRef: extractProjectRef(session.projectHash),
     projectName: extractProjectName(session.projectHash),
     model: accum.lastModel,
-    title: generateTitle(extractProjectName(session.projectHash), getFirstUserMessage(accum.messages)),
+    title: generateTitle(
+      extractProjectName(session.projectHash),
+      getFirstUserMessage(accum.messages),
+    ),
     messages: accum.messages,
     totalInputTokens: accum.totalInputTokens,
     totalOutputTokens: accum.totalOutputTokens,
@@ -335,7 +337,7 @@ export async function parseGeminiFile(
   startIndex = 0,
 ): Promise<GeminiParseResult> {
   const st = await stat(filePath).catch(() => null);
-  if (!st || !st.isFile() || st.size === 0) return buildEmptyResult(filePath);
+  if (!st?.isFile() || st.size === 0) return buildEmptyResult(filePath);
 
   let rawContent: string;
   try {
@@ -351,7 +353,8 @@ export async function parseGeminiFile(
     return buildEmptyResult(filePath);
   }
 
-  if (!session || typeof session !== "object") return buildEmptyResult(filePath);
+  if (!session || typeof session !== "object")
+    return buildEmptyResult(filePath);
 
   const messages = session.messages;
   if (!Array.isArray(messages) || messages.length === 0) {
@@ -390,5 +393,11 @@ export async function parseGeminiFile(
 
   if (accum.messages.length === 0) return buildEmptyResult(filePath);
 
-  return buildParseResult(session, accum, filePath, rawContent, messages.length);
+  return buildParseResult(
+    session,
+    accum,
+    filePath,
+    rawContent,
+    messages.length,
+  );
 }

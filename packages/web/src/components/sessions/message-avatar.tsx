@@ -1,19 +1,19 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import type { Source } from "@pika/core";
 import { Info } from "lucide-react";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { useSession } from "next-auth/react";
+import { AgentIcon } from "@/components/ui/agent-icon";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   HoverCard,
-  HoverCardTrigger,
   HoverCardContent,
+  HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import { AgentIcon } from "@/components/ui/agent-icon";
 import { ModelBadge } from "@/components/ui/model-badge";
-import { cn, formatTokens } from "@/lib/utils";
 import { sourceLabel } from "@/lib/format";
 import { agentColor, withAlpha } from "@/lib/palette";
-import type { Source } from "@pika/core";
+import { cn, formatTokens } from "@/lib/utils";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -131,8 +131,7 @@ function AssistantAvatar({
 }) {
   const { color, token } = agentColor(source);
   const hasTokenInfo =
-    (inputTokens && inputTokens > 0) ||
-    (outputTokens && outputTokens > 0);
+    (inputTokens && inputTokens > 0) || (outputTokens && outputTokens > 0);
 
   return (
     <HoverCard>

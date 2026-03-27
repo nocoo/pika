@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { R2Client, getR2Client, resetR2Client } from "./r2";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getR2Client, R2Client, resetR2Client } from "./r2";
 
 // ── Mock AWS SDK ───────────────────────────────────────────────
 
@@ -9,16 +9,20 @@ vi.mock("@aws-sdk/client-s3", () => {
     S3Client: vi.fn().mockImplementation(() => ({ send: sendFn })),
     GetObjectCommand: vi.fn().mockImplementation((input) => ({ input })),
     PutObjectCommand: vi.fn().mockImplementation((input) => ({ input })),
-    HeadObjectCommand: vi.fn().mockImplementation((input) => ({ _type: "HeadObject", input })),
+    HeadObjectCommand: vi
+      .fn()
+      .mockImplementation((input) => ({ _type: "HeadObject", input })),
     __mockSend: sendFn,
   };
 });
 
 vi.mock("@aws-sdk/s3-request-presigner", () => ({
-  getSignedUrl: vi.fn().mockImplementation(
-    async (_client, command, opts) =>
-      `https://r2.example.com/${command.input.Key}?expires=${opts?.expiresIn ?? 3600}`,
-  ),
+  getSignedUrl: vi
+    .fn()
+    .mockImplementation(
+      async (_client, command, opts) =>
+        `https://r2.example.com/${command.input.Key}?expires=${opts?.expiresIn ?? 3600}`,
+    ),
 }));
 
 const cfg = {
@@ -87,9 +91,7 @@ describe("R2Client.getPresignedUrl", () => {
 
     const url = await client.getPresignedUrl("some/key.json.gz");
 
-    expect(url).toBe(
-      "https://r2.example.com/some/key.json.gz?expires=3600",
-    );
+    expect(url).toBe("https://r2.example.com/some/key.json.gz?expires=3600");
   });
 
   it("uses custom expiresIn", async () => {
@@ -167,9 +169,7 @@ describe("R2Client.putPresignedUrl", () => {
 
     const url = await client.putPresignedUrl("some/key.json.gz");
 
-    expect(url).toBe(
-      "https://r2.example.com/some/key.json.gz?expires=3600",
-    );
+    expect(url).toBe("https://r2.example.com/some/key.json.gz?expires=3600");
   });
 
   it("uses custom expiresIn", async () => {
@@ -259,7 +259,9 @@ describe("getR2Client", () => {
 
 describe("R2Client.headObject", () => {
   it("returns true when object exists", async () => {
-    const { __mockSend } = await import("@aws-sdk/client-s3") as unknown as { __mockSend: ReturnType<typeof vi.fn> };
+    const { __mockSend } = (await import("@aws-sdk/client-s3")) as unknown as {
+      __mockSend: ReturnType<typeof vi.fn>;
+    };
     __mockSend.mockResolvedValueOnce({});
 
     const client = new R2Client(cfg);
@@ -269,7 +271,9 @@ describe("R2Client.headObject", () => {
   });
 
   it("returns false for NotFound error", async () => {
-    const { __mockSend } = await import("@aws-sdk/client-s3") as unknown as { __mockSend: ReturnType<typeof vi.fn> };
+    const { __mockSend } = (await import("@aws-sdk/client-s3")) as unknown as {
+      __mockSend: ReturnType<typeof vi.fn>;
+    };
     const err = new Error("Not Found");
     err.name = "NotFound";
     __mockSend.mockRejectedValueOnce(err);
@@ -281,7 +285,9 @@ describe("R2Client.headObject", () => {
   });
 
   it("returns false for NoSuchKey error", async () => {
-    const { __mockSend } = await import("@aws-sdk/client-s3") as unknown as { __mockSend: ReturnType<typeof vi.fn> };
+    const { __mockSend } = (await import("@aws-sdk/client-s3")) as unknown as {
+      __mockSend: ReturnType<typeof vi.fn>;
+    };
     const err = new Error("No such key");
     err.name = "NoSuchKey";
     __mockSend.mockRejectedValueOnce(err);
@@ -293,7 +299,9 @@ describe("R2Client.headObject", () => {
   });
 
   it("rethrows unexpected errors", async () => {
-    const { __mockSend } = await import("@aws-sdk/client-s3") as unknown as { __mockSend: ReturnType<typeof vi.fn> };
+    const { __mockSend } = (await import("@aws-sdk/client-s3")) as unknown as {
+      __mockSend: ReturnType<typeof vi.fn>;
+    };
     __mockSend.mockRejectedValueOnce(new Error("NetworkError"));
 
     const client = new R2Client(cfg);
@@ -301,7 +309,9 @@ describe("R2Client.headObject", () => {
   });
 
   it("passes correct Bucket and Key to HeadObjectCommand", async () => {
-    const { HeadObjectCommand, __mockSend } = await import("@aws-sdk/client-s3") as unknown as {
+    const { HeadObjectCommand, __mockSend } = (await import(
+      "@aws-sdk/client-s3"
+    )) as unknown as {
       HeadObjectCommand: ReturnType<typeof vi.fn>;
       __mockSend: ReturnType<typeof vi.fn>;
     };

@@ -1,20 +1,20 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import {
-  proxyToWorker,
-  getProxyConfig,
-  parseContentPath,
-  validatePresignRequest,
-  validateConfirmRawRequest,
-  buildConfirmRawUpdate,
-  buildRawR2Key,
-  verifyR2RawExists,
-  type ProxyConfig,
-} from "./ingest";
 import {
   MAX_CONTENT_UPLOAD_BYTES,
-  MAX_METADATA_BODY_BYTES,
   MAX_DECOMPRESSED_CONTENT_BYTES,
+  MAX_METADATA_BODY_BYTES,
 } from "@pika/core";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  buildConfirmRawUpdate,
+  buildRawR2Key,
+  getProxyConfig,
+  type ProxyConfig,
+  parseContentPath,
+  proxyToWorker,
+  validateConfirmRawRequest,
+  validatePresignRequest,
+  verifyR2RawExists,
+} from "./ingest";
 
 const cfg: ProxyConfig = {
   workerUrl: "https://worker.example.com",
@@ -25,9 +25,9 @@ const cfg: ProxyConfig = {
 
 describe("proxyToWorker", () => {
   it("forwards request to worker with correct headers", async () => {
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response('{"ok":true}', { status: 200 }),
-    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response('{"ok":true}', { status: 200 }));
 
     await proxyToWorker(
       cfg,
@@ -56,9 +56,9 @@ describe("proxyToWorker", () => {
   });
 
   it("returns worker response status and body", async () => {
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response('{"inserted":5}', { status: 200 }),
-    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response('{"inserted":5}', { status: 200 }));
 
     const result = await proxyToWorker(
       cfg,
@@ -108,9 +108,9 @@ describe("proxyToWorker", () => {
   });
 
   it("omits Content-Type when not provided", async () => {
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response("ok", { status: 200 }),
-    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response("ok", { status: 200 }));
 
     await proxyToWorker(
       cfg,
@@ -123,9 +123,9 @@ describe("proxyToWorker", () => {
   });
 
   it("forwards non-200 status from worker", async () => {
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response('{"error":"conflict"}', { status: 409 }),
-    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response('{"error":"conflict"}', { status: 409 }));
 
     const result = await proxyToWorker(
       cfg,
@@ -138,9 +138,9 @@ describe("proxyToWorker", () => {
   });
 
   it("forwards extra headers to the worker", async () => {
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response("ok", { status: 200 }),
-    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response("ok", { status: 200 }));
 
     await proxyToWorker(
       cfg,
@@ -272,52 +272,98 @@ describe("validatePresignRequest", () => {
 
   it("rejects null body", () => {
     const result = validatePresignRequest(null);
-    expect(result).toEqual({ valid: false, error: "Request body must be a JSON object" });
+    expect(result).toEqual({
+      valid: false,
+      error: "Request body must be a JSON object",
+    });
   });
 
   it("rejects non-object body", () => {
     const result = validatePresignRequest("string");
-    expect(result).toEqual({ valid: false, error: "Request body must be a JSON object" });
+    expect(result).toEqual({
+      valid: false,
+      error: "Request body must be a JSON object",
+    });
   });
 
   it("rejects missing sessionKey", () => {
     const result = validatePresignRequest({ rawHash: "abcdef12" });
-    expect(result).toEqual({ valid: false, error: "sessionKey (non-empty string) is required" });
+    expect(result).toEqual({
+      valid: false,
+      error: "sessionKey (non-empty string) is required",
+    });
   });
 
   it("rejects empty sessionKey", () => {
-    const result = validatePresignRequest({ sessionKey: "", rawHash: "abcdef12" });
-    expect(result).toEqual({ valid: false, error: "sessionKey (non-empty string) is required" });
+    const result = validatePresignRequest({
+      sessionKey: "",
+      rawHash: "abcdef12",
+    });
+    expect(result).toEqual({
+      valid: false,
+      error: "sessionKey (non-empty string) is required",
+    });
   });
 
   it("rejects non-string sessionKey", () => {
-    const result = validatePresignRequest({ sessionKey: 123, rawHash: "abcdef12" });
-    expect(result).toEqual({ valid: false, error: "sessionKey (non-empty string) is required" });
+    const result = validatePresignRequest({
+      sessionKey: 123,
+      rawHash: "abcdef12",
+    });
+    expect(result).toEqual({
+      valid: false,
+      error: "sessionKey (non-empty string) is required",
+    });
   });
 
   it("rejects missing rawHash", () => {
     const result = validatePresignRequest({ sessionKey: "key" });
-    expect(result).toEqual({ valid: false, error: "rawHash (non-empty string) is required" });
+    expect(result).toEqual({
+      valid: false,
+      error: "rawHash (non-empty string) is required",
+    });
   });
 
   it("rejects empty rawHash", () => {
     const result = validatePresignRequest({ sessionKey: "key", rawHash: "" });
-    expect(result).toEqual({ valid: false, error: "rawHash (non-empty string) is required" });
+    expect(result).toEqual({
+      valid: false,
+      error: "rawHash (non-empty string) is required",
+    });
   });
 
   it("rejects non-hex rawHash", () => {
-    const result = validatePresignRequest({ sessionKey: "key", rawHash: "not-hex!" });
-    expect(result).toEqual({ valid: false, error: "rawHash must be a hex string (8-128 chars)" });
+    const result = validatePresignRequest({
+      sessionKey: "key",
+      rawHash: "not-hex!",
+    });
+    expect(result).toEqual({
+      valid: false,
+      error: "rawHash must be a hex string (8-128 chars)",
+    });
   });
 
   it("rejects too-short hex rawHash", () => {
-    const result = validatePresignRequest({ sessionKey: "key", rawHash: "abcdef" });
-    expect(result).toEqual({ valid: false, error: "rawHash must be a hex string (8-128 chars)" });
+    const result = validatePresignRequest({
+      sessionKey: "key",
+      rawHash: "abcdef",
+    });
+    expect(result).toEqual({
+      valid: false,
+      error: "rawHash must be a hex string (8-128 chars)",
+    });
   });
 
   it("accepts uppercase hex rawHash", () => {
-    const result = validatePresignRequest({ sessionKey: "key", rawHash: "ABCDEF1234567890" });
-    expect(result).toEqual({ valid: true, sessionKey: "key", rawHash: "ABCDEF1234567890" });
+    const result = validatePresignRequest({
+      sessionKey: "key",
+      rawHash: "ABCDEF1234567890",
+    });
+    expect(result).toEqual({
+      valid: true,
+      sessionKey: "key",
+      rawHash: "ABCDEF1234567890",
+    });
   });
 
   it("accepts 64-char SHA-256 hex rawHash", () => {
@@ -346,42 +392,91 @@ describe("validateConfirmRawRequest", () => {
 
   it("rejects null body", () => {
     const result = validateConfirmRawRequest(null);
-    expect(result).toEqual({ valid: false, error: "Request body must be a JSON object" });
+    expect(result).toEqual({
+      valid: false,
+      error: "Request body must be a JSON object",
+    });
   });
 
   it("rejects missing sessionKey", () => {
-    const result = validateConfirmRawRequest({ rawHash: "abcdef12", rawSize: 100 });
-    expect(result).toEqual({ valid: false, error: "sessionKey (non-empty string) is required" });
+    const result = validateConfirmRawRequest({
+      rawHash: "abcdef12",
+      rawSize: 100,
+    });
+    expect(result).toEqual({
+      valid: false,
+      error: "sessionKey (non-empty string) is required",
+    });
   });
 
   it("rejects missing rawHash", () => {
-    const result = validateConfirmRawRequest({ sessionKey: "key", rawSize: 100 });
-    expect(result).toEqual({ valid: false, error: "rawHash (non-empty string) is required" });
+    const result = validateConfirmRawRequest({
+      sessionKey: "key",
+      rawSize: 100,
+    });
+    expect(result).toEqual({
+      valid: false,
+      error: "rawHash (non-empty string) is required",
+    });
   });
 
   it("rejects non-hex rawHash", () => {
-    const result = validateConfirmRawRequest({ sessionKey: "key", rawHash: "xyz", rawSize: 100 });
-    expect(result).toEqual({ valid: false, error: "rawHash must be a hex string (8-128 chars)" });
+    const result = validateConfirmRawRequest({
+      sessionKey: "key",
+      rawHash: "xyz",
+      rawSize: 100,
+    });
+    expect(result).toEqual({
+      valid: false,
+      error: "rawHash must be a hex string (8-128 chars)",
+    });
   });
 
   it("rejects missing rawSize", () => {
-    const result = validateConfirmRawRequest({ sessionKey: "key", rawHash: "abcdef12" });
-    expect(result).toEqual({ valid: false, error: "rawSize (positive integer) is required" });
+    const result = validateConfirmRawRequest({
+      sessionKey: "key",
+      rawHash: "abcdef12",
+    });
+    expect(result).toEqual({
+      valid: false,
+      error: "rawSize (positive integer) is required",
+    });
   });
 
   it("rejects non-number rawSize", () => {
-    const result = validateConfirmRawRequest({ sessionKey: "key", rawHash: "abcdef12", rawSize: "big" });
-    expect(result).toEqual({ valid: false, error: "rawSize (positive integer) is required" });
+    const result = validateConfirmRawRequest({
+      sessionKey: "key",
+      rawHash: "abcdef12",
+      rawSize: "big",
+    });
+    expect(result).toEqual({
+      valid: false,
+      error: "rawSize (positive integer) is required",
+    });
   });
 
   it("rejects zero rawSize", () => {
-    const result = validateConfirmRawRequest({ sessionKey: "key", rawHash: "abcdef12", rawSize: 0 });
-    expect(result).toEqual({ valid: false, error: "rawSize (positive integer) is required" });
+    const result = validateConfirmRawRequest({
+      sessionKey: "key",
+      rawHash: "abcdef12",
+      rawSize: 0,
+    });
+    expect(result).toEqual({
+      valid: false,
+      error: "rawSize (positive integer) is required",
+    });
   });
 
   it("rejects negative rawSize", () => {
-    const result = validateConfirmRawRequest({ sessionKey: "key", rawHash: "abcdef12", rawSize: -1 });
-    expect(result).toEqual({ valid: false, error: "rawSize (positive integer) is required" });
+    const result = validateConfirmRawRequest({
+      sessionKey: "key",
+      rawHash: "abcdef12",
+      rawSize: -1,
+    });
+    expect(result).toEqual({
+      valid: false,
+      error: "rawSize (positive integer) is required",
+    });
   });
 });
 
@@ -400,7 +495,9 @@ describe("buildConfirmRawUpdate", () => {
     expect(result.sql).toContain("raw_key");
     expect(result.sql).toContain("raw_size");
     expect(result.sql).toContain("raw_hash");
-    expect(result.params).toContain("user-1/claude-code:abc123/raw/deadbeef01234567.json.gz");
+    expect(result.params).toContain(
+      "user-1/claude-code:abc123/raw/deadbeef01234567.json.gz",
+    );
     expect(result.params).toContain(2048);
     expect(result.params).toContain("deadbeef01234567");
     expect(result.params).toContain("user-1");
@@ -495,6 +592,8 @@ describe("body size limit constants", () => {
   });
 
   it("decompressed limit is larger than compressed limit", () => {
-    expect(MAX_DECOMPRESSED_CONTENT_BYTES).toBeGreaterThan(MAX_CONTENT_UPLOAD_BYTES);
+    expect(MAX_DECOMPRESSED_CONTENT_BYTES).toBeGreaterThan(
+      MAX_CONTENT_UPLOAD_BYTES,
+    );
   });
 });

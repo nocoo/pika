@@ -1,9 +1,9 @@
 "use client";
 
 import { memo, useEffect, useState } from "react";
+import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { Components } from "react-markdown";
 import { cn } from "@/lib/utils";
 
 import "./markdown.css";
@@ -184,10 +184,7 @@ function buildComponents(isUser: boolean): Components {
     table({ children, ...props }) {
       return (
         <div className="my-2 overflow-x-auto">
-          <table
-            className="min-w-full border-collapse text-xs"
-            {...props}
-          >
+          <table className="min-w-full border-collapse text-xs" {...props}>
             {children}
           </table>
         </div>
@@ -323,6 +320,7 @@ function buildComponents(isUser: boolean): Components {
 
     img({ src, alt, ...props }) {
       return (
+        // biome-ignore lint/performance/noImgElement: markdown renderer handles external images without known dimensions
         <img
           src={src}
           alt={alt}

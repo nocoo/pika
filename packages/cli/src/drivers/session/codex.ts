@@ -9,15 +9,16 @@
  * Parser: parseCodexFile(filePath, startOffset) -> single ParseResult
  */
 
+import type { Dirent } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { CodexCursor, ParseResult } from "@pika/core";
-import { fileUnchanged } from "../../utils/file-changed";
 import { parseCodexFile } from "../../parsers/codex";
+import { fileUnchanged } from "../../utils/file-changed";
 import type {
-  FileDriver,
-  DiscoverOpts,
   CodexResumeState,
+  DiscoverOpts,
+  FileDriver,
   FileFingerprint,
 } from "../types";
 
@@ -34,7 +35,7 @@ async function walkFiltered(
   results: string[],
   filter: (name: string) => boolean,
 ): Promise<void> {
-  let entries;
+  let entries: Dirent[];
   try {
     entries = await readdir(dir, { withFileTypes: true });
   } catch {
@@ -51,9 +52,7 @@ async function walkFiltered(
   }
 }
 
-async function discoverCodexFiles(
-  codexSessionsDir: string,
-): Promise<string[]> {
+async function discoverCodexFiles(codexSessionsDir: string): Promise<string[]> {
   try {
     await stat(codexSessionsDir);
   } catch {
@@ -61,8 +60,10 @@ async function discoverCodexFiles(
   }
 
   const results: string[] = [];
-  await walkFiltered(codexSessionsDir, results, (name) =>
-    name.startsWith("rollout-") && name.endsWith(".jsonl"),
+  await walkFiltered(
+    codexSessionsDir,
+    results,
+    (name) => name.startsWith("rollout-") && name.endsWith(".jsonl"),
   );
   return results;
 }
@@ -92,12 +93,22 @@ export const codexSessionDriver: FileDriver<CodexCursor> = {
   ): CodexResumeState {
     // No cursor or different inode -> full re-scan from offset 0
     if (!cursor || cursor.inode !== fingerprint.inode) {
-      return { kind: "codex", startOffset: 0, lastTotalTokens: 0, lastModel: null };
+      return {
+        kind: "codex",
+        startOffset: 0,
+        lastTotalTokens: 0,
+        lastModel: null,
+      };
     }
 
     // File shrunk -> re-scan (file was re-written/truncated)
     if (cursor.offset > fingerprint.size) {
-      return { kind: "codex", startOffset: 0, lastTotalTokens: 0, lastModel: null };
+      return {
+        kind: "codex",
+        startOffset: 0,
+        lastTotalTokens: 0,
+        lastModel: null,
+      };
     }
 
     // Resume from where we left off, carrying cumulative state
@@ -129,8 +140,7 @@ export const codexSessionDriver: FileDriver<CodexCursor> = {
 
     if (results.length > 0) {
       const session = results[0].canonical;
-      lastTotalTokens =
-        session.totalInputTokens + session.totalOutputTokens;
+      lastTotalTokens = session.totalInputTokens + session.totalOutputTokens;
       lastModel = session.model;
     }
 

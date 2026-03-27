@@ -1,13 +1,13 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import type { HeatmapDay } from "@/lib/format";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import type { HeatmapDay } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 // ── Heatmap level → CSS class ──────────────────────────────────
 
@@ -68,10 +68,7 @@ export function ActivityHeatmap({ data, className }: ActivityHeatmapProps) {
         {[0, 1, 2, 3, 4].map((level) => (
           <div
             key={level}
-            className={cn(
-              "h-3 w-3 rounded-sm",
-              LEVEL_CLASSES[level],
-            )}
+            className={cn("h-3 w-3 rounded-sm", LEVEL_CLASSES[level])}
           />
         ))}
         <span>More</span>

@@ -53,8 +53,13 @@ export function inferSource(filePath: string): Source | null {
   if (filePath.includes(".claude/")) return "claude-code";
   if (filePath.includes(".codex/")) return "codex";
   if (filePath.includes(".gemini/")) return "gemini-cli";
-  if (filePath.includes("opencode/") || filePath.includes("opencode\\")) return "opencode";
-  if (filePath.includes("workspaceStorage/") || filePath.includes("globalStorage/")) return "vscode-copilot";
+  if (filePath.includes("opencode/") || filePath.includes("opencode\\"))
+    return "opencode";
+  if (
+    filePath.includes("workspaceStorage/") ||
+    filePath.includes("globalStorage/")
+  )
+    return "vscode-copilot";
   return null;
 }
 
@@ -87,7 +92,10 @@ export function formatTimeAgo(ms: number): string {
  * @param input - Status input data
  * @param now - Current time (injectable for testing)
  */
-export function buildStatus(input: StatusInput, now: Date = new Date()): StatusOutput {
+export function buildStatus(
+  input: StatusInput,
+  now: Date = new Date(),
+): StatusOutput {
   const { loggedIn, cursorState, parseErrors } = input;
 
   // Last sync time

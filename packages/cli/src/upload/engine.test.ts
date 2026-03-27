@@ -1,29 +1,31 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  sha256,
-  toSessionSnapshot,
-  splitBatches,
-  parseRetryAfter,
-  uploadMetadataBatches,
-  AuthError,
-  RetryExhaustedError,
-  ClientError,
-} from "./engine";
-import type { UploadEngineOptions } from "./engine";
 import type {
   CanonicalSession,
   RawSessionArchive,
   SessionSnapshot,
 } from "@pika/core";
 import {
-  METADATA_BATCH_SIZE,
-  MAX_UPLOAD_RETRIES,
   INITIAL_BACKOFF_MS,
+  MAX_UPLOAD_RETRIES,
+  METADATA_BATCH_SIZE,
 } from "@pika/core";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { UploadEngineOptions } from "./engine";
+import {
+  AuthError,
+  ClientError,
+  parseRetryAfter,
+  RetryExhaustedError,
+  sha256,
+  splitBatches,
+  toSessionSnapshot,
+  uploadMetadataBatches,
+} from "./engine";
 
 // ── Fixtures ───────────────────────────────────────────────────
 
-function makeCanonical(overrides?: Partial<CanonicalSession>): CanonicalSession {
+function makeCanonical(
+  overrides?: Partial<CanonicalSession>,
+): CanonicalSession {
   return {
     sessionKey: "claude-code:test-session-1",
     source: "claude-code",
@@ -86,7 +88,8 @@ function makeRaw(overrides?: Partial<RawSessionArchive>): RawSessionArchive {
       {
         path: "/home/user/.claude/projects/test/session.jsonl",
         format: "jsonl",
-        content: '{"type":"user","message":"Hello"}\n{"type":"assistant","message":"Hi there!"}\n',
+        content:
+          '{"type":"user","message":"Hello"}\n{"type":"assistant","message":"Hi there!"}\n',
       },
     ],
     ...overrides,
@@ -100,7 +103,9 @@ function makeSnapshot(overrides?: Partial<SessionSnapshot>): SessionSnapshot {
   return { ...base, ...overrides };
 }
 
-function makeOpts(overrides?: Partial<UploadEngineOptions>): UploadEngineOptions {
+function makeOpts(
+  overrides?: Partial<UploadEngineOptions>,
+): UploadEngineOptions {
   return {
     apiUrl: "https://pika.test",
     apiKey: "pk_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -196,8 +201,14 @@ describe("toSessionSnapshot", () => {
 
   it("different canonical content produces different contentHash", () => {
     const raw = makeRaw();
-    const { snapshot: s1 } = toSessionSnapshot(makeCanonical({ title: "A" }), raw);
-    const { snapshot: s2 } = toSessionSnapshot(makeCanonical({ title: "B" }), raw);
+    const { snapshot: s1 } = toSessionSnapshot(
+      makeCanonical({ title: "A" }),
+      raw,
+    );
+    const { snapshot: s2 } = toSessionSnapshot(
+      makeCanonical({ title: "B" }),
+      raw,
+    );
     expect(s1.contentHash).not.toBe(s2.contentHash);
   });
 
@@ -243,7 +254,11 @@ describe("toSessionSnapshot", () => {
   it("counts zero for roles not present", () => {
     const canonical = makeCanonical({
       messages: [
-        { role: "system", content: "System message", timestamp: "2026-01-01T00:00:00Z" },
+        {
+          role: "system",
+          content: "System message",
+          timestamp: "2026-01-01T00:00:00Z",
+        },
       ],
     });
     const raw = makeRaw();
@@ -353,14 +368,22 @@ describe("uploadMetadataBatches", () => {
     return makeOpts({ fetch: mockFetch, sleep: mockSleep, ...overrides });
   }
 
-  function jsonResponse(data: unknown, status = 200, headers?: Record<string, string>): Response {
+  function jsonResponse(
+    data: unknown,
+    status = 200,
+    headers?: Record<string, string>,
+  ): Response {
     return new Response(JSON.stringify(data), {
       status,
       headers: { "Content-Type": "application/json", ...headers },
     });
   }
 
-  function textResponse(body: string, status: number, headers?: Record<string, string>): Response {
+  function textResponse(
+    body: string,
+    status: number,
+    headers?: Record<string, string>,
+  ): Response {
     return new Response(body, {
       status,
       headers: { "Content-Type": "text/plain", ...headers },
@@ -444,7 +467,9 @@ describe("uploadMetadataBatches", () => {
       makeSnapshot({ sessionKey: `claude-code:session-${i}` }),
     );
 
-    mockFetch.mockResolvedValueOnce(jsonResponse({ ingested: METADATA_BATCH_SIZE }));
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ ingested: METADATA_BATCH_SIZE }),
+    );
 
     const result = await uploadMetadataBatches(snapshots, opts());
     expect(result.totalBatches).toBe(1);
@@ -476,7 +501,9 @@ describe("uploadMetadataBatches", () => {
 
   it("throws AuthError on 401", async () => {
     const snapshots = [makeSnapshot()];
-    mockFetch.mockResolvedValueOnce(jsonResponse({ error: "Unauthorized" }, 401));
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ error: "Unauthorized" }, 401),
+    );
 
     const err = await uploadMetadataBatches(snapshots, opts()).catch((e) => e);
     expect(err).toBeInstanceOf(AuthError);
@@ -498,9 +525,7 @@ describe("uploadMetadataBatches", () => {
 
   it("throws ClientError on 422", async () => {
     const snapshots = [makeSnapshot()];
-    mockFetch.mockResolvedValueOnce(
-      textResponse("Unprocessable", 422),
-    );
+    mockFetch.mockResolvedValueOnce(textResponse("Unprocessable", 422));
 
     const err = await uploadMetadataBatches(snapshots, opts()).catch((e) => e);
     expect(err).toBeInstanceOf(ClientError);

@@ -1,15 +1,14 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import Link from "next/link";
-import { Star } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
-import { AgentBadge } from "@/components/ui/agent-badge";
-import { ModelBadge } from "@/components/ui/model-badge";
-import { formatDuration, relativeTime, projectDisplayName } from "@/lib/format";
-import { formatTokens } from "@/lib/utils";
 import type { Source } from "@pika/core";
+import { Star } from "lucide-react";
+import Link from "next/link";
+import { useCallback, useState } from "react";
+import { AgentBadge } from "@/components/ui/agent-badge";
+import { Badge } from "@/components/ui/badge";
+import { ModelBadge } from "@/components/ui/model-badge";
+import { formatDuration, projectDisplayName, relativeTime } from "@/lib/format";
+import { cn, formatTokens } from "@/lib/utils";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -99,7 +98,10 @@ export function SessionCard({ session, className }: SessionCardProps) {
             )}
             aria-label={starred ? "Unstar session" : "Star session"}
           >
-            <Star className="h-3.5 w-3.5" fill={starred ? "currentColor" : "none"} />
+            <Star
+              className="h-3.5 w-3.5"
+              fill={starred ? "currentColor" : "none"}
+            />
           </button>
           <span className="text-xs text-muted-foreground">
             {relativeTime(session.started_at)}
@@ -120,7 +122,11 @@ export function SessionCard({ session, className }: SessionCardProps) {
               key={tag.id}
               variant="outline"
               className="text-[10px] px-1.5 py-0"
-              style={tag.color ? { borderColor: tag.color, color: tag.color } : undefined}
+              style={
+                tag.color
+                  ? { borderColor: tag.color, color: tag.color }
+                  : undefined
+              }
             >
               {tag.name}
             </Badge>

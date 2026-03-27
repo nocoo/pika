@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { cn } from "@/lib/utils";
-import { AgentBadge } from "@/components/ui/agent-badge";
-import { relativeTime, projectDisplayName } from "@/lib/format";
 import type { Source } from "@pika/core";
+import Link from "next/link";
+import { AgentBadge } from "@/components/ui/agent-badge";
+import { projectDisplayName, relativeTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 // ── Types ──────────────────────────────────────────────────────
 

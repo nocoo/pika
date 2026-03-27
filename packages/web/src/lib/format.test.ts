@@ -1,13 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  sourceLabel,
-  formatDuration,
-  relativeTime,
+  buildHeatmapData,
   formatDate,
   formatDateTime,
-  buildHeatmapData,
+  formatDuration,
   parseProjectDisplay,
   projectDisplayName,
+  relativeTime,
+  sourceLabel,
 } from "./format";
 
 // ── sourceLabel ────────────────────────────────────────────────
@@ -134,12 +134,12 @@ describe("buildHeatmapData", () => {
       { date: "2026-03-13", count: 3 },
     ];
     const result = buildHeatmapData(activity, 3, today);
-    expect(result[0]!.date).toBe("2026-03-11");
-    expect(result[0]!.count).toBe(0);
-    expect(result[1]!.date).toBe("2026-03-12");
-    expect(result[1]!.count).toBe(5);
-    expect(result[2]!.date).toBe("2026-03-13");
-    expect(result[2]!.count).toBe(3);
+    expect(result[0]?.date).toBe("2026-03-11");
+    expect(result[0]?.count).toBe(0);
+    expect(result[1]?.date).toBe("2026-03-12");
+    expect(result[1]?.count).toBe(5);
+    expect(result[2]?.date).toBe("2026-03-13");
+    expect(result[2]?.count).toBe(3);
   });
 
   it("assigns intensity levels based on max count", () => {
@@ -156,10 +156,10 @@ describe("buildHeatmapData", () => {
     // 3/8 = 0.375 -> level 2
     // 6/8 = 0.75  -> level 3
     // 8/8 = 1.0   -> level 4
-    expect(result[0]!.level).toBe(1);
-    expect(result[1]!.level).toBe(2);
-    expect(result[2]!.level).toBe(3);
-    expect(result[3]!.level).toBe(4);
+    expect(result[0]?.level).toBe(1);
+    expect(result[1]?.level).toBe(2);
+    expect(result[2]?.level).toBe(3);
+    expect(result[3]?.level).toBe(4);
   });
 
   it("handles all-zero activity (no division by zero)", () => {
@@ -178,16 +178,16 @@ describe("buildHeatmapData", () => {
       { date: "2026-03-13", count: 4 }, // 1.00 -> level 4
     ];
     const result = buildHeatmapData(activity, 4, today);
-    expect(result[0]!.level).toBe(1);
-    expect(result[1]!.level).toBe(2);
-    expect(result[2]!.level).toBe(3);
-    expect(result[3]!.level).toBe(4);
+    expect(result[0]?.level).toBe(1);
+    expect(result[1]?.level).toBe(2);
+    expect(result[2]?.level).toBe(3);
+    expect(result[3]?.level).toBe(4);
   });
 
   it("dates are sorted ascending (oldest first)", () => {
     const result = buildHeatmapData([], 5, today);
     for (let i = 1; i < result.length; i++) {
-      expect(result[i]!.date > result[i - 1]!.date).toBe(true);
+      expect(result[i]?.date > result[i - 1]?.date).toBe(true);
     }
   });
 });
@@ -258,9 +258,9 @@ describe("parseProjectDisplay", () => {
 
 describe("projectDisplayName", () => {
   it("returns short name from workspace path", () => {
-    expect(
-      projectDisplayName("/Users/nocoo/workspace/personal/pika"),
-    ).toBe("pika");
+    expect(projectDisplayName("/Users/nocoo/workspace/personal/pika")).toBe(
+      "pika",
+    );
   });
 
   it("falls back to projectRef when projectName is null", () => {

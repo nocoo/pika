@@ -1,17 +1,17 @@
 "use client";
 
+import { BarChart3 } from "lucide-react";
 import {
-  BarChart,
   Bar,
-  XAxis,
-  YAxis,
+  BarChart,
   CartesianGrid,
+  Cell,
   ResponsiveContainer,
   Tooltip,
-  Cell,
+  XAxis,
+  YAxis,
 } from "recharts";
-import { BarChart3 } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { projectDisplayName } from "@/lib/format";
 import { projectColor } from "@/lib/palette";
 import type { ProjectItem } from "@/lib/projects";

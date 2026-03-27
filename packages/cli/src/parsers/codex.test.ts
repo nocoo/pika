@@ -1,12 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  parseCodexFile,
-  extractSessionIdFromFilename,
-  extractProjectRef,
   extractProjectName,
+  extractProjectRef,
+  extractSessionIdFromFilename,
+  parseCodexFile,
 } from "./codex";
 
 describe("parseCodexFile", () => {
@@ -142,9 +142,7 @@ describe("parseCodexFile", () => {
     });
   }
 
-  function tokenCountNullInfoLine(opts?: {
-    timestamp?: string;
-  }): string {
+  function tokenCountNullInfoLine(opts?: { timestamp?: string }): string {
     return JSON.stringify({
       timestamp: opts?.timestamp ?? "2026-01-01T00:00:05Z",
       type: "event_msg",
@@ -253,7 +251,7 @@ describe("parseCodexFile", () => {
     lines: string[],
   ): Promise<string> {
     const filePath = join(tempDir, filename);
-    await writeFile(filePath, lines.join("\n") + "\n");
+    await writeFile(filePath, `${lines.join("\n")}\n`);
     return filePath;
   }
 
@@ -286,11 +284,14 @@ describe("parseCodexFile", () => {
   });
 
   it("extracts session ID from session_meta payload", async () => {
-    const filePath = await writeJsonl("rollout-2026-01-01T00-00-00-fallback-id.jsonl", [
-      sessionMetaLine({ id: "real-session-id" }),
-      userMessageLine(),
-      agentMessageLine(),
-    ]);
+    const filePath = await writeJsonl(
+      "rollout-2026-01-01T00-00-00-fallback-id.jsonl",
+      [
+        sessionMetaLine({ id: "real-session-id" }),
+        userMessageLine(),
+        agentMessageLine(),
+      ],
+    );
 
     const result = await parseCodexFile(filePath);
     expect(result.canonical.sessionKey).toBe("codex:real-session-id");
@@ -299,11 +300,7 @@ describe("parseCodexFile", () => {
   it("falls back to filename UUID when session_meta is missing", async () => {
     const filePath = await writeJsonl(
       "rollout-2026-01-01T00-00-00-019c-filename-uuid.jsonl",
-      [
-        turnContextLine(),
-        userMessageLine(),
-        agentMessageLine(),
-      ],
+      [turnContextLine(), userMessageLine(), agentMessageLine()],
     );
 
     const result = await parseCodexFile(filePath);
@@ -562,7 +559,7 @@ describe("parseCodexFile", () => {
 
     const result = await parseCodexFile(filePath);
     expect(result.canonical.projectRef).toBeTruthy();
-    expect(result.canonical.projectRef!.length).toBe(16);
+    expect(result.canonical.projectRef?.length).toBe(16);
     expect(result.canonical.projectName).toBe("myproject");
   });
 
@@ -589,10 +586,11 @@ describe("parseCodexFile", () => {
   // ── Raw output ────────────────────────────────────────────────
 
   it("produces raw session archive with original JSONL content", async () => {
-    const filePath = await writeJsonl(
-      "rollout-2026-01-01T00-00-00-raw.jsonl",
-      [sessionMetaLine(), userMessageLine(), agentMessageLine()],
-    );
+    const filePath = await writeJsonl("rollout-2026-01-01T00-00-00-raw.jsonl", [
+      sessionMetaLine(),
+      userMessageLine(),
+      agentMessageLine(),
+    ]);
 
     const result = await parseCodexFile(filePath);
     expect(result.raw.sessionKey).toBe(
@@ -678,7 +676,7 @@ describe("parseCodexFile", () => {
       (m) => m.role === "tool" && m.toolName === "exec_command",
     );
     expect(toolMsg).toBeDefined();
-    expect(toolMsg!.toolInput).toBeUndefined();
+    expect(toolMsg?.toolInput).toBeUndefined();
   });
 
   it("handles function_call with non-string name", async () => {
@@ -707,7 +705,7 @@ describe("parseCodexFile", () => {
       (m) => m.role === "tool" && m.toolName === undefined,
     );
     expect(toolMsg).toBeDefined();
-    expect(toolMsg!.toolInput).toBe('{"cmd":"test"}');
+    expect(toolMsg?.toolInput).toBe('{"cmd":"test"}');
   });
 
   it("handles response_item message with empty content (no text blocks)", async () => {
@@ -864,9 +862,9 @@ describe("parseCodexFile", () => {
 
     // Offset after first 3 lines (session_meta + user + agent)
     const offset =
-      Buffer.byteLength(line1 + "\n") +
-      Buffer.byteLength(line2 + "\n") +
-      Buffer.byteLength(line3 + "\n");
+      Buffer.byteLength(`${line1}\n`) +
+      Buffer.byteLength(`${line2}\n`) +
+      Buffer.byteLength(`${line3}\n`);
 
     // With the full-canonical fix, resumed parse always produces the
     // complete snapshot (all 4 messages). The offset is only used as
@@ -1005,7 +1003,7 @@ describe("extractProjectRef (codex)", () => {
     const ref = extractProjectRef("/Users/test/workspace/myproject");
     expect(ref).toBeTruthy();
     expect(typeof ref).toBe("string");
-    expect(ref!.length).toBe(16);
+    expect(ref?.length).toBe(16);
   });
 
   it("returns null for null cwd", () => {

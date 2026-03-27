@@ -1,27 +1,24 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { gunzipSync } from "node:zlib";
-import {
-  gzipCompress,
-  uploadSessionContent,
-  uploadContentBatch,
-  requestPresignedUrl,
-  uploadToPresignedUrl,
-  confirmRawUpload,
-  uploadRawDirect,
-} from "./content";
+import type { CanonicalSession, RawSessionArchive } from "@pika/core";
+import { INITIAL_BACKOFF_MS } from "@pika/core";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ContentUploadOptions } from "./content";
-import { AuthError, RetryExhaustedError, ClientError } from "./engine";
-import type {
-  CanonicalSession,
-  RawSessionArchive,
-} from "@pika/core";
 import {
-  INITIAL_BACKOFF_MS,
-} from "@pika/core";
+  confirmRawUpload,
+  gzipCompress,
+  requestPresignedUrl,
+  uploadContentBatch,
+  uploadRawDirect,
+  uploadSessionContent,
+  uploadToPresignedUrl,
+} from "./content";
+import { AuthError, ClientError, RetryExhaustedError } from "./engine";
 
 // ── Fixtures ───────────────────────────────────────────────────
 
-function makeCanonical(overrides?: Partial<CanonicalSession>): CanonicalSession {
+function makeCanonical(
+  overrides?: Partial<CanonicalSession>,
+): CanonicalSession {
   return {
     sessionKey: "claude-code:test-session-1",
     source: "claude-code",
@@ -69,7 +66,9 @@ function makeRaw(overrides?: Partial<RawSessionArchive>): RawSessionArchive {
   };
 }
 
-function makeOpts(overrides?: Partial<ContentUploadOptions>): ContentUploadOptions {
+function makeOpts(
+  overrides?: Partial<ContentUploadOptions>,
+): ContentUploadOptions {
   return {
     apiUrl: "https://pika.test",
     apiKey: "pk_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -126,7 +125,9 @@ describe("uploadSessionContent", () => {
     mockSleep = vi.fn().mockResolvedValue(undefined);
   });
 
-  function opts(overrides?: Partial<ContentUploadOptions>): ContentUploadOptions {
+  function opts(
+    overrides?: Partial<ContentUploadOptions>,
+  ): ContentUploadOptions {
     return makeOpts({ fetch: mockFetch, sleep: mockSleep, ...overrides });
   }
 
@@ -153,9 +154,9 @@ describe("uploadSessionContent", () => {
   function mockSuccessfulUpload(canonicalStatus = 201, r2Status = 200) {
     mockFetch
       .mockResolvedValueOnce(okResponse(canonicalStatus)) // 1. canonical PUT
-      .mockResolvedValueOnce(presignOk())                 // 2. presign request
-      .mockResolvedValueOnce(okResponse(r2Status))        // 3. R2 PUT
-      .mockResolvedValueOnce(confirmOk());                // 4. confirm
+      .mockResolvedValueOnce(presignOk()) // 2. presign request
+      .mockResolvedValueOnce(okResponse(r2Status)) // 3. R2 PUT
+      .mockResolvedValueOnce(confirmOk()); // 4. confirm
   }
 
   // ── Successful upload ──
@@ -201,7 +202,9 @@ describe("uploadSessionContent", () => {
     expect(init.method).toBe("PUT");
     expect(init.headers["Content-Type"]).toBe("application/octet-stream");
     expect(init.headers["Content-Encoding"]).toBe("gzip");
-    expect(init.headers.Authorization).toBe("Bearer pk_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    expect(init.headers.Authorization).toBe(
+      "Bearer pk_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    );
     expect(init.headers["X-Content-Hash"]).toHaveLength(64);
     expect(init.headers["X-Parser-Revision"]).toBe("1");
     expect(init.headers["X-Schema-Version"]).toBe("1");
@@ -228,7 +231,7 @@ describe("uploadSessionContent", () => {
     const raw = makeRaw();
 
     mockFetch
-      .mockResolvedValueOnce(okResponse(204))  // canonical no-op
+      .mockResolvedValueOnce(okResponse(204)) // canonical no-op
       .mockResolvedValueOnce(presignOk())
       .mockResolvedValueOnce(okResponse(200))
       .mockResolvedValueOnce(confirmOk());
@@ -246,10 +249,10 @@ describe("uploadSessionContent", () => {
 
     // Both canonical and raw start in parallel, so provide mock responses for both
     mockFetch
-      .mockResolvedValueOnce(errorResponse(401))   // canonical 401
-      .mockResolvedValueOnce(presignOk())           // raw presign (may fire concurrently)
-      .mockResolvedValueOnce(new Response(null, { status: 200 }))  // R2 PUT
-      .mockResolvedValueOnce(confirmOk());          // confirm
+      .mockResolvedValueOnce(errorResponse(401)) // canonical 401
+      .mockResolvedValueOnce(presignOk()) // raw presign (may fire concurrently)
+      .mockResolvedValueOnce(new Response(null, { status: 200 })) // R2 PUT
+      .mockResolvedValueOnce(confirmOk()); // confirm
 
     await expect(uploadSessionContent(canonical, raw, opts())).rejects.toThrow(
       AuthError,
@@ -281,7 +284,7 @@ describe("uploadSessionContent", () => {
 
     mockFetch
       .mockResolvedValueOnce(errorResponse(500)) // canonical retry 1
-      .mockResolvedValueOnce(okResponse(201))     // canonical OK
+      .mockResolvedValueOnce(okResponse(201)) // canonical OK
       .mockResolvedValueOnce(presignOk())
       .mockResolvedValueOnce(okResponse(200))
       .mockResolvedValueOnce(confirmOk());
@@ -324,7 +327,9 @@ describe("uploadSessionContent", () => {
     const headers429 = new Headers();
     headers429.set("Retry-After", "2");
     mockFetch
-      .mockResolvedValueOnce(new Response(null, { status: 429, headers: headers429 }))
+      .mockResolvedValueOnce(
+        new Response(null, { status: 429, headers: headers429 }),
+      )
       .mockResolvedValueOnce(okResponse(201))
       .mockResolvedValueOnce(presignOk())
       .mockResolvedValueOnce(okResponse(200))
@@ -381,7 +386,9 @@ describe("uploadSessionContent", () => {
   // ── URL encoding ──
 
   it("encodes sessionKey with special characters in URL", async () => {
-    const canonical = makeCanonical({ sessionKey: "opencode:session/with:colons" });
+    const canonical = makeCanonical({
+      sessionKey: "opencode:session/with:colons",
+    });
     const raw = makeRaw({ sessionKey: "opencode:session/with:colons" });
 
     mockSuccessfulUpload();
@@ -389,8 +396,12 @@ describe("uploadSessionContent", () => {
     await uploadSessionContent(canonical, raw, opts());
 
     const canonicalUrl = mockFetch.mock.calls[0][0] as string;
-    expect(canonicalUrl).toContain(encodeURIComponent("opencode:session/with:colons"));
-    expect(canonicalUrl).not.toContain("opencode:session/with:colons/canonical");
+    expect(canonicalUrl).toContain(
+      encodeURIComponent("opencode:session/with:colons"),
+    );
+    expect(canonicalUrl).not.toContain(
+      "opencode:session/with:colons/canonical",
+    );
   });
 });
 
@@ -405,7 +416,9 @@ describe("uploadContentBatch", () => {
     mockSleep = vi.fn().mockResolvedValue(undefined);
   });
 
-  function opts(overrides?: Partial<ContentUploadOptions>): ContentUploadOptions {
+  function opts(
+    overrides?: Partial<ContentUploadOptions>,
+  ): ContentUploadOptions {
     return makeOpts({ fetch: mockFetch, sleep: mockSleep, ...overrides });
   }
 
@@ -480,9 +493,18 @@ describe("uploadContentBatch", () => {
 
   it("collects errors per session and continues", async () => {
     const sessions = [
-      { canonical: makeCanonical({ sessionKey: "claude-code:s1" }), raw: makeRaw({ sessionKey: "claude-code:s1" }) },
-      { canonical: makeCanonical({ sessionKey: "claude-code:s2" }), raw: makeRaw({ sessionKey: "claude-code:s2" }) },
-      { canonical: makeCanonical({ sessionKey: "claude-code:s3" }), raw: makeRaw({ sessionKey: "claude-code:s3" }) },
+      {
+        canonical: makeCanonical({ sessionKey: "claude-code:s1" }),
+        raw: makeRaw({ sessionKey: "claude-code:s1" }),
+      },
+      {
+        canonical: makeCanonical({ sessionKey: "claude-code:s2" }),
+        raw: makeRaw({ sessionKey: "claude-code:s2" }),
+      },
+      {
+        canonical: makeCanonical({ sessionKey: "claude-code:s3" }),
+        raw: makeRaw({ sessionKey: "claude-code:s3" }),
+      },
     ];
 
     // Use URL-based router to handle parallel canonical + raw per session
@@ -510,7 +532,11 @@ describe("uploadContentBatch", () => {
       return Promise.resolve(okResponse(201));
     });
 
-    const result = await uploadContentBatch(sessions, { ...opts(), fetch: routerFetch }, 1);
+    const result = await uploadContentBatch(
+      sessions,
+      { ...opts(), fetch: routerFetch },
+      1,
+    );
     expect(result.uploaded).toBe(2);
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0].sessionKey).toBe("claude-code:s2");
@@ -519,8 +545,14 @@ describe("uploadContentBatch", () => {
 
   it("propagates AuthError immediately (does not continue)", async () => {
     const sessions = [
-      { canonical: makeCanonical({ sessionKey: "claude-code:s1" }), raw: makeRaw({ sessionKey: "claude-code:s1" }) },
-      { canonical: makeCanonical({ sessionKey: "claude-code:s2" }), raw: makeRaw({ sessionKey: "claude-code:s2" }) },
+      {
+        canonical: makeCanonical({ sessionKey: "claude-code:s1" }),
+        raw: makeRaw({ sessionKey: "claude-code:s1" }),
+      },
+      {
+        canonical: makeCanonical({ sessionKey: "claude-code:s2" }),
+        raw: makeRaw({ sessionKey: "claude-code:s2" }),
+      },
     ];
 
     // canonical and raw fire in parallel, both may hit the mock
@@ -534,13 +566,21 @@ describe("uploadContentBatch", () => {
       return Promise.resolve(new Response(null, { status: 200 }));
     });
 
-    await expect(uploadContentBatch(sessions, { ...opts(), fetch: routerFetch }, 1)).rejects.toThrow(AuthError);
+    await expect(
+      uploadContentBatch(sessions, { ...opts(), fetch: routerFetch }, 1),
+    ).rejects.toThrow(AuthError);
   });
 
   it("collects RetryExhaustedError per session and continues", async () => {
     const sessions = [
-      { canonical: makeCanonical({ sessionKey: "claude-code:s1" }), raw: makeRaw({ sessionKey: "claude-code:s1" }) },
-      { canonical: makeCanonical({ sessionKey: "claude-code:s2" }), raw: makeRaw({ sessionKey: "claude-code:s2" }) },
+      {
+        canonical: makeCanonical({ sessionKey: "claude-code:s1" }),
+        raw: makeRaw({ sessionKey: "claude-code:s1" }),
+      },
+      {
+        canonical: makeCanonical({ sessionKey: "claude-code:s2" }),
+        raw: makeRaw({ sessionKey: "claude-code:s2" }),
+      },
     ];
 
     // Use URL-based router
@@ -559,7 +599,11 @@ describe("uploadContentBatch", () => {
       return Promise.resolve(okResponse(201));
     });
 
-    const result = await uploadContentBatch(sessions, { ...opts(), fetch: routerFetch }, 1);
+    const result = await uploadContentBatch(
+      sessions,
+      { ...opts(), fetch: routerFetch },
+      1,
+    );
     expect(result.uploaded).toBe(1);
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0].sessionKey).toBe("claude-code:s1");
@@ -579,21 +623,31 @@ describe("uploadContentBatch", () => {
       callOrder.push(path);
       if (path.endsWith("/presign")) {
         return Promise.resolve(
-          new Response(JSON.stringify({ url: "https://r2.example.com/p", key: "k" }), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          }),
+          new Response(
+            JSON.stringify({ url: "https://r2.example.com/p", key: "k" }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
         );
       }
       if (path.endsWith("/confirm-raw")) {
-        return Promise.resolve(new Response(JSON.stringify({ confirmed: true }), { status: 200 }));
+        return Promise.resolve(
+          new Response(JSON.stringify({ confirmed: true }), { status: 200 }),
+        );
       }
       return Promise.resolve(new Response(null, { status: 201 }));
     });
 
     const result = await uploadContentBatch(
       sessions,
-      { apiUrl: "https://pika.test", apiKey: "pk_test", fetch: concurrentFetch, sleep: mockSleep },
+      {
+        apiUrl: "https://pika.test",
+        apiKey: "pk_test",
+        fetch: concurrentFetch,
+        sleep: mockSleep,
+      },
       4,
     );
     expect(result.uploaded).toBe(4);
@@ -611,19 +665,31 @@ describe("requestPresignedUrl", () => {
     mockFetch = vi.fn();
   });
 
-  function opts(overrides?: Partial<ContentUploadOptions>): ContentUploadOptions {
+  function opts(
+    overrides?: Partial<ContentUploadOptions>,
+  ): ContentUploadOptions {
     return makeOpts({ fetch: mockFetch, ...overrides });
   }
 
   it("sends correct request and returns url + key", async () => {
     mockFetch.mockResolvedValueOnce(
-      new Response(JSON.stringify({ url: "https://r2.example.com/presigned", key: "u1/key/raw/abc.json.gz" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }),
+      new Response(
+        JSON.stringify({
+          url: "https://r2.example.com/presigned",
+          key: "u1/key/raw/abc.json.gz",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
     );
 
-    const result = await requestPresignedUrl("claude-code:s1", "abc123ff", opts());
+    const result = await requestPresignedUrl(
+      "claude-code:s1",
+      "abc123ff",
+      opts(),
+    );
 
     expect(result.url).toBe("https://r2.example.com/presigned");
     expect(result.key).toBe("u1/key/raw/abc.json.gz");
@@ -633,26 +699,42 @@ describe("requestPresignedUrl", () => {
     expect(init.method).toBe("POST");
     expect(init.headers["Content-Type"]).toBe("application/json");
     expect(init.headers.Authorization).toContain("Bearer");
-    expect(JSON.parse(init.body)).toEqual({ sessionKey: "claude-code:s1", rawHash: "abc123ff" });
+    expect(JSON.parse(init.body)).toEqual({
+      sessionKey: "claude-code:s1",
+      rawHash: "abc123ff",
+    });
   });
 
   it("throws AuthError on 401", async () => {
-    mockFetch.mockResolvedValueOnce(new Response("Unauthorized", { status: 401 }));
-    await expect(requestPresignedUrl("key", "hash1234", opts())).rejects.toThrow(AuthError);
+    mockFetch.mockResolvedValueOnce(
+      new Response("Unauthorized", { status: 401 }),
+    );
+    await expect(
+      requestPresignedUrl("key", "hash1234", opts()),
+    ).rejects.toThrow(AuthError);
   });
 
   it("throws ClientError on 400", async () => {
-    mockFetch.mockResolvedValueOnce(new Response("Bad request", { status: 400 }));
-    const err = await requestPresignedUrl("key", "hash1234", opts()).catch((e) => e);
+    mockFetch.mockResolvedValueOnce(
+      new Response("Bad request", { status: 400 }),
+    );
+    const err = await requestPresignedUrl("key", "hash1234", opts()).catch(
+      (e) => e,
+    );
     expect(err).toBeInstanceOf(ClientError);
     expect(err.statusCode).toBe(400);
   });
 
   it("throws ClientError when response is missing url", async () => {
     mockFetch.mockResolvedValueOnce(
-      new Response(JSON.stringify({ key: "k" }), { status: 200, headers: { "Content-Type": "application/json" } }),
+      new Response(JSON.stringify({ key: "k" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
     );
-    const err = await requestPresignedUrl("key", "hash1234", opts()).catch((e) => e);
+    const err = await requestPresignedUrl("key", "hash1234", opts()).catch(
+      (e) => e,
+    );
     expect(err).toBeInstanceOf(ClientError);
     expect(err.body).toContain("missing url or key");
   });
@@ -669,7 +751,9 @@ describe("uploadToPresignedUrl", () => {
     mockSleep = vi.fn().mockResolvedValue(undefined);
   });
 
-  function opts(overrides?: Partial<ContentUploadOptions>): ContentUploadOptions {
+  function opts(
+    overrides?: Partial<ContentUploadOptions>,
+  ): ContentUploadOptions {
     return makeOpts({ fetch: mockFetch, sleep: mockSleep, ...overrides });
   }
 
@@ -677,7 +761,11 @@ describe("uploadToPresignedUrl", () => {
     mockFetch.mockResolvedValueOnce(new Response(null, { status: 200 }));
     const body = await gzipCompress('{"test":true}');
 
-    await uploadToPresignedUrl("https://r2.example.com/presigned", body, opts());
+    await uploadToPresignedUrl(
+      "https://r2.example.com/presigned",
+      body,
+      opts(),
+    );
 
     const [url, init] = mockFetch.mock.calls[0];
     expect(url).toBe("https://r2.example.com/presigned");
@@ -689,7 +777,13 @@ describe("uploadToPresignedUrl", () => {
 
   it("succeeds on 201", async () => {
     mockFetch.mockResolvedValueOnce(new Response(null, { status: 201 }));
-    await expect(uploadToPresignedUrl("https://r2.example.com/p", Buffer.from("data"), opts())).resolves.toBeUndefined();
+    await expect(
+      uploadToPresignedUrl(
+        "https://r2.example.com/p",
+        Buffer.from("data"),
+        opts(),
+      ),
+    ).resolves.toBeUndefined();
   });
 
   it("retries on 5xx with backoff", async () => {
@@ -697,7 +791,11 @@ describe("uploadToPresignedUrl", () => {
       .mockResolvedValueOnce(new Response(null, { status: 500 }))
       .mockResolvedValueOnce(new Response(null, { status: 200 }));
 
-    await uploadToPresignedUrl("https://r2.example.com/p", Buffer.from("data"), opts());
+    await uploadToPresignedUrl(
+      "https://r2.example.com/p",
+      Buffer.from("data"),
+      opts(),
+    );
 
     expect(mockFetch).toHaveBeenCalledTimes(2);
     expect(mockSleep).toHaveBeenCalledWith(INITIAL_BACKOFF_MS);
@@ -706,7 +804,11 @@ describe("uploadToPresignedUrl", () => {
   it("throws ClientError on 4xx", async () => {
     mockFetch.mockResolvedValueOnce(new Response("Forbidden", { status: 403 }));
 
-    const err = await uploadToPresignedUrl("https://r2.example.com/p", Buffer.from("data"), opts()).catch((e) => e);
+    const err = await uploadToPresignedUrl(
+      "https://r2.example.com/p",
+      Buffer.from("data"),
+      opts(),
+    ).catch((e) => e);
     expect(err).toBeInstanceOf(ClientError);
     expect(err.statusCode).toBe(403);
   });
@@ -718,7 +820,11 @@ describe("uploadToPresignedUrl", () => {
       .mockResolvedValueOnce(new Response(null, { status: 500 }));
 
     await expect(
-      uploadToPresignedUrl("https://r2.example.com/p", Buffer.from("data"), opts()),
+      uploadToPresignedUrl(
+        "https://r2.example.com/p",
+        Buffer.from("data"),
+        opts(),
+      ),
     ).rejects.toThrow(RetryExhaustedError);
   });
 });
@@ -732,7 +838,9 @@ describe("confirmRawUpload", () => {
     mockFetch = vi.fn();
   });
 
-  function opts(overrides?: Partial<ContentUploadOptions>): ContentUploadOptions {
+  function opts(
+    overrides?: Partial<ContentUploadOptions>,
+  ): ContentUploadOptions {
     return makeOpts({ fetch: mockFetch, ...overrides });
   }
 
@@ -755,13 +863,19 @@ describe("confirmRawUpload", () => {
   });
 
   it("throws AuthError on 401", async () => {
-    mockFetch.mockResolvedValueOnce(new Response("Unauthorized", { status: 401 }));
-    await expect(confirmRawUpload("key", "hash", 100, opts())).rejects.toThrow(AuthError);
+    mockFetch.mockResolvedValueOnce(
+      new Response("Unauthorized", { status: 401 }),
+    );
+    await expect(confirmRawUpload("key", "hash", 100, opts())).rejects.toThrow(
+      AuthError,
+    );
   });
 
   it("throws ClientError on 404", async () => {
     mockFetch.mockResolvedValueOnce(new Response("Not found", { status: 404 }));
-    const err = await confirmRawUpload("key", "hash", 100, opts()).catch((e) => e);
+    const err = await confirmRawUpload("key", "hash", 100, opts()).catch(
+      (e) => e,
+    );
     expect(err).toBeInstanceOf(ClientError);
     expect(err.statusCode).toBe(404);
   });
@@ -778,7 +892,9 @@ describe("uploadRawDirect", () => {
     mockSleep = vi.fn().mockResolvedValue(undefined);
   });
 
-  function opts(overrides?: Partial<ContentUploadOptions>): ContentUploadOptions {
+  function opts(
+    overrides?: Partial<ContentUploadOptions>,
+  ): ContentUploadOptions {
     return makeOpts({ fetch: mockFetch, sleep: mockSleep, ...overrides });
   }
 
@@ -787,10 +903,13 @@ describe("uploadRawDirect", () => {
 
     // 1. presign request
     mockFetch.mockResolvedValueOnce(
-      new Response(JSON.stringify({ url: "https://r2.example.com/presigned", key: "k" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }),
+      new Response(
+        JSON.stringify({ url: "https://r2.example.com/presigned", key: "k" }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
     );
     // 2. R2 PUT
     mockFetch.mockResolvedValueOnce(new Response(null, { status: 200 }));
@@ -799,18 +918,29 @@ describe("uploadRawDirect", () => {
       new Response(JSON.stringify({ confirmed: true }), { status: 200 }),
     );
 
-    const result = await uploadRawDirect("claude-code:s1", "hash1234", rawGzip, opts());
+    const result = await uploadRawDirect(
+      "claude-code:s1",
+      "hash1234",
+      rawGzip,
+      opts(),
+    );
     expect(result).toBe(true);
     expect(mockFetch).toHaveBeenCalledTimes(3);
 
     // Verify sequence: presign → R2 PUT → confirm
-    expect(mockFetch.mock.calls[0][0]).toBe("https://pika.test/api/ingest/presign");
+    expect(mockFetch.mock.calls[0][0]).toBe(
+      "https://pika.test/api/ingest/presign",
+    );
     expect(mockFetch.mock.calls[1][0]).toBe("https://r2.example.com/presigned");
-    expect(mockFetch.mock.calls[2][0]).toBe("https://pika.test/api/ingest/confirm-raw");
+    expect(mockFetch.mock.calls[2][0]).toBe(
+      "https://pika.test/api/ingest/confirm-raw",
+    );
   });
 
   it("propagates AuthError from presign", async () => {
-    mockFetch.mockResolvedValueOnce(new Response("Unauthorized", { status: 401 }));
+    mockFetch.mockResolvedValueOnce(
+      new Response("Unauthorized", { status: 401 }),
+    );
 
     await expect(
       uploadRawDirect("key", "hash1234", Buffer.from("data"), opts()),
@@ -828,7 +958,9 @@ describe("uploadRawDirect", () => {
     // R2 PUT OK
     mockFetch.mockResolvedValueOnce(new Response(null, { status: 200 }));
     // confirm 401
-    mockFetch.mockResolvedValueOnce(new Response("Unauthorized", { status: 401 }));
+    mockFetch.mockResolvedValueOnce(
+      new Response("Unauthorized", { status: 401 }),
+    );
 
     await expect(
       uploadRawDirect("key", "hash1234", Buffer.from("data"), opts()),
@@ -847,7 +979,9 @@ describe("uploadSessionContent (presigned flow)", () => {
     mockSleep = vi.fn().mockResolvedValue(undefined);
   });
 
-  function opts(overrides?: Partial<ContentUploadOptions>): ContentUploadOptions {
+  function opts(
+    overrides?: Partial<ContentUploadOptions>,
+  ): ContentUploadOptions {
     return makeOpts({ fetch: mockFetch, sleep: mockSleep, ...overrides });
   }
 
@@ -860,10 +994,13 @@ describe("uploadSessionContent (presigned flow)", () => {
       .mockResolvedValueOnce(new Response(null, { status: 201 }))
       // 2. presign request
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ url: "https://r2/presigned", key: "k" }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
+        new Response(
+          JSON.stringify({ url: "https://r2/presigned", key: "k" }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
       )
       // 3. R2 PUT
       .mockResolvedValueOnce(new Response(null, { status: 200 }))

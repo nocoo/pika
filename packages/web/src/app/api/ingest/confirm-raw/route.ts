@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
-import { resolveUser } from "@/lib/cli-auth";
-import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
-import { getD1Client } from "@/lib/d1";
 import { auth } from "@/lib/auth";
-import { validateConfirmRawRequest, buildConfirmRawUpdate, buildRawR2Key, verifyR2RawExists } from "@/lib/ingest";
+import { resolveUser } from "@/lib/cli-auth";
+import { getD1Client } from "@/lib/d1";
+import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
+import {
+  buildConfirmRawUpdate,
+  buildRawR2Key,
+  validateConfirmRawRequest,
+  verifyR2RawExists,
+} from "@/lib/ingest";
 import { getR2Client } from "@/lib/r2";
 
 /**
@@ -23,7 +28,10 @@ export async function POST(request: Request) {
     getSession: async () => {
       const session = await auth();
       if (!session?.user?.id) return null;
-      return { userId: session.user.id, email: session.user.email ?? undefined };
+      return {
+        userId: session.user.id,
+        email: session.user.email ?? undefined,
+      };
     },
     db,
   });
@@ -44,7 +52,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
 
-  const r2Key = buildRawR2Key(user.userId, validation.sessionKey, validation.rawHash);
+  const r2Key = buildRawR2Key(
+    user.userId,
+    validation.sessionKey,
+    validation.rawHash,
+  );
 
   // Verify R2 object exists before updating D1 metadata
   const r2 = getR2Client();
@@ -53,7 +65,9 @@ export async function POST(request: Request) {
     exists = await verifyR2RawExists(r2, r2Key);
   } catch (err) {
     return NextResponse.json(
-      { error: `R2 HEAD check failed: ${err instanceof Error ? err.message : String(err)}` },
+      {
+        error: `R2 HEAD check failed: ${err instanceof Error ? err.message : String(err)}`,
+      },
       { status: 502 },
     );
   }
@@ -82,7 +96,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ confirmed: true });
   } catch (err) {
     return NextResponse.json(
-      { error: `D1 update failed: ${err instanceof Error ? err.message : String(err)}` },
+      {
+        error: `D1 update failed: ${err instanceof Error ? err.message : String(err)}`,
+      },
       { status: 500 },
     );
   }

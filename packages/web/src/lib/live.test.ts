@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { checkHealth } from "./live";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { D1Client, D1QueryResult } from "./d1";
+import { checkHealth } from "./live";
 
 // ── Mock version ──────────────────────────────────────────────
 
@@ -15,7 +15,10 @@ const MOCK_VERSION = "0.1.0";
 
 function mockD1(overrides: Partial<D1Client> = {}): D1Client {
   return {
-    query: vi.fn().mockResolvedValue({ results: [{ "1": 1 }], meta: { changes: 0, duration: 0 } } satisfies D1QueryResult),
+    query: vi.fn().mockResolvedValue({
+      results: [{ "1": 1 }],
+      meta: { changes: 0, duration: 0 },
+    } satisfies D1QueryResult),
     execute: vi.fn(),
     firstOrNull: vi.fn(),
     ...overrides,
@@ -36,7 +39,9 @@ describe("checkHealth", () => {
     expect(result.status).toBe("ok");
     expect(result.version).toBe(MOCK_VERSION);
     expect(result).toHaveProperty("d1.latencyMs");
-    expect((result as { d1: { latencyMs: number } }).d1.latencyMs).toBeGreaterThanOrEqual(0);
+    expect(
+      (result as { d1: { latencyMs: number } }).d1.latencyMs,
+    ).toBeGreaterThanOrEqual(0);
     expect(db.query).toHaveBeenCalledWith("SELECT 1");
   });
 
@@ -75,7 +80,9 @@ describe("checkHealth", () => {
     const result = await checkHealth(db);
 
     expect(result.status).toBe("error");
-    expect((result as { d1: { error: string } }).d1.error).toBe("lookup *** failed ***");
+    expect((result as { d1: { error: string } }).d1.error).toBe(
+      "lookup *** failed ***",
+    );
   });
 
   it("handles non-Error thrown values", async () => {
@@ -91,15 +98,25 @@ describe("checkHealth", () => {
 
   it("latencyMs reflects actual elapsed time", async () => {
     const db = mockD1({
-      query: vi.fn().mockImplementation(
-        () => new Promise((r) => setTimeout(() => r({ results: [], meta: { changes: 0, duration: 0 } }), 20)),
-      ),
+      query: vi
+        .fn()
+        .mockImplementation(
+          () =>
+            new Promise((r) =>
+              setTimeout(
+                () => r({ results: [], meta: { changes: 0, duration: 0 } }),
+                20,
+              ),
+            ),
+        ),
     });
 
     const result = await checkHealth(db);
 
     expect(result.status).toBe("ok");
-    expect((result as { d1: { latencyMs: number } }).d1.latencyMs).toBeGreaterThanOrEqual(15);
+    expect(
+      (result as { d1: { latencyMs: number } }).d1.latencyMs,
+    ).toBeGreaterThanOrEqual(15);
   });
 
   it("includes uptime as a non-negative integer", async () => {

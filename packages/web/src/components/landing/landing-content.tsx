@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Check, Copy } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { Copy, Check } from "lucide-react";
+import { useState } from "react";
 import logo256 from "../../../public/logo-256.png";
 
 // ---------------------------------------------------------------------------
@@ -84,20 +84,16 @@ export function LandingContent() {
         className="mt-5 text-sm leading-relaxed text-muted-foreground animate-fade-up"
         style={{ animationDelay: "80ms" }}
       >
-        Replay and search your coding agent sessions.
-        Reads local logs from{" "}
+        Replay and search your coding agent sessions. Reads local logs from{" "}
         <span className="text-foreground">
           Claude Code, Codex CLI, Gemini CLI, OpenCode
         </span>{" "}
-        &amp; <span className="text-foreground">VS Code Copilot</span> —
-        full conversations, searchable.
+        &amp; <span className="text-foreground">VS Code Copilot</span> — full
+        conversations, searchable.
       </p>
 
       {/* Row 3: Install command — PRIMARY action */}
-      <div
-        className="mt-7 animate-fade-up"
-        style={{ animationDelay: "160ms" }}
-      >
+      <div className="mt-7 animate-fade-up" style={{ animationDelay: "160ms" }}>
         <InstallCommand />
       </div>
 
@@ -146,10 +142,7 @@ export function LandingContent() {
       </ol>
 
       {/* Row 5: Sign In — secondary action */}
-      <div
-        className="mt-6 animate-fade-up"
-        style={{ animationDelay: "320ms" }}
-      >
+      <div className="mt-6 animate-fade-up" style={{ animationDelay: "320ms" }}>
         <Link
           href="/login"
           className="inline-flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-[background-color,border-color] duration-200 hover:border-primary/40 hover:bg-primary/5"

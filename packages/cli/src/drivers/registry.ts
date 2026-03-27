@@ -22,12 +22,12 @@ import { stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { FileCursorBase } from "@pika/core";
-import type { FileDriver, DiscoverOpts, SyncContext } from "./types";
 import { claudeSessionDriver } from "./session/claude";
 import { codexSessionDriver } from "./session/codex";
 import { geminiSessionDriver } from "./session/gemini";
 import { createOpenCodeJsonDriver } from "./session/opencode";
 import { vscodeCopilotSessionDriver } from "./session/vscode-copilot";
+import type { DiscoverOpts, FileDriver, SyncContext } from "./types";
 
 // ---------------------------------------------------------------------------
 // Default paths (macOS)
@@ -167,10 +167,13 @@ export async function buildDriverSet(
   // Build file driver list
   const fileDrivers: FileDriver<FileCursorBase>[] = [];
 
-  if (claudeExists && allowed("claude-code")) fileDrivers.push(claudeSessionDriver);
+  if (claudeExists && allowed("claude-code"))
+    fileDrivers.push(claudeSessionDriver);
   if (codexExists && allowed("codex")) fileDrivers.push(codexSessionDriver);
-  if (geminiExists && allowed("gemini-cli")) fileDrivers.push(geminiSessionDriver);
-  if (openCodeExists && allowed("opencode")) fileDrivers.push(createOpenCodeJsonDriver(syncCtx));
+  if (geminiExists && allowed("gemini-cli"))
+    fileDrivers.push(geminiSessionDriver);
+  if (openCodeExists && allowed("opencode"))
+    fileDrivers.push(createOpenCodeJsonDriver(syncCtx));
   if (activeVscodeDirs.length > 0 && allowed("vscode-copilot")) {
     fileDrivers.push(vscodeCopilotSessionDriver);
   }

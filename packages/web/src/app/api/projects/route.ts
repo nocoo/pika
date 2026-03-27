@@ -1,16 +1,16 @@
+import type { Source } from "@pika/core";
 import { NextResponse } from "next/server";
-import { resolveUser } from "@/lib/cli-auth";
-import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
-import { getD1Client } from "@/lib/d1";
 import { auth } from "@/lib/auth";
+import { resolveUser } from "@/lib/cli-auth";
+import { getD1Client } from "@/lib/d1";
+import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
 import {
+  assembleProjectOverview,
   buildProjectListQuery,
   buildProjectOverviewQuery,
   buildProjectSourceDistributionQuery,
-  assembleProjectOverview,
   groupSourceDistribution,
 } from "@/lib/projects";
-import type { Source } from "@pika/core";
 
 export async function GET(request: Request) {
   const d1 = getD1Client();
@@ -20,7 +20,10 @@ export async function GET(request: Request) {
     getSession: async () => {
       const session = await auth();
       if (!session?.user?.id) return null;
-      return { userId: session.user.id, email: session.user.email ?? undefined };
+      return {
+        userId: session.user.id,
+        email: session.user.email ?? undefined,
+      };
     },
     db,
   });
@@ -44,10 +47,16 @@ export async function GET(request: Request) {
       buildProjectOverviewQuery(userId).params,
     ),
 
-    d1.query<{ project_key: string; project_name: string | null; project_refs: string; session_count: number; total_messages: number; total_input_tokens: number; total_output_tokens: number; last_activity: string }>(
-      buildProjectListQuery(userId).sql,
-      buildProjectListQuery(userId).params,
-    ),
+    d1.query<{
+      project_key: string;
+      project_name: string | null;
+      project_refs: string;
+      session_count: number;
+      total_messages: number;
+      total_input_tokens: number;
+      total_output_tokens: number;
+      last_activity: string;
+    }>(buildProjectListQuery(userId).sql, buildProjectListQuery(userId).params),
 
     d1.query<{ project_key: string; source: Source; count: number }>(
       buildProjectSourceDistributionQuery(userId).sql,

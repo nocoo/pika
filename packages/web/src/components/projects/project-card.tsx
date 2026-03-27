@@ -1,12 +1,15 @@
 "use client";
 
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-import { cn } from "@/lib/utils";
-import { formatTokens } from "@/lib/utils";
-import { agentColor } from "@/lib/palette";
-import { relativeTime, parseProjectDisplay, projectDisplayName } from "@/lib/format";
+import { Pie, PieChart, ResponsiveContainer } from "recharts";
 import { ScopeBadge } from "@/components/ui/scope-badge";
+import {
+  parseProjectDisplay,
+  projectDisplayName,
+  relativeTime,
+} from "@/lib/format";
+import { agentColor } from "@/lib/palette";
 import type { ProjectItem, ProjectSourceCount } from "@/lib/projects";
+import { cn, formatTokens } from "@/lib/utils";
 
 // ── MiniDonut ─────────────────────────────────────────────────
 
@@ -53,8 +56,7 @@ export function ProjectCard({
   selected,
   onClick,
 }: ProjectCardProps) {
-  const totalTokens =
-    project.total_input_tokens + project.total_output_tokens;
+  const totalTokens = project.total_input_tokens + project.total_output_tokens;
 
   return (
     <button

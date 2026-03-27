@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { resolveUser } from "@/lib/cli-auth";
-import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
-import { getD1Client } from "@/lib/d1";
 import { auth } from "@/lib/auth";
+import { resolveUser } from "@/lib/cli-auth";
+import { getD1Client } from "@/lib/d1";
+import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
 import {
-  buildListTagsQuery,
   buildCreateTagQuery,
-  validateCreateTag,
+  buildListTagsQuery,
   type TagRow,
+  validateCreateTag,
 } from "@/lib/tags";
 
 async function authenticate(request: Request) {
@@ -18,7 +18,10 @@ async function authenticate(request: Request) {
     getSession: async () => {
       const session = await auth();
       if (!session?.user?.id) return null;
-      return { userId: session.user.id, email: session.user.email ?? undefined };
+      return {
+        userId: session.user.id,
+        email: session.user.email ?? undefined,
+      };
     },
     db,
   });
@@ -59,7 +62,11 @@ export async function POST(request: Request) {
   }
 
   const id = crypto.randomUUID();
-  const { sql, params } = buildCreateTagQuery(id, user.userId, validation.data!);
+  const { sql, params } = buildCreateTagQuery(
+    id,
+    user.userId,
+    validation.data!,
+  );
 
   try {
     await d1.execute(sql, params);
@@ -67,7 +74,7 @@ export async function POST(request: Request) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes("UNIQUE")) {
       return NextResponse.json(
-        { error: `Tag "${validation.data!.name}" already exists` },
+        { error: `Tag "${validation.data?.name}" already exists` },
         { status: 409 },
       );
     }
@@ -78,8 +85,8 @@ export async function POST(request: Request) {
   const tag: TagRow = {
     id,
     user_id: user.userId,
-    name: validation.data!.name,
-    color: validation.data!.color ?? null,
+    name: validation.data?.name,
+    color: validation.data?.color ?? null,
     created_at: new Date().toISOString(),
   };
 

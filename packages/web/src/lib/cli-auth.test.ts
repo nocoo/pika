@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── Env helpers (bun test has no vi.stubEnv) ───────────────────
 
@@ -24,18 +24,18 @@ function restoreEnv() {
   // Clear saved entries
   for (const key of Object.keys(savedEnv)) delete savedEnv[key];
 }
+
+import { API_KEY_HEX_LENGTH, API_KEY_PREFIX, isValidApiKey } from "@pika/core";
 import {
+  type CliAuthDb,
+  E2E_TEST_USER_EMAIL,
+  E2E_TEST_USER_ID,
   generateApiKey,
   getPublicOrigin,
   handleCliAuth,
   hashApiKey,
   resolveUser,
-  E2E_TEST_USER_ID,
-  E2E_TEST_USER_EMAIL,
-  type CliAuthDb,
 } from "./cli-auth";
-import { API_KEY_PREFIX, API_KEY_HEX_LENGTH } from "@pika/core";
-import { isValidApiKey } from "@pika/core";
 
 // ── Mock DB ────────────────────────────────────────────────────
 
@@ -77,8 +77,7 @@ describe("generateApiKey", () => {
 
 describe("handleCliAuth", () => {
   const signInUrl = "/login";
-  const returnPath =
-    "/api/auth/cli?callback=http://localhost:12345/callback";
+  const returnPath = "/api/auth/cli?callback=http://localhost:12345/callback";
 
   function defaultDeps(dbOverrides?: Partial<CliAuthDb>) {
     return { signInUrl, returnPath, db: createMockDb(dbOverrides) };
@@ -239,7 +238,7 @@ describe("resolveUser", () => {
   });
 
   it("hashes Bearer api_key before DB lookup", async () => {
-    const apiKey = "pk_" + "f".repeat(32);
+    const apiKey = `pk_${"f".repeat(32)}`;
     const expectedHash = await hashApiKey(apiKey);
     const request = new Request("http://localhost:7040/api/sessions", {
       headers: { Authorization: `Bearer ${apiKey}` },
@@ -274,7 +273,7 @@ describe("resolveUser", () => {
 
   it("prefers session over Bearer api_key", async () => {
     const request = new Request("http://localhost:7040/api/sessions", {
-      headers: { Authorization: "Bearer pk_" + "a".repeat(32) },
+      headers: { Authorization: `Bearer pk_${"a".repeat(32)}` },
     });
 
     const db = createMockDb({

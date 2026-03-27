@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { resolveUser } from "@/lib/cli-auth";
-import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
-import { getD1Client } from "@/lib/d1";
 import { auth } from "@/lib/auth";
+import { resolveUser } from "@/lib/cli-auth";
+import { getD1Client } from "@/lib/d1";
+import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
 import { getProxyConfig } from "@/lib/ingest";
 import {
   buildSessionDetailQuery,
@@ -27,7 +27,10 @@ export async function GET(
     getSession: async () => {
       const session = await auth();
       if (!session?.user?.id) return null;
-      return { userId: session.user.id, email: session.user.email ?? undefined };
+      return {
+        userId: session.user.id,
+        email: session.user.email ?? undefined,
+      };
     },
     db,
   });
@@ -61,10 +64,10 @@ export async function GET(
 
   if (!workerRes.ok) {
     const body = await workerRes.text().catch(() => "");
-    console.error(
-      `[content-proxy] Worker fetch failed: ${workerRes.status}`,
-      { key: row.content_key, body: body.slice(0, 500) },
-    );
+    console.error(`[content-proxy] Worker fetch failed: ${workerRes.status}`, {
+      key: row.content_key,
+      body: body.slice(0, 500),
+    });
     return NextResponse.json(
       { error: "Failed to fetch content from storage" },
       { status: workerRes.status === 404 ? 404 : 502 },

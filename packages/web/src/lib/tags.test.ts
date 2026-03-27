@@ -1,16 +1,16 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  validateCreateTag,
-  validateUpdateTag,
-  buildListTagsQuery,
-  buildGetTagQuery,
-  buildCreateTagQuery,
-  buildUpdateTagQuery,
-  buildDeleteTagQuery,
   buildAddSessionTagQuery,
+  buildCreateTagQuery,
+  buildDeleteTagQuery,
+  buildGetTagQuery,
+  buildListTagsQuery,
   buildRemoveSessionTagQuery,
   buildSessionTagsQuery,
+  buildUpdateTagQuery,
   buildVerifySessionOwnerQuery,
+  validateCreateTag,
+  validateUpdateTag,
 } from "./tags";
 
 // ── validateCreateTag ──────────────────────────────────────────
@@ -184,7 +184,10 @@ describe("buildGetTagQuery", () => {
 
 describe("buildCreateTagQuery", () => {
   it("inserts with all fields", () => {
-    const q = buildCreateTagQuery("t1", "u1", { name: "bug", color: "#ff0000" });
+    const q = buildCreateTagQuery("t1", "u1", {
+      name: "bug",
+      color: "#ff0000",
+    });
     expect(q.sql).toContain("INSERT INTO tags");
     expect(q.params).toEqual(["t1", "u1", "bug", "#ff0000"]);
   });

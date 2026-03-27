@@ -1,15 +1,15 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm, writeFile, mkdir } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  parseVscodeCopilotFile,
-  parseCrdtOps,
-  replayCrdt,
   extractMessages,
-  extractWorkspaceFolder,
-  extractProjectRef,
   extractProjectName,
+  extractProjectRef,
+  extractWorkspaceFolder,
+  parseCrdtOps,
+  parseVscodeCopilotFile,
+  replayCrdt,
 } from "./vscode-copilot";
 
 describe("parseVscodeCopilotFile", () => {
@@ -128,7 +128,7 @@ describe("parseVscodeCopilotFile", () => {
     lines: string[],
   ): Promise<string> {
     const filePath = join(tempDir, filename);
-    await writeFile(filePath, lines.join("\n") + "\n");
+    await writeFile(filePath, `${lines.join("\n")}\n`);
     return filePath;
   }
 
@@ -308,7 +308,9 @@ describe("parseVscodeCopilotFile", () => {
 
     expect(result.canonical.messages[2].role).toBe("tool");
     expect(result.canonical.messages[2].toolName).toBe("vscode.readFile");
-    expect(result.canonical.messages[2].toolInput).toBe('{"path":"src/app.ts"}');
+    expect(result.canonical.messages[2].toolInput).toBe(
+      '{"path":"src/app.ts"}',
+    );
 
     expect(result.canonical.messages[3].role).toBe("tool");
     expect(result.canonical.messages[3].toolResult).toBe(
@@ -316,7 +318,9 @@ describe("parseVscodeCopilotFile", () => {
     );
 
     expect(result.canonical.messages[4].role).toBe("assistant");
-    expect(result.canonical.messages[4].content).toBe("Here's the file content.");
+    expect(result.canonical.messages[4].content).toBe(
+      "Here's the file content.",
+    );
   });
 
   it("handles tool calls without results", async () => {
@@ -420,7 +424,10 @@ describe("parseVscodeCopilotFile", () => {
   it("falls back to first request timestamp when creationDate is missing", async () => {
     const filePath = await writeJsonl("session.jsonl", [
       // Snapshot without creationDate
-      JSON.stringify({ kind: 0, v: { sessionId: "no-date-session", requests: [] } }),
+      JSON.stringify({
+        kind: 0,
+        v: { sessionId: "no-date-session", requests: [] },
+      }),
       appendRequestOp(makeRequest({ timestamp: 1767225600000 })),
       appendResponseChunkOp(0, { value: "Hi" }),
     ]);
@@ -472,9 +479,7 @@ describe("parseVscodeCopilotFile", () => {
   it("skips previously processed requests when processedRequestIds provided", async () => {
     const filePath = await writeJsonl("session.jsonl", [
       snapshotOp(),
-      appendRequestOp(
-        makeRequest({ requestId: "r1", text: "First question" }),
-      ),
+      appendRequestOp(makeRequest({ requestId: "r1", text: "First question" })),
       appendResponseChunkOp(0, { value: "First answer" }),
       setResultOp(0, { metadata: { promptTokens: 100, outputTokens: 20 } }),
       appendRequestOp(
@@ -490,12 +495,7 @@ describe("parseVscodeCopilotFile", () => {
 
     // Parse with r1 already processed — full canonical snapshot still
     // includes ALL messages; processedRequestIds only affects newRequestIds.
-    const result = await parseVscodeCopilotFile(
-      filePath,
-      0,
-      ["r1"],
-      null,
-    );
+    const result = await parseVscodeCopilotFile(filePath, 0, ["r1"], null);
 
     // All messages extracted (full canonical snapshot)
     expect(result.canonical.messages).toHaveLength(4);
@@ -514,12 +514,7 @@ describe("parseVscodeCopilotFile", () => {
       appendResponseChunkOp(0, { value: "Hi" }),
     ]);
 
-    const result = await parseVscodeCopilotFile(
-      filePath,
-      0,
-      ["r1"],
-      null,
-    );
+    const result = await parseVscodeCopilotFile(filePath, 0, ["r1"], null);
 
     // Full canonical snapshot still includes all messages
     expect(result.canonical.messages).toHaveLength(2);
@@ -752,8 +747,8 @@ describe("parseVscodeCopilotFile", () => {
     const result = await parseVscodeCopilotFile(filePath);
     const toolMsg = result.canonical.messages.find((m) => m.role === "tool");
     expect(toolMsg).toBeDefined();
-    expect(toolMsg!.toolName).toBeUndefined();
-    expect(toolMsg!.toolInput).toBeUndefined();
+    expect(toolMsg?.toolName).toBeUndefined();
+    expect(toolMsg?.toolInput).toBeUndefined();
   });
 
   it("handles tool invocation with empty string result", async () => {
@@ -771,9 +766,7 @@ describe("parseVscodeCopilotFile", () => {
 
     const result = await parseVscodeCopilotFile(filePath);
     // tool_call (no tool_result since empty) + assistant
-    const toolMsgs = result.canonical.messages.filter(
-      (m) => m.role === "tool",
-    );
+    const toolMsgs = result.canonical.messages.filter((m) => m.role === "tool");
     expect(toolMsgs).toHaveLength(1); // only invocation, no result
   });
 
@@ -841,11 +834,16 @@ describe("parseVscodeCopilotFile", () => {
         response: [],
       }),
       appendResponseChunkOp(0, { value: "Hello" }),
-      setModelStateOp(0, { value: 1, completedAt: epochMs as unknown as string }),
+      setModelStateOp(0, {
+        value: 1,
+        completedAt: epochMs as unknown as string,
+      }),
     ]);
 
     const result = await parseVscodeCopilotFile(filePath);
-    expect(result.canonical.lastMessageAt).toBe(new Date(epochMs).toISOString());
+    expect(result.canonical.lastMessageAt).toBe(
+      new Date(epochMs).toISOString(),
+    );
     // Validate it's a proper ISO string
     expect(new Date(result.canonical.lastMessageAt).getTime()).toBe(epochMs);
   });
@@ -940,7 +938,8 @@ describe("parseVscodeCopilotFile", () => {
       appendResponseChunkOp(1, {
         kind: "toolInvocationSerialized",
         toolId: "vscode.editFile",
-        invocationMessage: '{"path":"config.json","content":"{\\"port\\": 8080}"}',
+        invocationMessage:
+          '{"path":"config.json","content":"{\\"port\\": 8080}"}',
         toolCallId: "tc-002",
         result: "File updated",
       }),
@@ -1044,8 +1043,19 @@ describe("parseCrdtOps", () => {
 describe("replayCrdt", () => {
   it("replays snapshot + set + append operations", () => {
     const ops = [
-      { kind: 0, v: { sessionId: "s1", creationDate: "2026-01-01T00:00:00Z", requests: [] } },
-      { kind: 2, k: ["requests"], v: { requestId: "r1", message: { text: "Hi" }, response: [] } },
+      {
+        kind: 0,
+        v: {
+          sessionId: "s1",
+          creationDate: "2026-01-01T00:00:00Z",
+          requests: [],
+        },
+      },
+      {
+        kind: 2,
+        k: ["requests"],
+        v: { requestId: "r1", message: { text: "Hi" }, response: [] },
+      },
       { kind: 2, k: ["requests", 0, "response"], v: { value: "Hello!" } },
       { kind: 1, k: ["customTitle"], v: "My Chat" },
     ];
@@ -1124,10 +1134,7 @@ describe("extractMessages", () => {
       },
     ]);
 
-    const { accum, newRequestIds } = extractMessages(
-      state,
-      new Set(["r1"]),
-    );
+    const { accum, newRequestIds } = extractMessages(state, new Set(["r1"]));
     // All messages extracted (full canonical snapshot)
     expect(accum.messages).toHaveLength(4);
     expect(accum.messages[0].content).toBe("Q1");
@@ -1252,7 +1259,7 @@ describe("extractProjectRef (vscode-copilot)", () => {
     const ref = extractProjectRef("/Users/test/workspace/myproject");
     expect(ref).toBeTruthy();
     expect(typeof ref).toBe("string");
-    expect(ref!.length).toBe(16);
+    expect(ref?.length).toBe(16);
   });
 
   it("returns null for null folder", () => {

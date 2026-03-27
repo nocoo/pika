@@ -14,15 +14,15 @@
  */
 
 import { createHash } from "node:crypto";
-import {
-  METADATA_BATCH_SIZE,
-  MAX_UPLOAD_RETRIES,
-  INITIAL_BACKOFF_MS,
-} from "@pika/core";
 import type {
   CanonicalSession,
   RawSessionArchive,
   SessionSnapshot,
+} from "@pika/core";
+import {
+  INITIAL_BACKOFF_MS,
+  MAX_UPLOAD_RETRIES,
+  METADATA_BATCH_SIZE,
 } from "@pika/core";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -187,13 +187,13 @@ export function parseRetryAfter(value: string | null): number {
 
   // Try as integer seconds first
   const seconds = parseInt(value, 10);
-  if (!isNaN(seconds) && seconds >= 0) {
+  if (!Number.isNaN(seconds) && seconds >= 0) {
     return seconds * 1000;
   }
 
   // Try as HTTP-date
   const date = new Date(value);
-  if (!isNaN(date.getTime())) {
+  if (!Number.isNaN(date.getTime())) {
     const ms = date.getTime() - Date.now();
     return Math.max(0, ms);
   }
@@ -258,9 +258,7 @@ async function uploadBatch(
 
     // 429 — rate limited, respect Retry-After
     if (response.status === 429) {
-      const retryAfter = parseRetryAfter(
-        response.headers.get("Retry-After"),
-      );
+      const retryAfter = parseRetryAfter(response.headers.get("Retry-After"));
       await sleepFn(retryAfter);
       continue;
     }
@@ -274,9 +272,8 @@ async function uploadBatch(
     // 5xx — server error, retry with exponential backoff
     if (response.status >= 500) {
       if (attempt < MAX_UPLOAD_RETRIES) {
-        const backoff = INITIAL_BACKOFF_MS * Math.pow(2, attempt);
+        const backoff = INITIAL_BACKOFF_MS * 2 ** attempt;
         await sleepFn(backoff);
-        continue;
       }
     }
   }

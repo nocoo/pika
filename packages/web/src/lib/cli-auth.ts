@@ -1,4 +1,4 @@
-import { API_KEY_PREFIX, API_KEY_HEX_LENGTH } from "@pika/core";
+import { API_KEY_HEX_LENGTH, API_KEY_PREFIX } from "@pika/core";
 
 // ── Public origin resolution ───────────────────────────────────
 
@@ -57,7 +57,9 @@ export async function hashApiKey(key: string): Promise<string> {
 
 export interface CliAuthDb {
   setApiKey(userId: string, hashedKey: string): Promise<void>;
-  getUserByApiKey(hashedKey: string): Promise<{ id: string; email: string } | null>;
+  getUserByApiKey(
+    hashedKey: string,
+  ): Promise<{ id: string; email: string } | null>;
 }
 
 // ── CLI auth handler ───────────────────────────────────────────
@@ -101,7 +103,10 @@ export async function handleCliAuth(
   // so the unauthenticated redirect preserves the full URL including callback)
   if (!userId || !userEmail) {
     if (!callback) {
-      return { redirectUrl: deps.signInUrl, error: "Missing callback parameter" };
+      return {
+        redirectUrl: deps.signInUrl,
+        error: "Missing callback parameter",
+      };
     }
     const returnUrl = encodeURIComponent(deps.returnPath);
     return {

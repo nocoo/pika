@@ -7,26 +7,22 @@
  * Uses an in-memory mock SQLite interface to avoid bun:sqlite dependency.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { OpenCodeSqliteCursor } from "@pika/core";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SyncContext } from "../types";
 import {
   createOpenCodeSqliteDriver,
+  type OpenDbFn,
   type SqliteDb,
   type SqliteStatement,
-  type OpenDbFn,
 } from "./opencode-sqlite";
 
 // ---------------------------------------------------------------------------
 // Mock SQLite database
 // ---------------------------------------------------------------------------
-
-interface MockTable {
-  rows: Record<string, unknown>[];
-}
 
 function createMockDb(tables: {
   session?: Record<string, unknown>[];
@@ -56,7 +52,8 @@ function createMockDb(tables: {
               } else {
                 data = r;
               }
-              const time = (data.time as Record<string, unknown> | undefined) ?? {};
+              const time =
+                (data.time as Record<string, unknown> | undefined) ?? {};
               return {
                 id: data.id ?? r.id,
                 project_id: data.projectID ?? data.project_id ?? "",
@@ -95,7 +92,8 @@ function createMockDb(tables: {
             return filtered.map((r) => ({
               id: r.id,
               session_id: r.session_id,
-              data: typeof r.data === "string" ? r.data : JSON.stringify(r.data),
+              data:
+                typeof r.data === "string" ? r.data : JSON.stringify(r.data),
               time_created: r.time_created,
             }));
           }
@@ -105,7 +103,8 @@ function createMockDb(tables: {
             return partRows
               .filter((r) => r.message_id === messageId)
               .map((r) => ({
-                data: typeof r.data === "string" ? r.data : JSON.stringify(r.data),
+                data:
+                  typeof r.data === "string" ? r.data : JSON.stringify(r.data),
                 message_id: r.message_id,
               }));
           }
@@ -264,9 +263,7 @@ describe("openCodeSqliteDriver.run", () => {
     expect(results[0].canonical.totalOutputTokens).toBe(50);
     expect(rowCount).toBe(2);
     // Watermark derived from msg.time.created (ms epoch → ISO)
-    expect(cursor.lastTimeCreated).toBe(
-      new Date(1700000002000).toISOString(),
-    );
+    expect(cursor.lastTimeCreated).toBe(new Date(1700000002000).toISOString());
     // lastMessageIds populated (tested thoroughly in dedicated test)
     expect(Array.isArray(cursor.lastMessageIds)).toBe(true);
   });
@@ -358,7 +355,7 @@ describe("openCodeSqliteDriver.run", () => {
 
     await driver.run(undefined, ctx);
     expect(ctx.openCodeSessionState).toBeDefined();
-    expect(ctx.openCodeSessionState!.has("opencode:ses_new")).toBe(true);
+    expect(ctx.openCodeSessionState?.has("opencode:ses_new")).toBe(true);
     const info = ctx.openCodeSessionState!.get("opencode:ses_new")!;
     expect(info.totalMessages).toBe(1);
     expect(info.lastMessageAt).toBeDefined();
@@ -379,9 +376,7 @@ describe("openCodeSqliteDriver.run", () => {
         return {
           all(..._params: unknown[]): unknown[] {
             if (sql.includes("FROM session")) {
-              return [
-                { data: JSON.stringify(sessionData("ses_001")) },
-              ];
+              return [{ data: JSON.stringify(sessionData("ses_001")) }];
             }
             if (sql.includes("FROM message")) {
               // Return empty for all message queries (watermark, boundary, etc.)
@@ -458,9 +453,9 @@ describe("openCodeSqliteDriver.run", () => {
 
     const mockDb = createMockDb({
       session: [
-        { data: { id: "", title: "no-id" } },   // empty id — skipped
-        { data: { noId: true } },                // missing id — skipped
-        { data: sessionData("ses_valid") },      // valid
+        { data: { id: "", title: "no-id" } }, // empty id — skipped
+        { data: { noId: true } }, // missing id — skipped
+        { data: sessionData("ses_valid") }, // valid
       ],
       message: [
         {
@@ -581,9 +576,7 @@ describe("openCodeSqliteDriver.run", () => {
 
     const { cursor } = await driver.run(undefined, ctx);
     // Watermark derived from msg.time.created (ms epoch → ISO)
-    expect(cursor.lastTimeCreated).toBe(
-      new Date(1700000005000).toISOString(),
-    );
+    expect(cursor.lastTimeCreated).toBe(new Date(1700000005000).toISOString());
   });
 
   it("preserves cursor inode from actual DB file", async () => {
@@ -1019,9 +1012,15 @@ describe("openCodeSqliteDriver.run", () => {
         {
           id: "msg_boundary",
           session_id: "ses_full",
-          data: messageData("msg_boundary", "ses_full", "assistant", boundaryEpoch, {
-            modelID: "test-model",
-          }),
+          data: messageData(
+            "msg_boundary",
+            "ses_full",
+            "assistant",
+            boundaryEpoch,
+            {
+              modelID: "test-model",
+            },
+          ),
           time_created: boundaryIso,
         },
         {
@@ -1032,9 +1031,18 @@ describe("openCodeSqliteDriver.run", () => {
         },
       ],
       part: [
-        { message_id: "msg_old", data: partData("p1", "text", { text: "Old msg" }) },
-        { message_id: "msg_boundary", data: partData("p2", "text", { text: "Boundary msg" }) },
-        { message_id: "msg_new", data: partData("p3", "text", { text: "New msg" }) },
+        {
+          message_id: "msg_old",
+          data: partData("p1", "text", { text: "Old msg" }),
+        },
+        {
+          message_id: "msg_boundary",
+          data: partData("p2", "text", { text: "Boundary msg" }),
+        },
+        {
+          message_id: "msg_new",
+          data: partData("p3", "text", { text: "New msg" }),
+        },
       ],
     });
 

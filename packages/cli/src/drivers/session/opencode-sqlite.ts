@@ -20,19 +20,24 @@
  * The caller (orchestrator) is responsible for choosing the right SQLite binding.
  */
 
+import type { Stats } from "node:fs";
 import { stat } from "node:fs/promises";
-import type { OpenCodeSqliteCursor, ParseResult, RawSourceFile } from "@pika/core";
+import type {
+  OpenCodeSqliteCursor,
+  ParseResult,
+  RawSourceFile,
+} from "@pika/core";
 import {
-  parseOpenCodeSqliteSession,
-  type OcSession,
   type OcMessage,
   type OcPart,
+  type OcSession,
+  parseOpenCodeSqliteSession,
 } from "../../parsers/opencode";
 import type {
   DbDriver,
   DbDriverResult,
-  SyncContext,
   OpenCodeSessionInfo,
+  SyncContext,
 } from "../types";
 
 // ---------------------------------------------------------------------------
@@ -59,7 +64,10 @@ export interface SqliteStatement {
  * Function type for opening a SQLite database.
  * Injected by the orchestrator to decouple from specific SQLite bindings.
  */
-export type OpenDbFn = (path: string, options?: { readonly: boolean }) => SqliteDb;
+export type OpenDbFn = (
+  path: string,
+  options?: { readonly: boolean },
+) => SqliteDb;
 
 // ---------------------------------------------------------------------------
 // Row types — what comes back from SQLite queries
@@ -132,7 +140,10 @@ function shouldSkipForJson(
 // Query helpers
 // ---------------------------------------------------------------------------
 
-function querySessions(db: SqliteDb): { sessions: OcSession[]; rawRows: SessionRow[] } {
+function querySessions(db: SqliteDb): {
+  sessions: OcSession[];
+  rawRows: SessionRow[];
+} {
   const rows = db
     .prepare("SELECT * FROM session ORDER BY rowid")
     .all() as SessionRow[];
@@ -190,9 +201,7 @@ function queryMessagesForSession(
       // Ensure id is set from the row
       if (!data.id) data.id = row.id;
       messages.push(data);
-    } catch {
-      continue;
-    }
+    } catch {}
   }
   return messages;
 }
@@ -221,19 +230,16 @@ function queryAllMessagesForSession(
       if (!data.id) data.id = row.id;
       messages.push(data);
       rawDataStrings.push(row.data);
-    } catch {
-      continue;
-    }
+    } catch {}
   }
   return { messages, rawDataStrings };
 }
 
-function queryPartsForMessage(
-  db: SqliteDb,
-  messageId: string,
-): OcPart[] {
+function _queryPartsForMessage(db: SqliteDb, messageId: string): OcPart[] {
   const rows = db
-    .prepare("SELECT data, message_id FROM part WHERE message_id = ? ORDER BY rowid")
+    .prepare(
+      "SELECT data, message_id FROM part WHERE message_id = ? ORDER BY rowid",
+    )
     .all(messageId) as PartRow[];
 
   const parts: OcPart[] = [];
@@ -242,9 +248,7 @@ function queryPartsForMessage(
       const data = JSON.parse(row.data) as OcPart;
       if (!data || typeof data.type !== "string") continue;
       parts.push(data);
-    } catch {
-      continue;
-    }
+    } catch {}
   }
   return parts;
 }
@@ -258,7 +262,9 @@ function queryPartsForMessageWithRaw(
   messageId: string,
 ): { parts: OcPart[]; rawDataStrings: string[] } {
   const rows = db
-    .prepare("SELECT data, message_id FROM part WHERE message_id = ? ORDER BY rowid")
+    .prepare(
+      "SELECT data, message_id FROM part WHERE message_id = ? ORDER BY rowid",
+    )
     .all(messageId) as PartRow[];
 
   const parts: OcPart[] = [];
@@ -269,9 +275,7 @@ function queryPartsForMessageWithRaw(
       if (!data || typeof data.type !== "string") continue;
       parts.push(data);
       rawDataStrings.push(row.data);
-    } catch {
-      continue;
-    }
+    } catch {}
   }
   return { parts, rawDataStrings };
 }
@@ -344,7 +348,7 @@ export function createOpenCodeSqliteDriver(
       ctx: SyncContext,
     ): Promise<DbDriverResult<OpenCodeSqliteCursor>> {
       // Check if DB file exists and get inode
-      let dbStat;
+      let dbStat: Stats;
       try {
         dbStat = await stat(dbPath);
       } catch {
@@ -362,12 +366,11 @@ export function createOpenCodeSqliteDriver(
 
       // If inode changed, DB was replaced — reset watermark
       const inodeMatch = prevCursor && prevCursor.inode === dbStat.ino;
-      const watermark = inodeMatch
-        ? prevCursor.lastTimeCreated || null
-        : null;
-      const prevMessageIds = inodeMatch && prevCursor.lastMessageIds
-        ? new Set(prevCursor.lastMessageIds)
-        : null;
+      const watermark = inodeMatch ? prevCursor.lastTimeCreated || null : null;
+      const prevMessageIds =
+        inodeMatch && prevCursor.lastMessageIds
+          ? new Set(prevCursor.lastMessageIds)
+          : null;
 
       let db: SqliteDb;
       try {

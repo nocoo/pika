@@ -151,8 +151,10 @@ const KNOWN_SCOPES = new Set<string>(["personal", "work"]);
  * Sub-directory paths like `…/workspace/personal/pika/packages/web` → "pika".
  * Short names (no `/`) are returned as-is.
  */
-export function parseProjectDisplay(projectName: string | null): ProjectDisplay {
-  if (!projectName || !projectName.trim()) {
+export function parseProjectDisplay(
+  projectName: string | null,
+): ProjectDisplay {
+  if (!projectName?.trim()) {
     return { displayName: "Unknown", scope: null };
   }
 

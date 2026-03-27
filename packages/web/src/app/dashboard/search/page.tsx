@@ -1,15 +1,15 @@
 "use client";
 
+import type { Source } from "@pika/core";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   SearchResultCard,
   type SearchResultData,
 } from "@/components/search/search-result-card";
 import { SessionFilters } from "@/components/sessions/session-filters";
-import type { Source } from "@pika/core";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function SearchPage() {
   const searchParams = useSearchParams();
@@ -36,40 +36,35 @@ export default function SearchPage() {
 
   // ── Search execution ────────────────────────────────────────
 
-  const executeSearch = useCallback(
-    async (q: string, src: Source | "") => {
-      if (!q.trim()) {
-        setResults([]);
-        setTotal(0);
-        setSearched(false);
-        return;
-      }
+  const executeSearch = useCallback(async (q: string, src: Source | "") => {
+    if (!q.trim()) {
+      setResults([]);
+      setTotal(0);
+      setSearched(false);
+      return;
+    }
 
-      setLoading(true);
-      setError(null);
-      setSearched(true);
+    setLoading(true);
+    setError(null);
+    setSearched(true);
 
-      try {
-        const params = new URLSearchParams();
-        params.set("q", q.trim());
-        if (src) params.set("source", src);
-        params.set("limit", "50");
+    try {
+      const params = new URLSearchParams();
+      params.set("q", q.trim());
+      if (src) params.set("source", src);
+      params.set("limit", "50");
 
-        const res = await fetch(`/api/search?${params.toString()}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        setResults(data.results);
-        setTotal(data.total);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Search failed",
-        );
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
+      const res = await fetch(`/api/search?${params.toString()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setResults(data.results);
+      setTotal(data.total);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Search failed");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // Debounced search on query change
   useEffect(() => {
@@ -160,9 +155,7 @@ export default function SearchPage() {
       )}
 
       {/* Error */}
-      {error && (
-        <div className="text-sm text-destructive py-2">{error}</div>
-      )}
+      {error && <div className="text-sm text-destructive py-2">{error}</div>}
 
       {/* Loading skeleton */}
       {loading && (

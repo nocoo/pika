@@ -1,28 +1,28 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import type { Source } from "@pika/core";
 import {
-  useReactTable,
   getCoreRowModel,
-  type SortingState,
   type RowSelectionState,
+  type SortingState,
+  useReactTable,
 } from "@tanstack/react-table";
-import { DataTable } from "@/components/ui/data-table";
-import { DataTablePagination } from "@/components/ui/data-table-pagination";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { SessionCardData } from "@/components/sessions/session-card";
+import { getSessionColumns } from "@/components/sessions/session-columns";
 import {
+  type MessageRange,
+  SessionFilters,
+} from "@/components/sessions/session-filters";
+import { DataTable } from "@/components/ui/data-table";
+import {
+  type BulkAction,
   DataTableBulkBar,
   SESSION_BULK_ACTIONS,
-  type BulkAction,
 } from "@/components/ui/data-table-bulk-bar";
-import {
-  SessionFilters,
-  type MessageRange,
-} from "@/components/sessions/session-filters";
-import { getSessionColumns } from "@/components/sessions/session-columns";
-import type { SessionCardData } from "@/components/sessions/session-card";
-import type { Source } from "@pika/core";
-import type { SessionSort, SessionListResponse } from "@/lib/sessions";
+import { DataTablePagination } from "@/components/ui/data-table-pagination";
+import type { SessionListResponse, SessionSort } from "@/lib/sessions";
 
 // ── Sort mapping ─────────────────────────────────────────────
 
@@ -71,19 +71,28 @@ export default function SessionsPage() {
 
   // Read initial values from URL
   const initialSource = (searchParams.get("source") ?? "") as Source | "";
-  const initialSort = (searchParams.get("sort") ?? "last_message_at") as SessionSort;
+  const initialSort = (searchParams.get("sort") ??
+    "last_message_at") as SessionSort;
   const initialModel = searchParams.get("model") ?? "";
   const initialStarred = searchParams.get("starred") === "true";
-  const initialMessageRange = (searchParams.get("messageRange") ?? "") as MessageRange;
-  const initialPage = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
-  const initialPageSize = Math.min(100, Math.max(1, parseInt(searchParams.get("pageSize") ?? "50", 10) || 50));
+  const initialMessageRange = (searchParams.get("messageRange") ??
+    "") as MessageRange;
+  const initialPage = Math.max(
+    1,
+    parseInt(searchParams.get("page") ?? "1", 10) || 1,
+  );
+  const initialPageSize = Math.min(
+    100,
+    Math.max(1, parseInt(searchParams.get("pageSize") ?? "50", 10) || 50),
+  );
 
   // State
   const [source, setSource] = useState<Source | "">(initialSource);
   const [sort, setSort] = useState<SessionSort>(initialSort);
   const [model, setModel] = useState(initialModel);
   const [starred, setStarred] = useState(initialStarred);
-  const [messageRange, setMessageRange] = useState<MessageRange>(initialMessageRange);
+  const [messageRange, setMessageRange] =
+    useState<MessageRange>(initialMessageRange);
   const [page, setPage] = useState(initialPage);
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [sessions, setSessions] = useState<SessionCardData[]>([]);
@@ -114,7 +123,7 @@ export default function SessionsPage() {
           : updaterOrValue;
 
       if (newSorting.length > 0) {
-        const apiSort = COLUMN_TO_SORT[newSorting[0]!.id];
+        const apiSort = COLUMN_TO_SORT[newSorting[0]?.id];
         if (apiSort) {
           setSort(apiSort);
           setPage(1);
@@ -147,7 +156,10 @@ export default function SessionsPage() {
 
   // Column definitions (with selection enabled)
   const columns = useMemo(
-    () => getSessionColumns(starredMap, handleToggleStar, { enableSelection: true }),
+    () =>
+      getSessionColumns(starredMap, handleToggleStar, {
+        enableSelection: true,
+      }),
     [starredMap, handleToggleStar],
   );
 
@@ -178,49 +190,12 @@ export default function SessionsPage() {
     if (model) filter.model = model;
     if (starred) filter.starred = true;
     const msgParams = messageRangeToParams(messageRange);
-    if (msgParams.minMessages) filter.minMessages = parseInt(msgParams.minMessages, 10);
-    if (msgParams.maxMessages) filter.maxMessages = parseInt(msgParams.maxMessages, 10);
+    if (msgParams.minMessages)
+      filter.minMessages = parseInt(msgParams.minMessages, 10);
+    if (msgParams.maxMessages)
+      filter.maxMessages = parseInt(msgParams.maxMessages, 10);
     return filter;
   }, [source, model, starred, messageRange]);
-
-  // Batch action handler
-  const handleBulkAction = useCallback(
-    async (action: BulkAction) => {
-      setBulkLoading(true);
-      try {
-        const body: Record<string, unknown> = { action };
-
-        if (selectAllMode) {
-          body.filter = buildBatchFilter();
-        } else {
-          body.ids = Object.keys(rowSelection);
-        }
-
-        const res = await fetch("/api/sessions/batch", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ error: "Unknown error" }));
-          setError((err as { error: string }).error ?? "Batch operation failed");
-          return;
-        }
-
-        // Clear selection and refresh
-        setRowSelection({});
-        setSelectAllMode(false);
-        // Trigger re-fetch by bumping a dependency
-        await fetchSessions();
-      } catch {
-        setError("Batch operation failed");
-      } finally {
-        setBulkLoading(false);
-      }
-    },
-    [selectAllMode, rowSelection, buildBatchFilter], // fetchSessions added below
-  );
 
   // Build API URL from state
   const buildUrl = useCallback(() => {
@@ -256,6 +231,49 @@ export default function SessionsPage() {
     }
   }, [buildUrl]);
 
+  // Batch action handler
+  const handleBulkAction = useCallback(
+    async (action: BulkAction) => {
+      setBulkLoading(true);
+      try {
+        const body: Record<string, unknown> = { action };
+
+        if (selectAllMode) {
+          body.filter = buildBatchFilter();
+        } else {
+          body.ids = Object.keys(rowSelection);
+        }
+
+        const res = await fetch("/api/sessions/batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        if (!res.ok) {
+          const err = await res
+            .json()
+            .catch(() => ({ error: "Unknown error" }));
+          setError(
+            (err as { error: string }).error ?? "Batch operation failed",
+          );
+          return;
+        }
+
+        // Clear selection and refresh
+        setRowSelection({});
+        setSelectAllMode(false);
+        // Trigger re-fetch by bumping a dependency
+        await fetchSessions();
+      } catch {
+        setError("Batch operation failed");
+      } finally {
+        setBulkLoading(false);
+      }
+    },
+    [selectAllMode, rowSelection, buildBatchFilter, fetchSessions],
+  );
+
   // Re-fetch when dependencies change
   useEffect(() => {
     fetchSessions();
@@ -265,7 +283,7 @@ export default function SessionsPage() {
   useEffect(() => {
     setRowSelection({});
     setSelectAllMode(false);
-  }, [source, model, starred, sort, messageRange, page, pageSize]);
+  }, []);
 
   // Sync state to URL
   useEffect(() => {
@@ -351,9 +369,7 @@ export default function SessionsPage() {
       />
 
       {/* Error state */}
-      {error && (
-        <div className="text-sm text-destructive py-4">{error}</div>
-      )}
+      {error && <div className="text-sm text-destructive py-4">{error}</div>}
 
       {/* Data table */}
       <DataTable

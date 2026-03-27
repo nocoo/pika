@@ -1,21 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import type { Source } from "@pika/core";
 import { useRouter } from "next/navigation";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { VisuallyHidden } from "radix-ui";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   SearchResultCard,
   type SearchResultData,
 } from "@/components/search/search-result-card";
 import { SessionFilters } from "@/components/sessions/session-filters";
-import { VisuallyHidden } from "radix-ui";
-import type { Source } from "@pika/core";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // ── SearchDialogContent ────────────────────────────────────────
 // The search UI extracted from the search page, without header or URL sync.
@@ -45,40 +41,35 @@ function SearchDialogContent({
 
   // ── Search execution ────────────────────────────────────────
 
-  const executeSearch = useCallback(
-    async (q: string, src: Source | "") => {
-      if (!q.trim()) {
-        setResults([]);
-        setTotal(0);
-        setSearched(false);
-        return;
-      }
+  const executeSearch = useCallback(async (q: string, src: Source | "") => {
+    if (!q.trim()) {
+      setResults([]);
+      setTotal(0);
+      setSearched(false);
+      return;
+    }
 
-      setLoading(true);
-      setError(null);
-      setSearched(true);
+    setLoading(true);
+    setError(null);
+    setSearched(true);
 
-      try {
-        const params = new URLSearchParams();
-        params.set("q", q.trim());
-        if (src) params.set("source", src);
-        params.set("limit", "50");
+    try {
+      const params = new URLSearchParams();
+      params.set("q", q.trim());
+      if (src) params.set("source", src);
+      params.set("limit", "50");
 
-        const res = await fetch(`/api/search?${params.toString()}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        setResults(data.results);
-        setTotal(data.total);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Search failed",
-        );
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
+      const res = await fetch(`/api/search?${params.toString()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setResults(data.results);
+      setTotal(data.total);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Search failed");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // Debounced search on query change
   useEffect(() => {
@@ -208,9 +199,7 @@ function SearchDialogContent({
               <SearchResultCard
                 key={`${result.session_id}-${result.message_id}-${result.chunk_index}-${i}`}
                 result={result}
-                onClick={() =>
-                  onResultClick(result.session_id, result.ordinal)
-                }
+                onClick={() => onResultClick(result.session_id, result.ordinal)}
               />
             ))}
           </div>

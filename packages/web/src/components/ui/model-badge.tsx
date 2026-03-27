@@ -12,9 +12,7 @@ interface ModelBadgeProps {
  */
 export function ModelBadge({ model, className }: ModelBadgeProps) {
   if (!model) {
-    return (
-      <span className="text-sm text-muted-foreground">—</span>
-    );
+    return <span className="text-sm text-muted-foreground">—</span>;
   }
 
   const { color, token } = modelColor(model);

@@ -8,10 +8,10 @@
  * SyncPipelineInput.dbDriver was optional and sync.ts omitted it.
  */
 
-import { describe, it, expect, vi } from "vitest";
-import { buildDbDriver } from "./sync";
+import { describe, expect, it, vi } from "vitest";
 import type { DriverSet } from "../drivers/registry";
 import type { OpenDbFn } from "../drivers/session/opencode-sqlite";
+import { buildDbDriver } from "./sync";
 
 // ── Fixtures ───────────────────────────────────────────────────
 
@@ -44,19 +44,23 @@ describe("buildDbDriver", () => {
   it("returns a DbDriver when dbDriversAvailable=true and openCodeDbPath is set", async () => {
     const driverSet = makeDriverSet({
       dbDriversAvailable: true,
-      discoverOpts: { openCodeDbPath: "/home/.local/share/opencode/opencode.db" },
+      discoverOpts: {
+        openCodeDbPath: "/home/.local/share/opencode/opencode.db",
+      },
     });
 
     const driver = await buildDbDriver(driverSet, stubOpenDb());
 
     expect(driver).toBeDefined();
-    expect(driver!.source).toBe("opencode");
+    expect(driver?.source).toBe("opencode");
   });
 
   it("returns undefined when dbDriversAvailable=false", async () => {
     const driverSet = makeDriverSet({
       dbDriversAvailable: false,
-      discoverOpts: { openCodeDbPath: "/home/.local/share/opencode/opencode.db" },
+      discoverOpts: {
+        openCodeDbPath: "/home/.local/share/opencode/opencode.db",
+      },
     });
 
     const driver = await buildDbDriver(driverSet, stubOpenDb());
@@ -99,6 +103,6 @@ describe("buildDbDriver", () => {
     // We verify indirectly: the driver was created (not undefined)
     // and has the correct source identifier.
     expect(driver).toBeDefined();
-    expect(driver!.source).toBe("opencode");
+    expect(driver?.source).toBe("opencode");
   });
 });

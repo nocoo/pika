@@ -4,11 +4,11 @@
  * Covers: resolveDefaultPaths, buildDriverSet (with mocked fs)
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { resolveDefaultPaths, buildDriverSet } from "./registry";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { buildDriverSet, resolveDefaultPaths } from "./registry";
 
 // ---------------------------------------------------------------------------
 // resolveDefaultPaths
@@ -147,9 +147,7 @@ describe("buildDriverSet", () => {
     });
 
     expect(result.dbDriversAvailable).toBe(true);
-    expect(result.discoverOpts.openCodeDbPath).toBe(
-      join(ocDir, "opencode.db"),
-    );
+    expect(result.discoverOpts.openCodeDbPath).toBe(join(ocDir, "opencode.db"));
   });
 
   it("does not set dbDriversAvailable when only dir exists (no .db file)", async () => {
@@ -323,7 +321,13 @@ describe("buildDriverSet", () => {
       await writeFile(join(ocDir, "opencode.db"), "");
       await mkdir(vscodeDir, { recursive: true });
 
-      return { claudeDir, codexSessionsDir: codexDir, geminiDir, openCodeDir: ocDir, vscodeCopilotDirs: [vscodeDir] };
+      return {
+        claudeDir,
+        codexSessionsDir: codexDir,
+        geminiDir,
+        openCodeDir: ocDir,
+        vscodeCopilotDirs: [vscodeDir],
+      };
     }
 
     it("returns all drivers when sourceFilter is undefined", async () => {
@@ -336,7 +340,11 @@ describe("buildDriverSet", () => {
 
     it("filters to single source", async () => {
       const paths = await setupAllSources(tmpDir);
-      const result = await buildDriverSet(paths, undefined, new Set(["claude-code"]));
+      const result = await buildDriverSet(
+        paths,
+        undefined,
+        new Set(["claude-code"]),
+      );
 
       expect(result.fileDrivers).toHaveLength(1);
       expect(result.fileDrivers[0].source).toBe("claude-code");
@@ -345,7 +353,11 @@ describe("buildDriverSet", () => {
 
     it("filters to multiple sources", async () => {
       const paths = await setupAllSources(tmpDir);
-      const result = await buildDriverSet(paths, undefined, new Set(["gemini-cli", "codex"]));
+      const result = await buildDriverSet(
+        paths,
+        undefined,
+        new Set(["gemini-cli", "codex"]),
+      );
 
       expect(result.fileDrivers).toHaveLength(2);
       const sources = result.fileDrivers.map((d) => d.source);
@@ -356,7 +368,11 @@ describe("buildDriverSet", () => {
 
     it("includes opencode DB when opencode is in filter", async () => {
       const paths = await setupAllSources(tmpDir);
-      const result = await buildDriverSet(paths, undefined, new Set(["opencode"]));
+      const result = await buildDriverSet(
+        paths,
+        undefined,
+        new Set(["opencode"]),
+      );
 
       expect(result.fileDrivers).toHaveLength(1);
       expect(result.fileDrivers[0].source).toBe("opencode");
@@ -365,7 +381,11 @@ describe("buildDriverSet", () => {
 
     it("excludes opencode DB when opencode is not in filter", async () => {
       const paths = await setupAllSources(tmpDir);
-      const result = await buildDriverSet(paths, undefined, new Set(["claude-code"]));
+      const result = await buildDriverSet(
+        paths,
+        undefined,
+        new Set(["claude-code"]),
+      );
 
       expect(result.dbDriversAvailable).toBe(false);
     });

@@ -106,7 +106,9 @@ function buildWhereClause(params: SessionListParams): {
       queryParams.push(keys[0]!);
     } else if (keys.length > 1) {
       const placeholders = keys.map(() => "?").join(", ");
-      conditions.push(`COALESCE(s.project_name, s.project_ref) IN (${placeholders})`);
+      conditions.push(
+        `COALESCE(s.project_name, s.project_ref) IN (${placeholders})`,
+      );
       queryParams.push(...keys);
     }
   }
@@ -171,7 +173,9 @@ export function buildSessionListQuery(params: SessionListParams): BuiltQuery {
   if (!params.page) {
     const cursor = decodeCursor(params.cursor);
     if (cursor) {
-      conditions.push(`(s.${sort} ${op} ? OR (s.${sort} = ? AND s.id ${op} ?))`);
+      conditions.push(
+        `(s.${sort} ${op} ? OR (s.${sort} = ? AND s.id ${op} ?))`,
+      );
       queryParams.push(cursor.v, cursor.v, cursor.id);
     }
   }
@@ -238,7 +242,7 @@ export function decodeCursor(cursor?: string): CursorPayload | null {
   if (!cursor) return null;
   try {
     const parsed = JSON.parse(atob(cursor));
-    if (parsed && typeof parsed.id === "string" && ("v" in parsed)) {
+    if (parsed && typeof parsed.id === "string" && "v" in parsed) {
       return parsed as CursorPayload;
     }
     return null;
@@ -379,19 +383,25 @@ export function parseSessionListParams(
   // Offset pagination
   const pageRaw = searchParams.get("page");
   const parsedPage = pageRaw ? parseInt(pageRaw, 10) : NaN;
-  const page = Number.isNaN(parsedPage) || parsedPage < 1 ? undefined : parsedPage;
+  const page =
+    Number.isNaN(parsedPage) || parsedPage < 1 ? undefined : parsedPage;
 
   // Message range filters
   const minMessagesRaw = searchParams.get("minMessages");
   const parsedMinMessages = minMessagesRaw ? parseInt(minMessagesRaw, 10) : NaN;
-  const minMessages = Number.isNaN(parsedMinMessages) ? undefined : parsedMinMessages;
+  const minMessages = Number.isNaN(parsedMinMessages)
+    ? undefined
+    : parsedMinMessages;
 
   const maxMessagesRaw = searchParams.get("maxMessages");
   const parsedMaxMessages = maxMessagesRaw ? parseInt(maxMessagesRaw, 10) : NaN;
-  const maxMessages = Number.isNaN(parsedMaxMessages) ? undefined : parsedMaxMessages;
+  const maxMessages = Number.isNaN(parsedMaxMessages)
+    ? undefined
+    : parsedMaxMessages;
 
   return {
-    source: source && VALID_SOURCES.has(source) ? (source as Source) : undefined,
+    source:
+      source && VALID_SOURCES.has(source) ? (source as Source) : undefined,
     project,
     projectKey: projectKey || undefined,
     model: model || undefined,

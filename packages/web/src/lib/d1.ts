@@ -132,8 +132,7 @@ export class D1Client {
       }
 
       if (!response.ok || !data.success) {
-        const msg =
-          data.errors?.[0]?.message ?? `D1 HTTP ${response.status}`;
+        const msg = data.errors?.[0]?.message ?? `D1 HTTP ${response.status}`;
         throw new D1Error(msg, response.status, data.errors);
       }
 

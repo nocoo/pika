@@ -24,16 +24,16 @@
  * Session key: `opencode:{sessionID}`
  */
 
-import { readFile, readdir, stat } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { PARSER_REVISION, SCHEMA_VERSION } from "@pika/core";
 import type {
   CanonicalMessage,
   CanonicalSession,
+  ParseResult,
   RawSessionArchive,
   RawSourceFile,
-  ParseResult,
 } from "@pika/core";
+import { PARSER_REVISION, SCHEMA_VERSION } from "@pika/core";
 import { hashProjectRef } from "../utils/hash-project-ref";
 
 // ── Types ───────────────────────────────────────────────────────
@@ -157,24 +157,15 @@ function processTextPart(
   });
 }
 
-function processToolPart(
-  part: OcPart,
-  ts: string,
-  accum: SessionAccum,
-): void {
+function processToolPart(part: OcPart, ts: string, accum: SessionAccum): void {
   if (!part.state) return;
 
   const toolName = part.tool ?? undefined;
-  const input = part.state.input
-    ? JSON.stringify(part.state.input)
-    : undefined;
+  const input = part.state.input ? JSON.stringify(part.state.input) : undefined;
 
   // Only emit completed tool calls (with output)
   if (part.state.status === "completed") {
-    const output =
-      part.state.output ??
-      part.state.metadata?.output ??
-      "";
+    const output = part.state.output ?? part.state.metadata?.output ?? "";
 
     // Tool invocation
     accum.messages.push({
@@ -306,10 +297,7 @@ function buildParseResult(
   return { canonical, raw };
 }
 
-function buildEmptyResult(
-  sessionId: string,
-  rawPath: string,
-): ParseResult {
+function buildEmptyResult(sessionId: string, rawPath: string): ParseResult {
   const now = new Date().toISOString();
   const sessionKey = `opencode:${sessionId}`;
 
@@ -455,7 +443,11 @@ export async function parseOpenCodeJsonSession(
 ): Promise<ParseResult> {
   // Load session metadata (with raw content for archive)
   const sessionLoaded = await loadJsonFileWithRaw<OcSession>(sessionJsonPath);
-  if (!sessionLoaded || typeof sessionLoaded.parsed !== "object" || !sessionLoaded.parsed.id) {
+  if (
+    !sessionLoaded ||
+    typeof sessionLoaded.parsed !== "object" ||
+    !sessionLoaded.parsed.id
+  ) {
     return buildEmptyResult("unknown", sessionJsonPath);
   }
 
@@ -482,7 +474,11 @@ export async function parseOpenCodeJsonSession(
     if (!msgLoaded || typeof msgLoaded.parsed.role !== "string") continue;
 
     const msg = msgLoaded.parsed;
-    rawSourceFiles.push({ path: msgPath, format: "json", content: msgLoaded.raw });
+    rawSourceFiles.push({
+      path: msgPath,
+      format: "json",
+      content: msgLoaded.raw,
+    });
 
     // Load parts for this message (with raw content)
     const partsResult = await loadPartsForMessageWithRaw(partDir, msg.id);
@@ -493,12 +489,15 @@ export async function parseOpenCodeJsonSession(
   }
 
   // Sort by creation time
-  messages.sort(
-    (a, b) => (a.time?.created ?? 0) - (b.time?.created ?? 0),
-  );
+  messages.sort((a, b) => (a.time?.created ?? 0) - (b.time?.created ?? 0));
 
   // Parse using shared logic
-  const result = parseOpenCodeMessages(session, messages, "json", sessionJsonPath);
+  const result = parseOpenCodeMessages(
+    session,
+    messages,
+    "json",
+    sessionJsonPath,
+  );
 
   // Override the raw archive with real source files (not synthetic JSON)
   result.raw.sourceFiles = rawSourceFiles;
@@ -524,7 +523,12 @@ export function parseOpenCodeSqliteSession(
   dbPath: string,
   rawSourceFiles?: RawSourceFile[],
 ): ParseResult {
-  const result = parseOpenCodeMessages(session, messages, "sqlite-export", dbPath);
+  const result = parseOpenCodeMessages(
+    session,
+    messages,
+    "sqlite-export",
+    dbPath,
+  );
 
   // Override synthetic raw with faithful DB row data when provided
   if (rawSourceFiles && rawSourceFiles.length > 0) {
