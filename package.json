@@ -35,6 +35,6 @@
     "picomatch": ">=4.0.4",
     "brace-expansion": ">=5.0.5",
     "fast-xml-parser": ">=5.5.9",
-    "next": ">=15.5.14"
+    "next": ">=16.2.1"
   }
 }
