@@ -17,7 +17,11 @@ import type {
   SyncContext,
 } from "../drivers/types";
 import { AuthError } from "../upload/engine";
-import type { SyncPipelineInput, SyncPipelineOptions } from "./sync-pipeline";
+import type {
+  SyncPipelineInput,
+  SyncPipelineOptions,
+  SyncProgressLogger,
+} from "./sync-pipeline";
 import { getFingerprint, runSyncPipeline } from "./sync-pipeline";
 
 // ── Fixtures ───────────────────────────────────────────────────
@@ -927,5 +931,73 @@ describe("runSyncPipeline: batch upload", () => {
     // contentResult should always be initialized when upload runs
     expect(result.contentResult).toBeDefined();
     expect(result.contentResult!.errors).toEqual([]);
+  });
+
+  it("fires logger stage callbacks in correct order: metadataStart → metadataDone → contentStart → contentDone", async () => {
+    const driver = mockFileDriver({
+      discover: vi.fn().mockResolvedValue([__filename]),
+      parse: vi.fn().mockResolvedValue([makeParseResult()]),
+    });
+
+    mockFetch.mockImplementation(async (url: string) => {
+      if (typeof url === "string" && url.includes("/api/ingest/sessions")) {
+        return new Response(JSON.stringify({ ingested: 1 }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (typeof url === "string" && url.includes("/api/ingest/presign")) {
+        return new Response(
+          JSON.stringify({
+            url: "https://r2.example.com/presigned",
+            key: "k",
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (typeof url === "string" && url.includes("/api/ingest/confirm-raw")) {
+        return new Response(JSON.stringify({ confirmed: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(null, { status: 201 });
+    });
+
+    const callOrder: string[] = [];
+    const logger: SyncProgressLogger = {
+      discoverStart: vi.fn(),
+      discoverDone: vi.fn(),
+      parseDone: vi.fn(),
+      uploadMetadataStart: vi.fn(() => callOrder.push("metadataStart")),
+      uploadMetadataDone: vi.fn(() => callOrder.push("metadataDone")),
+      uploadContentStart: vi.fn(() => callOrder.push("contentStart")),
+      uploadContentProgress: vi.fn(),
+      uploadContentDone: vi.fn(() => callOrder.push("contentDone")),
+      dbDriverStart: vi.fn(),
+      dbDriverDone: vi.fn(),
+    };
+
+    await runSyncPipeline(
+      makeInput({ fileDrivers: [driver] }),
+      makeOpts({ upload: true, fetch: mockFetch, logger }),
+    );
+
+    // Strict stage ordering: metadata completes before content begins
+    expect(callOrder).toEqual([
+      "metadataStart",
+      "metadataDone",
+      "contentStart",
+      "contentDone",
+    ]);
+
+    // Each stage callback fired exactly once
+    expect(logger.uploadMetadataStart).toHaveBeenCalledTimes(1);
+    expect(logger.uploadMetadataDone).toHaveBeenCalledTimes(1);
+    expect(logger.uploadContentStart).toHaveBeenCalledTimes(1);
+    expect(logger.uploadContentDone).toHaveBeenCalledTimes(1);
   });
 });

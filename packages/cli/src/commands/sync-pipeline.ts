@@ -296,12 +296,14 @@ export async function runSyncPipeline(
     };
 
     const totalSessions = uploadableResults.length;
-    log?.uploadMetadataStart(totalSessions);
 
-    // ── Batch upload: process PIPELINE_BATCH_SIZE sessions at a time ──
-    // This prevents the entire session set from being serialized to JSON
-    // and held in memory simultaneously. Each batch's JSON strings, gzip
-    // buffers, and precomputed hashes are GC-eligible after the batch completes.
+    // ── Batch upload: two-phase pipeline ──
+    // Phase 1: upload ALL metadata batches, then
+    // Phase 2: upload ALL content batches.
+    // This preserves the stage-level ordering contract of SyncProgressLogger
+    // (metadataStart → metadataDone → contentStart → contentDone) while
+    // keeping memory bounded — each batch's JSON strings, gzip buffers,
+    // and precomputed hashes are GC-eligible after the batch completes.
     const pipelineBatches = splitBatches(
       uploadableResults,
       METADATA_BATCH_SIZE,
@@ -320,9 +322,8 @@ export async function runSyncPipeline(
       errors: [],
     };
 
-    // Progress tracking for content upload (shared across batches)
-    let contentDone = 0;
-    log?.uploadContentStart(totalSessions);
+    // ── Phase 1: Metadata upload ──
+    log?.uploadMetadataStart(totalSessions);
 
     for (const batch of pipelineBatches) {
       // Transform to snapshots for this batch only (JSON + hashes)
@@ -330,10 +331,6 @@ export async function runSyncPipeline(
         toSessionSnapshot(r.canonical, r.raw),
       );
       const batchSnapshots = transformed.map((t) => t.snapshot);
-      const batchPrecomputed = new Map<string, PrecomputedHashes>();
-      for (const t of transformed) {
-        batchPrecomputed.set(t.snapshot.sessionKey, t.precomputed);
-      }
 
       // Upload metadata for this batch
       const batchUploadResult = await uploadMetadataBatches(
@@ -344,6 +341,26 @@ export async function runSyncPipeline(
       uploadResult.totalConflicts += batchUploadResult.totalConflicts;
       uploadResult.totalBatches += batchUploadResult.totalBatches;
       uploadResult.errors.push(...batchUploadResult.errors);
+      // batchSnapshots + transformed go out of scope → GC-eligible
+    }
+
+    log?.uploadMetadataDone(
+      uploadResult.totalIngested,
+      uploadResult.totalConflicts,
+    );
+
+    // ── Phase 2: Content upload ──
+    let contentDone = 0;
+    log?.uploadContentStart(totalSessions);
+
+    for (const batch of pipelineBatches) {
+      // Re-compute precomputed hashes for this batch (CPU-only, no I/O).
+      // This avoids holding all hashes in memory across the metadata phase.
+      const batchPrecomputed = new Map<string, PrecomputedHashes>();
+      for (const r of batch) {
+        const t = toSessionSnapshot(r.canonical, r.raw);
+        batchPrecomputed.set(t.snapshot.sessionKey, t.precomputed);
+      }
 
       // Wrap content upload to track per-session progress
       const wrappedContentOpts: ContentUploadOptions = { ...contentOpts };
@@ -409,10 +426,6 @@ export async function runSyncPipeline(
       }
     }
 
-    log?.uploadMetadataDone(
-      uploadResult.totalIngested,
-      uploadResult.totalConflicts,
-    );
     log?.uploadContentDone(
       contentResult.uploaded,
       contentResult.skipped,
