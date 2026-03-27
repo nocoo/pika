@@ -409,6 +409,14 @@ describe("validateSessionSnapshot", () => {
     );
   });
 
+  it("reports zero totalMessages", () => {
+    const snapshot = { ...validSnapshot, totalMessages: 0 };
+    const errors = validateSessionSnapshot(snapshot);
+    expect(errors).toContainEqual(
+      expect.stringContaining("totalMessages must be >= 1"),
+    );
+  });
+
   it("reports negative totalInputTokens", () => {
     const snapshot = { ...validSnapshot, totalInputTokens: -1 };
     expect(validateSessionSnapshot(snapshot)).toContainEqual(

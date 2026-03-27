@@ -269,6 +269,18 @@ describe("validateIngestRequest", () => {
       expect.stringContaining("parserRevision"),
     );
   });
+
+  it("rejects sessions with zero totalMessages", () => {
+    const payload = {
+      ...validPayload,
+      sessions: [{ ...validSession, totalMessages: 0 }],
+    };
+    const result = validateIngestRequest(payload);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.stringContaining("totalMessages must be >= 1"),
+    );
+  });
 });
 
 // ── checkVersionConflicts ──────────────────────────────────────

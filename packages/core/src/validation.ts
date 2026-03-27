@@ -150,8 +150,8 @@ export function validateSessionSnapshot(snapshot: SessionSnapshot): string[] {
   if (snapshot.assistantMessages < 0) {
     errors.push(`Negative assistantMessages: ${snapshot.assistantMessages}`);
   }
-  if (snapshot.totalMessages < 0) {
-    errors.push(`Negative totalMessages: ${snapshot.totalMessages}`);
+  if (snapshot.totalMessages < 1) {
+    errors.push(`totalMessages must be >= 1, got ${snapshot.totalMessages}`);
   }
   if (snapshot.totalInputTokens < 0) {
     errors.push(`Negative totalInputTokens: ${snapshot.totalInputTokens}`);
