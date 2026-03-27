@@ -99,6 +99,12 @@ export function validateIngestRequest(
  * 2. Content gate: update only if content actually changed OR version is
  *    strictly newer (prevents redundant writes)
  *
+ * CASE expressions on content_key/content_size/raw_key/raw_size:
+ * When content_hash or raw_hash changes, the corresponding R2 pointer
+ * (content_key/raw_key) and size are NULLed. This prevents the content
+ * upload idempotency check from returning a false 204 no-op when metadata
+ * is upserted before content is uploaded (two-phase pipeline).
+ *
  * The application layer pre-checks versions and returns 409 for older
  * revisions before this SQL is ever executed.
  */
@@ -127,7 +133,19 @@ ON CONFLICT (user_id, session_key) DO UPDATE SET
   model = excluded.model,
   title = excluded.title,
   content_hash = excluded.content_hash,
+  content_key = CASE
+    WHEN excluded.content_hash != sessions.content_hash OR sessions.content_hash IS NULL
+    THEN NULL ELSE sessions.content_key END,
+  content_size = CASE
+    WHEN excluded.content_hash != sessions.content_hash OR sessions.content_hash IS NULL
+    THEN NULL ELSE sessions.content_size END,
   raw_hash = excluded.raw_hash,
+  raw_key = CASE
+    WHEN excluded.raw_hash != sessions.raw_hash OR sessions.raw_hash IS NULL
+    THEN NULL ELSE sessions.raw_key END,
+  raw_size = CASE
+    WHEN excluded.raw_hash != sessions.raw_hash OR sessions.raw_hash IS NULL
+    THEN NULL ELSE sessions.raw_size END,
   parser_revision = excluded.parser_revision,
   schema_version = excluded.schema_version,
   ingested_at = datetime('now'),
