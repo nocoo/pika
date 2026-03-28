@@ -1,12 +1,14 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// ── StatGrid ───────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// StatGrid
+// ---------------------------------------------------------------------------
 
 interface StatGridProps {
-  children: ReactNode;
+  children: React.ReactNode;
   className?: string;
 }
 
@@ -14,7 +16,7 @@ export function StatGrid({ children, className }: StatGridProps) {
   return (
     <div
       className={cn(
-        "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4",
+        "grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4",
         className,
       )}
     >
@@ -23,13 +25,16 @@ export function StatGrid({ children, className }: StatGridProps) {
   );
 }
 
-// ── StatCard ───────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// StatCard — basalt L2 style (bg-secondary, no border/shadow)
+// ---------------------------------------------------------------------------
 
-interface StatCardProps {
+export interface StatCardProps {
   label: string;
   value: string;
   subtitle?: string;
-  icon?: ReactNode;
+  icon?: LucideIcon;
+  iconColor?: string;
   className?: string;
 }
 
@@ -37,28 +42,33 @@ export function StatCard({
   label,
   value,
   subtitle,
-  icon,
+  icon: Icon,
+  iconColor = "text-muted-foreground",
   className,
 }: StatCardProps) {
   return (
     <div
       className={cn(
-        "flex flex-col gap-1 rounded-xl bg-secondary p-4",
+        "rounded-[var(--radius-card)] bg-secondary p-4 md:p-5",
         className,
       )}
     >
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground">
-          {label}
-        </span>
-        {icon && <span className="text-muted-foreground/60">{icon}</span>}
+      <div className="flex items-start justify-between">
+        <div className="space-y-1">
+          <p className="text-xs md:text-sm text-muted-foreground">{label}</p>
+          <p className="text-2xl md:text-3xl font-semibold text-foreground font-display tracking-tight">
+            {value}
+          </p>
+          {subtitle && (
+            <p className="text-xs text-muted-foreground">{subtitle}</p>
+          )}
+        </div>
+        {Icon && (
+          <div className={cn("rounded-md bg-card p-2", iconColor)}>
+            <Icon className="h-5 w-5" strokeWidth={1.5} />
+          </div>
+        )}
       </div>
-      <span className="text-2xl font-semibold tracking-tight text-foreground">
-        {value}
-      </span>
-      {subtitle && (
-        <span className="text-xs text-muted-foreground">{subtitle}</span>
-      )}
     </div>
   );
 }
