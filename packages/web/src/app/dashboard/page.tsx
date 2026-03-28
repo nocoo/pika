@@ -129,6 +129,9 @@ export default function DashboardPage() {
         </div>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 rounded-[var(--radius-card)] bg-secondary p-4 md:p-5">
+            <p className="mb-3 text-xs md:text-sm text-muted-foreground">
+              Activity
+            </p>
             {loading ? (
               <Skeleton className="h-[100px] w-full" />
             ) : (
