@@ -63,8 +63,8 @@ export function ProjectCard({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex items-start gap-3 rounded-xl border bg-card p-4 text-left transition-all hover:bg-accent/50",
-        selected && "ring-2 ring-primary border-primary/50",
+        "flex items-start gap-3 rounded-[var(--radius-card)] bg-card p-4 text-left transition-all hover:bg-accent/50",
+        selected && "bg-accent/30 ring-2 ring-primary",
       )}
     >
       <MiniDonut sources={sources} />

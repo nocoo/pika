@@ -96,7 +96,7 @@ export function SearchResultCard({
   onClick,
 }: SearchResultCardProps) {
   const cardClassName = cn(
-    "flex flex-col gap-2 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/30 hover:bg-accent/30 text-left w-full",
+    "flex flex-col gap-2 rounded-[var(--radius-card)] bg-card p-4 transition-colors hover:bg-accent/50 text-left w-full",
     className,
   );
 
