@@ -468,12 +468,12 @@ export default function ProjectsPage() {
                       <StatCard
                         label="Total Projects"
                         value={filteredOverview.totalProjects.toLocaleString()}
-                        icon={<FolderKanban className="h-4 w-4" />}
+                        icon={FolderKanban}
                       />
                       <StatCard
                         label="Total Sessions"
                         value={filteredOverview.totalSessions.toLocaleString()}
-                        icon={<Layers className="h-4 w-4" />}
+                        icon={Layers}
                       />
                       <StatCard
                         label="Total Tokens"
@@ -481,12 +481,12 @@ export default function ProjectsPage() {
                           filteredOverview.totalInputTokens +
                             filteredOverview.totalOutputTokens,
                         )}
-                        icon={<Coins className="h-4 w-4" />}
+                        icon={Coins}
                       />
                       <StatCard
                         label="Total Messages"
                         value={filteredOverview.totalMessages.toLocaleString()}
-                        icon={<MessageSquare className="h-4 w-4" />}
+                        icon={MessageSquare}
                       />
                     </StatGrid>
                   )}

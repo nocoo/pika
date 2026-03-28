@@ -15,6 +15,25 @@ import {
   type TopProject,
 } from "@/lib/stats";
 
+// ── Period → days mapping ──────────────────────────────────────
+
+const PERIOD_DAYS: Record<string, number | null> = {
+  "7d": 7,
+  "30d": 30,
+  "90d": 90,
+  "365d": 365,
+  month: null, // handled separately below
+  all: null, // all-time, no filter
+};
+
+function periodToActivityDays(period: string): number | null {
+  // "month" = first day of current month to today
+  if (period === "month") return null;
+  return PERIOD_DAYS[period] ?? 365;
+}
+
+// ── Route ─────────────────────────────────────────────────────
+
 export async function GET(request: Request) {
   const d1 = getD1Client();
   const db = new D1CliAuthDb(d1);
@@ -34,6 +53,25 @@ export async function GET(request: Request) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const { searchParams } = new URL(request.url);
+  const period = searchParams.get("period") ?? "365d";
+  const activityDays = periodToActivityDays(period);
+
+  // For "month" period, build a custom query with first-of-month filter
+  const activityQuery =
+    period === "month"
+      ? {
+          sql: `
+SELECT date(started_at) AS date, COUNT(*) AS count
+FROM sessions
+WHERE user_id = ? AND deleted_at IS NULL AND started_at >= date('now', 'start of month')
+GROUP BY date(started_at)
+ORDER BY date ASC
+          `.trim(),
+          params: [user.userId] as unknown[],
+        }
+      : buildDailyActivityQuery(user.userId, activityDays);
 
   const userId = user.userId;
 
@@ -63,8 +101,8 @@ export async function GET(request: Request) {
     ),
 
     d1.query<DailyActivity>(
-      buildDailyActivityQuery(userId).sql,
-      buildDailyActivityQuery(userId).params,
+      activityQuery.sql,
+      activityQuery.params as string[],
     ),
 
     d1.query<TopProject>(

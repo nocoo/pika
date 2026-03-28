@@ -97,8 +97,24 @@ ORDER BY count DESC
 
 /**
  * Sessions per day for the last N days (default 90).
+ * Pass days=null for all-time (no date filter).
  */
-export function buildDailyActivityQuery(userId: string, days = 90): BuiltQuery {
+export function buildDailyActivityQuery(
+  userId: string,
+  days: number | null = 90,
+): BuiltQuery {
+  if (days === null) {
+    return {
+      sql: `
+SELECT date(started_at) AS date, COUNT(*) AS count
+FROM sessions
+WHERE user_id = ? AND deleted_at IS NULL
+GROUP BY date(started_at)
+ORDER BY date ASC
+      `.trim(),
+      params: [userId],
+    };
+  }
   return {
     sql: `
 SELECT date(started_at) AS date, COUNT(*) AS count
