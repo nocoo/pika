@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.4] - 2026-03-30
+
+### Fixes
+
+- **R2 stale pointers** — NULL stale R2 pointers when content hash changes in metadata upsert, preventing orphaned storage references
+- **Sidebar logo** — Replace undefined `logo256` variable with static path, fixing broken logo image
+- **Sortable table headers** — Add `aria-sort` attribute to sortable table headers for accessibility
+- **Dashboard accessibility** — Fix breadcrumb aria, group label, and GitHub link per basalt B-2 spec
+- **Login page** — Fix layout, aspect ratio, callbackUrl, and aria-hidden issues
+- **Activity heatmap** — Add Activity title to heatmap card for layout alignment with Sources
+
+### Refactor
+
+- **Dashboard layout** — Dashboard page restructured with `DashboardSegment` component and period selector
+- **PeriodSelector & DataTable** — Refinements to bulk bar, table layout, and period control
+- **Card styling** — Remove border from SessionCard, SearchResultCard, ProjectCard; adopt basalt three-tier luminance system for card components
+- **Logo sizes** — Standardize logo sizes per basalt B-3 spec
+
+### Testing
+
+- **Hash-change key invalidation** — Add tests for canonical and raw upload key invalidation on content hash change
+- **Dual runner compat** — Fix `bun test` compatibility by skipping vitest-only `vi.mock` tests (headObject) under Bun runtime
+
 ## [0.5.0] - 2026-03-27
 
 ### Features

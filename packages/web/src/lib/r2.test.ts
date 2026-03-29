@@ -262,8 +262,12 @@ describe("getR2Client", () => {
 });
 
 // ── headObject() ───────────────────────────────────────────────
+// These tests require vi.mock module interception (vitest-only).
+// Skip under bun test where vi.mock is a no-op.
+const headObjectDescribe =
+  typeof (globalThis as any).Bun !== "undefined" ? describe.skip : describe;
 
-describe("R2Client.headObject", () => {
+headObjectDescribe("R2Client.headObject", () => {
   it("returns true when object exists", async () => {
     const { __mockSend } = (await import("@aws-sdk/client-s3")) as unknown as {
       __mockSend: ReturnType<typeof vi.fn>;
