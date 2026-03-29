@@ -56,6 +56,15 @@ export function DataTable<TData>({
                 return (
                   <TableHead
                     key={header.id}
+                    aria-sort={
+                      canSort
+                        ? header.column.getIsSorted() === "asc"
+                          ? "ascending"
+                          : header.column.getIsSorted() === "desc"
+                            ? "descending"
+                            : "none"
+                        : undefined
+                    }
                     className={cn(
                       canSort && "cursor-pointer select-none",
                       header.column.columnDef.meta?.headerClassName,
