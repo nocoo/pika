@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu } from "lucide-react";
+import { Github, Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -25,8 +25,10 @@ function AppShellInner({ children }: AppShellProps) {
 
   // Close mobile sidebar on route change
   useEffect(() => {
+    // pathname in deps: re-run on every route change
+    void pathname;
     setMobileOpen(false);
-  }, [setMobileOpen]);
+  }, [pathname, setMobileOpen]);
 
   // Prevent body scroll when mobile sidebar is open
   useEffect(() => {
@@ -82,6 +84,19 @@ function AppShellInner({ children }: AppShellProps) {
             <Breadcrumbs items={breadcrumbs} />
           </div>
           <div className="flex items-center gap-1">
+            <a
+              href="https://github.com/nocoo/pika"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="GitHub repository"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            >
+              <Github
+                className="h-[18px] w-[18px]"
+                aria-hidden="true"
+                strokeWidth={1.5}
+              />
+            </a>
             <ThemeToggle />
           </div>
         </header>

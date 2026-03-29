@@ -90,7 +90,7 @@ function NavGroupSection({
     <Collapsible open={open} onOpenChange={setOpen}>
       <div className="px-3 mt-2">
         <CollapsibleTrigger className="flex w-full items-center justify-between px-3 py-2">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
             {group.label}
           </span>
           <span className="flex h-5 w-5 shrink-0 items-center justify-center">
