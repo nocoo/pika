@@ -4,7 +4,6 @@ import { Check, Copy } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import logo256 from "../../../public/logo-256.png";
 
 // ---------------------------------------------------------------------------
 // Install command — PRIMARY CTA for a CLI tool
@@ -61,11 +60,11 @@ export function LandingContent() {
         style={{ animationDelay: "0ms" }}
       >
         <Image
-          src={logo256}
+          src="/logo-80.png"
           alt=""
-          width={128}
-          height={128}
-          className="h-32 w-32 shrink-0"
+          width={80}
+          height={80}
+          className="h-20 w-20 shrink-0"
           priority
           aria-hidden="true"
         />

@@ -6,7 +6,6 @@ import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Suspense } from "react";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
-import logo256 from "../../../public/logo-256.png";
 
 function Barcode() {
   const bars = [2, 1, 3, 1, 2, 1, 1, 3, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 2, 1];
@@ -100,7 +99,7 @@ function LoginContent() {
               />
               <div className="flex items-center gap-2">
                 <Image
-                  src={logo256}
+                  src="/logo-24.png"
                   alt="Pika"
                   width={16}
                   height={16}
@@ -129,7 +128,13 @@ function LoginContent() {
           <div className="flex flex-1 flex-col items-center px-6 pt-6 pb-5">
             {/* Avatar placeholder */}
             <div className="h-24 w-24 overflow-hidden rounded-full bg-secondary dark:bg-[#171717] ring-1 ring-border flex items-center justify-center">
-              <Image src={logo256} alt="Pika" width={80} height={80} />
+              <Image
+                src="/logo-80.png"
+                alt="Pika"
+                width={80}
+                height={80}
+                className="object-cover"
+              />
             </div>
 
             <p className="mt-5 text-lg font-semibold text-foreground">

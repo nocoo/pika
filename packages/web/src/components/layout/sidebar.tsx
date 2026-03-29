@@ -30,7 +30,6 @@ import {
 import { NAV_GROUPS, type NavGroupDef } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { APP_VERSION } from "@/lib/version";
-import logo256 from "../../../public/logo-256.png";
 import { useSidebar } from "./sidebar-context";
 
 // ---------------------------------------------------------------------------
@@ -185,7 +184,7 @@ export function Sidebar() {
           <div className="flex h-screen w-[68px] flex-col items-center">
             {/* Logo */}
             <div className="flex h-14 w-full items-center justify-center">
-              <Image src={logo256} alt="Pika" width={24} height={24} />
+              <Image src="/logo-24.png" alt="Pika" width={24} height={24} />
             </div>
 
             {/* Expand toggle */}

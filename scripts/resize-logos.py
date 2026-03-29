@@ -60,16 +60,16 @@ def main() -> None:
     APP.mkdir(parents=True, exist_ok=True)
 
     # ── public/ — component <img> references ──────────────────────
-    # Sizes are 2x–3x the CSS display size for Retina sharpness.
-    # logo-64.png:  sidebar (24px CSS) & login header (16px CSS)
-    # logo-256.png: landing hero (128px CSS) & login avatar (80px CSS)
+    # B-3 Basalt spec: logo-24.png (24×24) and logo-80.png (80×80).
+    # logo-24.png:  sidebar icon & login header
+    # logo-80.png:  login avatar & landing hero
     outputs: list[tuple[Path, Image.Image]] = []
 
-    logo_64 = resize(img, 64)
-    outputs.append((PUBLIC / "logo-64.png", logo_64))
+    logo_24 = resize(img, 24)
+    outputs.append((PUBLIC / "logo-24.png", logo_24))
 
-    logo_256 = resize(img, 256)
-    outputs.append((PUBLIC / "logo-256.png", logo_256))
+    logo_80 = resize(img, 80)
+    outputs.append((PUBLIC / "logo-80.png", logo_80))
 
     # ── src/app/ — Next.js file-based metadata convention ─────────
     icon_32 = resize(img, 32)
