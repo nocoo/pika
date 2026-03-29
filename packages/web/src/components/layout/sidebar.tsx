@@ -290,7 +290,7 @@ export function Sidebar() {
               <div className="flex w-full items-center justify-between px-3">
                 <div className="flex items-center gap-3">
                   <Image
-                    src={logo256}
+                    src="/logo-24.png"
                     alt="Pika"
                     width={24}
                     height={24}
