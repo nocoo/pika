@@ -6,7 +6,7 @@ import { API_KEY_HEX_LENGTH, API_KEY_PREFIX } from "@pika/core";
  * Resolve the public-facing origin from a request.
  *
  * Behind a TLS-terminating reverse proxy, `request.url` contains the internal
- * container URL (e.g. `http://localhost:7040`). We must use the forwarded
+ * container URL (e.g. `http://localhost:7022`). We must use the forwarded
  * headers or AUTH_URL to construct the correct public origin so that redirects
  * and cookies work correctly.
  */

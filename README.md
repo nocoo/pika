@@ -131,7 +131,7 @@ pika/
 git clone https://github.com/nocoo/pika.git
 cd pika
 bun install        # 安装依赖 + 自动配置 git hooks
-bun run dev        # 启动 Next.js 开发服务器 (port 7040)
+bun run dev        # 启动 Next.js 开发服务器 (port 7022)
 ```
 
 ### 常用命令
@@ -139,7 +139,7 @@ bun run dev        # 启动 Next.js 开发服务器 (port 7040)
 | 命令 | 说明 |
 |------|------|
 | `bun install` | 安装依赖 |
-| `bun run dev` | 启动开发服务器 (port 7040) |
+| `bun run dev` | 启动开发服务器 (port 7022) |
 | `bun run build` | 构建所有 packages |
 | `bun run lint` | 全量类型检查 |
 | `bun test` | 运行全部单元测试 (Bun native, 911 tests) |

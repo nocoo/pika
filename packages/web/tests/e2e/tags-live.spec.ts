@@ -90,7 +90,7 @@ describe("Tags CRUD API", () => {
 
     it("returns 400 for invalid JSON body", async () => {
       const res = await fetch(
-        `${process.env.E2E_BASE_URL ?? "http://localhost:17040"}/api/tags`,
+        `${process.env.E2E_BASE_URL ?? "http://localhost:17022"}/api/tags`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

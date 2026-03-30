@@ -200,7 +200,7 @@ describe("resolveUser", () => {
     setEnv("E2E_SKIP_AUTH", "true");
     setEnv("NODE_ENV", "development");
 
-    const request = new Request("http://localhost:7040/api/sessions");
+    const request = new Request("http://localhost:7022/api/sessions");
     const result = await resolveUser(request, {
       getSession: vi.fn().mockResolvedValue(null),
       db: createMockDb(),
@@ -216,7 +216,7 @@ describe("resolveUser", () => {
     setEnv("E2E_SKIP_AUTH", "true");
     setEnv("NODE_ENV", "production");
 
-    const request = new Request("http://localhost:7040/api/sessions");
+    const request = new Request("http://localhost:7022/api/sessions");
     const result = await resolveUser(request, {
       getSession: vi.fn().mockResolvedValue(null),
       db: createMockDb(),
@@ -226,7 +226,7 @@ describe("resolveUser", () => {
   });
 
   it("returns session user when authenticated via cookie", async () => {
-    const request = new Request("http://localhost:7040/api/sessions");
+    const request = new Request("http://localhost:7022/api/sessions");
     const result = await resolveUser(request, {
       getSession: vi
         .fn()
@@ -240,7 +240,7 @@ describe("resolveUser", () => {
   it("hashes Bearer api_key before DB lookup", async () => {
     const apiKey = `pk_${"f".repeat(32)}`;
     const expectedHash = await hashApiKey(apiKey);
-    const request = new Request("http://localhost:7040/api/sessions", {
+    const request = new Request("http://localhost:7022/api/sessions", {
       headers: { Authorization: `Bearer ${apiKey}` },
     });
 
@@ -259,7 +259,7 @@ describe("resolveUser", () => {
   });
 
   it("returns null when api_key lookup finds nothing", async () => {
-    const request = new Request("http://localhost:7040/api/sessions", {
+    const request = new Request("http://localhost:7022/api/sessions", {
       headers: { Authorization: "Bearer pk_invalid" },
     });
 
@@ -272,7 +272,7 @@ describe("resolveUser", () => {
   });
 
   it("prefers session over Bearer api_key", async () => {
-    const request = new Request("http://localhost:7040/api/sessions", {
+    const request = new Request("http://localhost:7022/api/sessions", {
       headers: { Authorization: `Bearer pk_${"a".repeat(32)}` },
     });
 
@@ -294,7 +294,7 @@ describe("resolveUser", () => {
   });
 
   it("returns null when no auth method succeeds", async () => {
-    const request = new Request("http://localhost:7040/api/sessions");
+    const request = new Request("http://localhost:7022/api/sessions");
     const result = await resolveUser(request, {
       getSession: vi.fn().mockResolvedValue(null),
       db: createMockDb(),
@@ -316,7 +316,7 @@ describe("getPublicOrigin", () => {
   });
 
   it("uses x-forwarded-host and x-forwarded-proto when present", () => {
-    const request = new Request("http://localhost:7040/api/auth/cli", {
+    const request = new Request("http://localhost:7022/api/auth/cli", {
       headers: {
         "x-forwarded-host": "pika.dev.hexly.ai",
         "x-forwarded-proto": "https",
@@ -326,7 +326,7 @@ describe("getPublicOrigin", () => {
   });
 
   it("defaults to https when x-forwarded-proto is absent", () => {
-    const request = new Request("http://localhost:7040/api/auth/cli", {
+    const request = new Request("http://localhost:7022/api/auth/cli", {
       headers: { "x-forwarded-host": "pika.dev.hexly.ai" },
     });
     expect(getPublicOrigin(request)).toBe("https://pika.dev.hexly.ai");
@@ -334,18 +334,18 @@ describe("getPublicOrigin", () => {
 
   it("falls back to AUTH_URL when no forwarded headers", () => {
     setEnv("AUTH_URL", "https://pika.hexly.ai");
-    const request = new Request("http://localhost:7040/api/auth/cli");
+    const request = new Request("http://localhost:7022/api/auth/cli");
     expect(getPublicOrigin(request)).toBe("https://pika.hexly.ai");
   });
 
   it("falls back to request origin when no headers or AUTH_URL", () => {
-    const request = new Request("http://localhost:7040/api/auth/cli");
-    expect(getPublicOrigin(request)).toBe("http://localhost:7040");
+    const request = new Request("http://localhost:7022/api/auth/cli");
+    expect(getPublicOrigin(request)).toBe("http://localhost:7022");
   });
 
   it("prefers x-forwarded-host over AUTH_URL", () => {
     setEnv("AUTH_URL", "https://pika.hexly.ai");
-    const request = new Request("http://localhost:7040/api/auth/cli", {
+    const request = new Request("http://localhost:7022/api/auth/cli", {
       headers: {
         "x-forwarded-host": "pika.dev.hexly.ai",
         "x-forwarded-proto": "https",

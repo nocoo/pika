@@ -61,7 +61,7 @@ Pika currently implements a partial quality stack:
 ```
 packages/web/tests/
 ├── e2e/
-│   ├── setup.ts          # Start Next.js dev server on :17040, wait for ready
+│   ├── setup.ts          # Start Next.js dev server on :17022, wait for ready
 │   ├── teardown.ts        # Kill server, cleanup
 │   ├── helpers.ts         # HTTP client, auth bypass, D1 seed/reset
 │   ├── sessions.spec.ts   # GET /api/sessions — list, filter, pagination
@@ -276,13 +276,13 @@ INSERT OR IGNORE INTO _test_marker (id) VALUES (1);
 
 **Goal**: Real HTTP tests against all REST API endpoints using test D1/R2.
 
-**Status**: 5 commits landed. 57 E2E tests across 4 spec files covering all non-ingest API endpoints. Test harness boots Next.js on :17040 with E2E_SKIP_AUTH bypass, seeds data directly via D1 HTTP API, verifies responses via real HTTP. Pre-push hook now includes L2 gate.
+**Status**: 5 commits landed. 57 E2E tests across 4 spec files covering all non-ingest API endpoints. Test harness boots Next.js on :17022 with E2E_SKIP_AUTH bypass, seeds data directly via D1 HTTP API, verifies responses via real HTTP. Pre-push hook now includes L2 gate.
 
 #### Commit 9.9: `feat: add vitest e2e config and test harness`
 
 **Files**:
 - `packages/web/vitest.e2e.config.ts` — Separate vitest config for E2E
-- `packages/web/tests/e2e/setup.ts` — Global setup: start Next.js on :17040
+- `packages/web/tests/e2e/setup.ts` — Global setup: start Next.js on :17022
 - `packages/web/tests/e2e/teardown.ts` — Global teardown: kill server
 - `packages/web/tests/e2e/helpers.ts` — HTTP client, seed helpers, auth mock
 - `package.json` — Add `test:e2e` script
@@ -300,7 +300,7 @@ export default defineConfig({
       NODE_ENV: "development",
       CF_D1_DATABASE_ID: "<pika-test-id>",
       CF_R2_BUCKET: "pika-content-test",
-      PORT: "17040",
+      PORT: "17022",
     },
   },
 });

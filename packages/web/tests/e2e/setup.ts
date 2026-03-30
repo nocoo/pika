@@ -1,5 +1,5 @@
 /**
- * E2E global setup — start Next.js dev server on port 17040 with test env.
+ * E2E global setup — start Next.js dev server on port 17022 with test env.
  *
  * Loads .env.test (test D1/R2 credentials + E2E_SKIP_AUTH=true),
  * verifies D1 + R2 isolation, then boots the dev server.
@@ -9,7 +9,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const PORT = 17040;
+const PORT = 17022;
 const WEB_DIR = resolve(__dirname, "../..");
 const BASE_URL = `http://localhost:${PORT}`;
 const MAX_WAIT_MS = 60_000;

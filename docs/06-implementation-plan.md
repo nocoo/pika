@@ -17,8 +17,8 @@ This document defines the phased implementation plan for Pika, including atomic 
 
 | Environment | Port |
 |-------------|------|
-| Dev server | 7040 |
-| API E2E server | 17040 |
+| Dev server | 7022 |
+| API E2E server | 17022 |
 | BDD E2E server | 27040 |
 
 ### Git Hooks (Husky)

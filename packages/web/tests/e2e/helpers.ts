@@ -1,14 +1,14 @@
 /**
  * E2E test helpers — HTTP client, seed data, cleanup utilities.
  *
- * All requests go through the real Next.js dev server (port 17040)
+ * All requests go through the real Next.js dev server (port 17022)
  * with E2E_SKIP_AUTH=true for automatic auth bypass.
  */
 
 // ── HTTP Client ─────────────────────────────────────────────────
 
 function getBaseUrl(): string {
-  return process.env.E2E_BASE_URL ?? "http://localhost:17040";
+  return process.env.E2E_BASE_URL ?? "http://localhost:17022";
 }
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
