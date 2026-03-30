@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.6] - 2026-03-30
+
+### Fixes
+
+- **npm binary version** — Rebuild CLI binary to embed correct version string (previous publish had stale `0.5.4`)
+
 ## [0.5.5] - 2026-03-30
 
 ### Features
