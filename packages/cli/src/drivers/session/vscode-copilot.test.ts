@@ -344,7 +344,10 @@ describe("vscodeCopilotSessionDriver.resumeState", () => {
       cursor,
       fp({ size: 1000 }),
     );
-    expect(resume.processedRequestIds).toEqual(ids);
+    expect(
+      (resume as import("../types").VscodeCopilotResumeState)
+        .processedRequestIds,
+    ).toEqual(ids);
   });
 });
 
@@ -544,7 +547,11 @@ describe("vscodeCopilotSessionDriver.parse", () => {
     expect(results).toHaveLength(1);
     expect(results[0].canonical.messages).toHaveLength(2);
     // No new request IDs
-    expect(results[0].newRequestIds).toEqual([]);
+    expect(
+      (
+        results[0] as import("../../parsers/vscode-copilot").VscodeCopilotParseResult
+      ).newRequestIds,
+    ).toEqual([]);
   });
 
   it("includes model info from session state", async () => {

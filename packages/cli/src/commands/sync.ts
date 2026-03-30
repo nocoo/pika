@@ -13,6 +13,33 @@ import { CursorStore } from "../storage/cursor-store";
 import type { SyncProgressLogger } from "./sync-pipeline";
 import { runSyncPipeline } from "./sync-pipeline";
 
+// ── Inline progress helpers ──────────────────────────────────
+
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+let spinnerIdx = 0;
+
+/** Spinner character that advances each call */
+function spinner(): string {
+  return SPINNER_FRAMES[spinnerIdx++ % SPINNER_FRAMES.length];
+}
+
+/** Clear current terminal line and write new content (no newline) */
+function rewriteLine(msg: string): void {
+  process.stdout.write(`\r\x1b[2K${msg}`);
+}
+
+/** Clear the current line and finalize with consola (adds newline) */
+function finalizeLine(consolaFn: (msg: string) => void, msg: string): void {
+  process.stdout.write("\r\x1b[2K");
+  consolaFn(msg);
+}
+
+/** Render a Unicode block progress bar: ██████░░░░ */
+function progressBar(pct: number, width: number): string {
+  const filled = Math.round((pct / 100) * width);
+  return "█".repeat(filled) + "░".repeat(width - filled);
+}
+
 // ── DB driver construction (extracted for testability) ────────
 
 /**
@@ -126,17 +153,17 @@ export default defineCommand({
     const sourceCount = driverSet.fileDrivers.length + (dbDriver ? 1 : 0);
     consola.start(`Syncing ${sourceCount} source(s)...`);
 
-    // Build progress logger backed by consola
+    // Build progress logger backed by consola + inline spinner
     const logger: SyncProgressLogger = {
       discoverStart(source) {
-        consola.info(`  [${source}] Scanning...`);
+        rewriteLine(`${spinner()} [${source}] Scanning...`);
       },
       discoverDone(source, fileCount) {
-        consola.info(`  [${source}] Found ${fileCount} file(s)`);
+        finalizeLine(consola.info, `  [${source}] Found ${fileCount} file(s)`);
       },
       parseDone(source, filePath, sessionCount) {
-        consola.info(
-          `  [${source}] Parsed ${sessionCount} session(s) from ${basename(filePath)}`,
+        rewriteLine(
+          `${spinner()} [${source}] Parsed ${sessionCount} session(s) from ${basename(filePath)}`,
         );
       },
       uploadMetadataStart(sessionCount) {
@@ -151,18 +178,23 @@ export default defineCommand({
         consola.info(`Uploading content for ${sessionCount} session(s)...`);
       },
       uploadContentProgress(done, total) {
-        consola.info(`  Content: ${done}/${total}`);
+        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+        const bar = progressBar(pct, 20);
+        rewriteLine(`${spinner()} Content: ${bar} ${done}/${total} (${pct}%)`);
       },
       uploadContentDone(uploaded, skipped, errors) {
         const parts = [`${uploaded} uploaded`, `${skipped} skipped`];
         if (errors > 0) parts.push(`${errors} errors`);
-        consola.info(`Content upload done: ${parts.join(", ")}`);
+        finalizeLine(consola.info, `Content upload done: ${parts.join(", ")}`);
       },
       dbDriverStart(source) {
-        consola.info(`  [${source}] Querying database...`);
+        rewriteLine(`${spinner()} [${source}] Querying database...`);
       },
       dbDriverDone(source, sessionCount) {
-        consola.info(`  [${source}] Found ${sessionCount} session(s) from DB`);
+        finalizeLine(
+          consola.info,
+          `  [${source}] Found ${sessionCount} session(s) from DB`,
+        );
       },
     };
 

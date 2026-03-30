@@ -517,7 +517,9 @@ describe("geminiSessionDriver: multi-cycle cursor resume", () => {
 
     // resumeState should return the previous messageIndex
     const resume = geminiSessionDriver.resumeState(cursor1, fingerprint2);
-    expect(resume.startIndex).toBe(cursor1.messageIndex);
+    expect(
+      (resume as import("../types").ArrayIndexResumeState).startIndex,
+    ).toBe(cursor1.messageIndex);
 
     // Parse cycle 2 — full canonical snapshot includes ALL messages
     const results2 = await geminiSessionDriver.parse(filePath, resume);
@@ -536,9 +538,15 @@ describe("geminiSessionDriver: multi-cycle cursor resume", () => {
     const fingerprint = fp({ inode: 12345 }); // different inode
     const resume = geminiSessionDriver.resumeState(cursor, fingerprint);
 
-    expect(resume.startIndex).toBe(0);
-    expect(resume.lastTotalTokens).toBe(0);
-    expect(resume.lastModel).toBeNull();
+    expect(
+      (resume as import("../types").ArrayIndexResumeState).startIndex,
+    ).toBe(0);
+    expect(
+      (resume as import("../types").ArrayIndexResumeState).lastTotalTokens,
+    ).toBe(0);
+    expect(
+      (resume as import("../types").ArrayIndexResumeState).lastModel,
+    ).toBeNull();
   });
 
   it("resets cursor when file shrinks (truncated)", async () => {
@@ -550,9 +558,15 @@ describe("geminiSessionDriver: multi-cycle cursor resume", () => {
     const fingerprint = fp({ size: 1024 }); // smaller than cursor
     const resume = geminiSessionDriver.resumeState(cursor, fingerprint);
 
-    expect(resume.startIndex).toBe(0);
-    expect(resume.lastTotalTokens).toBe(0);
-    expect(resume.lastModel).toBeNull();
+    expect(
+      (resume as import("../types").ArrayIndexResumeState).startIndex,
+    ).toBe(0);
+    expect(
+      (resume as import("../types").ArrayIndexResumeState).lastTotalTokens,
+    ).toBe(0);
+    expect(
+      (resume as import("../types").ArrayIndexResumeState).lastModel,
+    ).toBeNull();
   });
 });
 

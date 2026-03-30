@@ -25,6 +25,7 @@ import type {
   OpenCodeSqliteCursor,
   ParseError,
   ParseResult,
+  RawSessionArchive,
 } from "@pika/core";
 import { METADATA_BATCH_SIZE } from "@pika/core";
 import type {
@@ -243,17 +244,17 @@ export async function runSyncPipeline(
       batchSnapshots,
       uploadOpts,
     );
-    uploadResult.totalIngested += batchUploadResult.totalIngested;
-    uploadResult.totalConflicts += batchUploadResult.totalConflicts;
-    uploadResult.totalBatches += batchUploadResult.totalBatches;
-    uploadResult.errors.push(...batchUploadResult.errors);
+    uploadResult!.totalIngested += batchUploadResult.totalIngested;
+    uploadResult!.totalConflicts += batchUploadResult.totalConflicts;
+    uploadResult!.totalBatches += batchUploadResult.totalBatches;
+    uploadResult!.errors.push(...batchUploadResult.errors);
 
     // ── Phase 2: Content upload (reuse precomputed hashes) ──
     // Wrap fetch for per-session progress tracking
-    const effectiveContentOpts: ContentUploadOptions = { ...contentOpts };
+    const effectiveContentOpts: ContentUploadOptions = { ...contentOpts! };
     if (log) {
       const completedSessions = new Set<string>();
-      const originalFetch = contentOpts.fetch ?? globalThis.fetch;
+      const originalFetch = contentOpts!.fetch ?? globalThis.fetch;
       effectiveContentOpts.fetch = async (input, init) => {
         const response = await originalFetch(input, init);
         const url = typeof input === "string" ? input : (input as Request).url;
@@ -282,13 +283,13 @@ export async function runSyncPipeline(
         raw: r.raw,
         precomputed: transformed[i].precomputed,
       })),
-      log ? effectiveContentOpts : contentOpts,
+      log ? effectiveContentOpts : contentOpts!,
       opts.contentConcurrency,
     );
 
-    contentResult.uploaded += batchContentResult.uploaded;
-    contentResult.skipped += batchContentResult.skipped;
-    contentResult.errors.push(...batchContentResult.errors);
+    contentResult!.uploaded += batchContentResult.uploaded;
+    contentResult!.skipped += batchContentResult.skipped;
+    contentResult!.errors.push(...batchContentResult.errors);
 
     // ── Cursor rollback for sessions with content upload errors ──
     if (batchContentResult.errors.length > 0) {
@@ -320,7 +321,8 @@ export async function runSyncPipeline(
     // Clear raw (JSON archive) and messages (large array) — both are already
     // serialized by toSessionSnapshot() and no longer needed after upload.
     for (const r of currentBatch) {
-      r.raw = undefined;
+      // Release memory — objects are no longer needed after upload
+      (r as { raw: RawSessionArchive | undefined }).raw = undefined;
       r.canonical.messages = [];
     }
     currentBatch.length = 0;

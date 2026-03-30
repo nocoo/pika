@@ -278,7 +278,9 @@ describe("codexSessionDriver.resumeState", () => {
       lastModel: null,
     });
     const resume = codexSessionDriver.resumeState(cursor, fp({ size: 1000 }));
-    expect(resume.lastModel).toBeNull();
+    expect(
+      (resume as import("../types").CodexResumeState).lastModel,
+    ).toBeNull();
   });
 });
 
@@ -545,7 +547,9 @@ describe("codexSessionDriver: multi-cycle cursor resume", () => {
 
     // resumeState should return the previous offset
     const resume = codexSessionDriver.resumeState(cursor1, fingerprint2);
-    expect(resume.startOffset).toBe(cursor1.offset);
+    expect((resume as import("../types").CodexResumeState).startOffset).toBe(
+      cursor1.offset,
+    );
 
     // Parse cycle 2 — full canonical snapshot includes ALL messages
     const results2 = await codexSessionDriver.parse(filePath, resume);
@@ -564,9 +568,13 @@ describe("codexSessionDriver: multi-cycle cursor resume", () => {
     const fingerprint = fp({ inode: 12345 }); // different inode
     const resume = codexSessionDriver.resumeState(cursor, fingerprint);
 
-    expect(resume.startOffset).toBe(0);
-    expect(resume.lastTotalTokens).toBe(0);
-    expect(resume.lastModel).toBeNull();
+    expect((resume as import("../types").CodexResumeState).startOffset).toBe(0);
+    expect(
+      (resume as import("../types").CodexResumeState).lastTotalTokens,
+    ).toBe(0);
+    expect(
+      (resume as import("../types").CodexResumeState).lastModel,
+    ).toBeNull();
   });
 
   it("resets cursor when file shrinks (truncated)", async () => {
