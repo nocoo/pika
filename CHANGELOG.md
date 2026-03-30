@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.5] - 2026-03-30
+
+### Features
+
+- **Inline progress with spinner** — CLI sync output now uses terminal inline refresh ( `\r\x1b[2K`) with Unicode spinner animation and block progress bar instead of repetitive per-line logging
+
+### Refactor
+
+- **Streaming batch pipeline** — Replace monolithic `allResults[]` accumulation with `currentBatch[]` that flushes every 50 sessions (parse → metadata upload → content upload → release memory), reducing peak RSS from ~14 GB to ~4 GB
+- **DB driver streaming** — OpenCode SQLite driver streams results via `onResult` callback instead of building full array, bounding memory regardless of total session count
+
 ## [0.5.4] - 2026-03-30
 
 ### Fixes
