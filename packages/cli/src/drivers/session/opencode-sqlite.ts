@@ -346,6 +346,7 @@ export function createOpenCodeSqliteDriver(
     async run(
       prevCursor: OpenCodeSqliteCursor | undefined,
       ctx: SyncContext,
+      onResult?: (result: ParseResult) => Promise<void>,
     ): Promise<DbDriverResult<OpenCodeSqliteCursor>> {
       // Check if DB file exists and get inode
       let dbStat: Stats;
@@ -460,7 +461,13 @@ export function createOpenCodeSqliteDriver(
             continue;
           }
 
-          results.push(result);
+          // Stream result to caller for memory-efficient batch processing,
+          // or collect into results array for legacy callers.
+          if (onResult) {
+            await onResult(result);
+          } else {
+            results.push(result);
+          }
 
           // Deposit session state so future drivers or the orchestrator can see it
           if (!ctx.openCodeSessionState) {

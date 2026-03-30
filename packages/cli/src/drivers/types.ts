@@ -203,10 +203,16 @@ export interface DbDriver<TCursor = unknown> {
    *   open -> query -> parse -> return results + new cursor.
    *
    * Reads cross-driver state (messageKeys) from ctx for dedup.
+   *
+   * When `onResult` is provided, the driver calls it for each parsed session
+   * instead of accumulating into the results array. This enables streaming
+   * processing and bounds memory usage regardless of total session count.
+   * The results array in the return value will be empty when onResult is used.
    */
   run(
     prevCursor: TCursor | undefined,
     ctx: SyncContext,
+    onResult?: (result: ParseResult) => Promise<void>,
   ): Promise<DbDriverResult<TCursor>>;
 }
 

@@ -7,9 +7,14 @@
  * Pipeline stages:
  * 1. Discovery: find source files on disk
  * 2. Incremental parse: for each file, check cursor, parse from resume point
- * 3. Upload metadata: batch POST to API
- * 4. Upload content: PUT canonical + raw gzip to API
- * 5. Save cursors: persist cursor state after successful upload
+ * 3. Streaming upload: per batch (METADATA_BATCH_SIZE sessions):
+ *    a. Upload metadata (batch POST)
+ *    b. Upload content (PUT canonical + raw gzip)
+ *    c. Release batch memory (clear raw, reset accumulator)
+ * 4. Save cursors: persist cursor state after successful upload
+ *
+ * Memory model: only one batch (~50 sessions) is held in memory at a time.
+ * Peak RSS is bounded by ~1-2 GB regardless of total session count.
  */
 
 import { stat } from "node:fs/promises";
@@ -33,16 +38,8 @@ import type {
   ContentUploadOptions,
 } from "../upload/content";
 import { uploadContentBatch } from "../upload/content";
-import type {
-  PrecomputedHashes,
-  UploadEngineOptions,
-  UploadResult,
-} from "../upload/engine";
-import {
-  splitBatches,
-  toSessionSnapshot,
-  uploadMetadataBatches,
-} from "../upload/engine";
+import type { UploadEngineOptions, UploadResult } from "../upload/engine";
+import { toSessionSnapshot, uploadMetadataBatches } from "../upload/engine";
 import type { FileFingerprint } from "../utils/file-changed";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -145,10 +142,13 @@ export async function getFingerprint(
  * This is the core orchestration function. It:
  * 1. Discovers files for each source driver
  * 2. Incrementally parses changed files
- * 3. Optionally uploads metadata + content
+ * 3. Optionally uploads metadata + content in streaming batches
  * 4. Returns updated cursor state for persistence
  *
  * Parse errors are collected but do NOT block the pipeline.
+ *
+ * Memory is bounded: only one batch (~METADATA_BATCH_SIZE sessions)
+ * is held at a time. After each batch is uploaded, raw data is released.
  */
 export async function runSyncPipeline(
   input: SyncPipelineInput,
@@ -162,17 +162,171 @@ export async function runSyncPipeline(
     files: { ...input.cursorState.files },
   };
 
-  const allResults: ParseResult[] = [];
-  const parseErrors: ParseError[] = [];
+  // Aggregated counters
+  let totalParsed = 0;
+  let totalEmpty = 0;
   let totalFiles = 0;
   let totalSkipped = 0;
+  const parseErrors: ParseError[] = [];
 
-  // Track sessionKey→filePath and save previous cursors for rollback on content failure
-  const sessionKeyToFile = new Map<string, string>();
-  const prevCursors = new Map<string, FileCursor | undefined>();
+  // Streaming batch state — only holds one batch worth of data at a time
+  const currentBatch: ParseResult[] = [];
+  const batchSessionToFile = new Map<string, string>();
+  const batchPrevCursors = new Map<string, FileCursor | undefined>();
   // Track DB-sourced session keys for cursor rollback
   const dbSourcedSessionKeys = new Set<string>();
   let prevDbCursor: OpenCodeSqliteCursor | undefined;
+
+  // Upload aggregation (initialized on first batch)
+  let uploadResult: UploadResult | undefined;
+  let contentResult: BatchContentUploadResult | undefined;
+  let uploadOpts: UploadEngineOptions | undefined;
+  let contentOpts: ContentUploadOptions | undefined;
+
+  // Content progress tracking across batches
+  let contentProgressDone = 0;
+
+  // ── Batch flush: metadata upload → content upload → release memory ──
+
+  async function flushBatch(): Promise<void> {
+    if (currentBatch.length === 0) return;
+
+    // Filter empty sessions (0 messages) — parser artefacts
+    const batchEmpty = currentBatch.filter(
+      (r) => r.canonical.messages.length === 0,
+    ).length;
+    const uploadable = currentBatch.filter(
+      (r) => r.canonical.messages.length > 0,
+    );
+    totalEmpty += batchEmpty;
+
+    if (uploadable.length === 0 || !opts.upload) {
+      totalParsed += uploadable.length;
+      currentBatch.length = 0;
+      batchSessionToFile.clear();
+      batchPrevCursors.clear();
+      return;
+    }
+
+    // Initialize upload state on first batch
+    if (!uploadOpts) {
+      uploadOpts = {
+        apiUrl: opts.apiUrl,
+        apiKey: opts.apiKey,
+        userId: opts.userId,
+        fetch: opts.fetch,
+        sleep: opts.sleep,
+      };
+      contentOpts = {
+        apiUrl: opts.apiUrl,
+        apiKey: opts.apiKey,
+        fetch: opts.fetch,
+        sleep: opts.sleep,
+      };
+      uploadResult = {
+        totalIngested: 0,
+        totalConflicts: 0,
+        totalBatches: 0,
+        errors: [],
+      };
+      contentResult = { uploaded: 0, skipped: 0, errors: [] };
+    }
+
+    // ── Phase 1: Metadata upload ──
+    // Single toSessionSnapshot() call per session — compute hashes once
+    const transformed = uploadable.map((r) =>
+      toSessionSnapshot(r.canonical, r.raw),
+    );
+    const batchSnapshots = transformed.map((t) => t.snapshot);
+
+    const batchUploadResult = await uploadMetadataBatches(
+      batchSnapshots,
+      uploadOpts,
+    );
+    uploadResult.totalIngested += batchUploadResult.totalIngested;
+    uploadResult.totalConflicts += batchUploadResult.totalConflicts;
+    uploadResult.totalBatches += batchUploadResult.totalBatches;
+    uploadResult.errors.push(...batchUploadResult.errors);
+
+    // ── Phase 2: Content upload (reuse precomputed hashes) ──
+    // Wrap fetch for per-session progress tracking
+    const effectiveContentOpts: ContentUploadOptions = { ...contentOpts };
+    if (log) {
+      const completedSessions = new Set<string>();
+      const originalFetch = contentOpts.fetch ?? globalThis.fetch;
+      effectiveContentOpts.fetch = async (input, init) => {
+        const response = await originalFetch(input, init);
+        const url = typeof input === "string" ? input : (input as Request).url;
+        if (
+          url.includes("/api/ingest/content/") &&
+          url.endsWith("/canonical")
+        ) {
+          const parts = url.split("/");
+          const sessionKey = decodeURIComponent(parts[parts.length - 2]);
+          if (!completedSessions.has(sessionKey)) {
+            completedSessions.add(sessionKey);
+            contentProgressDone++;
+            log.uploadContentProgress(
+              contentProgressDone,
+              totalParsed + uploadable.length,
+            );
+          }
+        }
+        return response;
+      };
+    }
+
+    const batchContentResult = await uploadContentBatch(
+      uploadable.map((r, i) => ({
+        canonical: r.canonical,
+        raw: r.raw,
+        precomputed: transformed[i].precomputed,
+      })),
+      log ? effectiveContentOpts : contentOpts,
+      opts.contentConcurrency,
+    );
+
+    contentResult.uploaded += batchContentResult.uploaded;
+    contentResult.skipped += batchContentResult.skipped;
+    contentResult.errors.push(...batchContentResult.errors);
+
+    // ── Cursor rollback for sessions with content upload errors ──
+    if (batchContentResult.errors.length > 0) {
+      const rolledBackFiles = new Set<string>();
+      let rollbackDbCursor = false;
+      for (const { sessionKey } of batchContentResult.errors) {
+        const filePath = batchSessionToFile.get(sessionKey);
+        if (filePath && !rolledBackFiles.has(filePath)) {
+          rolledBackFiles.add(filePath);
+          const prev = batchPrevCursors.get(filePath);
+          if (prev === undefined) {
+            delete cursorState.files[filePath];
+          } else {
+            cursorState.files[filePath] = prev;
+          }
+        }
+        if (dbSourcedSessionKeys.has(sessionKey)) {
+          rollbackDbCursor = true;
+        }
+      }
+      if (rollbackDbCursor) {
+        cursorState.openCodeSqlite = prevDbCursor;
+      }
+    }
+
+    totalParsed += uploadable.length;
+
+    // ── Release memory for this batch ──
+    // Clear raw (JSON archive) and messages (large array) — both are already
+    // serialized by toSessionSnapshot() and no longer needed after upload.
+    for (const r of currentBatch) {
+      r.raw = undefined;
+      r.canonical.messages = [];
+    }
+    currentBatch.length = 0;
+    batchSessionToFile.clear();
+    batchPrevCursors.clear();
+  }
 
   // ── Stage 1+2: Discover + incremental parse (file drivers) ──
 
@@ -207,21 +361,26 @@ export async function runSyncPipeline(
         const results = await driver.parse(filePath, resume);
 
         if (results.length > 0) {
-          allResults.push(...results);
+          currentBatch.push(...results);
           log?.parseDone(driver.source, filePath, results.length);
 
           // Save previous cursor for rollback and map sessionKeys to filePath
-          prevCursors.set(
+          batchPrevCursors.set(
             filePath,
             cursorState.files[filePath] as FileCursor | undefined,
           );
           for (const r of results) {
-            sessionKeyToFile.set(r.canonical.sessionKey, filePath);
+            batchSessionToFile.set(r.canonical.sessionKey, filePath);
           }
 
           // Build and save cursor for this file
           const newCursor = driver.buildCursor(fingerprint, results);
           cursorState.files[filePath] = newCursor as FileCursor;
+
+          // Flush batch when it reaches capacity
+          if (currentBatch.length >= METADATA_BATCH_SIZE) {
+            await flushBatch();
+          }
         }
       } catch (err) {
         parseErrors.push({
@@ -240,13 +399,28 @@ export async function runSyncPipeline(
     try {
       log?.dbDriverStart(dbDriver.source);
       prevDbCursor = cursorState.openCodeSqlite;
-      const dbResult = await dbDriver.run(prevDbCursor, syncCtx);
-      allResults.push(...dbResult.results);
-      for (const r of dbResult.results) {
+      const dbResult = await dbDriver.run(prevDbCursor, syncCtx, async (r) => {
+        currentBatch.push(r);
         dbSourcedSessionKeys.add(r.canonical.sessionKey);
-      }
+
+        // Flush in METADATA_BATCH_SIZE chunks to bound memory
+        if (currentBatch.length >= METADATA_BATCH_SIZE) {
+          await flushBatch();
+        }
+      });
       cursorState.openCodeSqlite = dbResult.cursor;
-      log?.dbDriverDone(dbDriver.source, dbResult.results.length);
+      log?.dbDriverDone(dbDriver.source, dbResult.rowCount);
+
+      // Fallback: process any results returned in the array (e.g., mocks that
+      // don't support the onResult callback). When onResult is used, this is a
+      // no-op since results[] is empty.
+      for (const r of dbResult.results) {
+        currentBatch.push(r);
+        dbSourcedSessionKeys.add(r.canonical.sessionKey);
+        if (currentBatch.length >= METADATA_BATCH_SIZE) {
+          await flushBatch();
+        }
+      }
     } catch (err) {
       parseErrors.push({
         timestamp: new Date().toISOString(),
@@ -257,175 +431,20 @@ export async function runSyncPipeline(
     }
   }
 
-  // ── Persist dirMtimes from syncCtx ──
-  // (dirMtimes no longer used — removed dir-level mtime skip optimization
-  //  for OpenCode, which caused changed sessions to be missed when only
-  //  message/part subdirs were updated. See Bug #4.)
+  // Flush remaining partial batch
+  await flushBatch();
 
-  cursorState.updatedAt = new Date().toISOString();
-
-  // ── Stage 3+4: Upload (if enabled and we have results) ──
-
-  // Filter out empty sessions (0 messages) — these are parser artefacts
-  // from source files that contained only metadata and no real conversation.
-  // Cursors are already saved above so empty files won't be re-parsed.
-  const emptyCount = allResults.filter(
-    (r) => r.canonical.messages.length === 0,
-  ).length;
-  const uploadableResults = allResults.filter(
-    (r) => r.canonical.messages.length > 0,
-  );
-
-  let uploadResult: UploadResult | undefined;
-  let contentResult: BatchContentUploadResult | undefined;
-
-  if (opts.upload && uploadableResults.length > 0) {
-    const uploadOpts: UploadEngineOptions = {
-      apiUrl: opts.apiUrl,
-      apiKey: opts.apiKey,
-      userId: opts.userId,
-      fetch: opts.fetch,
-      sleep: opts.sleep,
-    };
-
-    const contentOpts: ContentUploadOptions = {
-      apiUrl: opts.apiUrl,
-      apiKey: opts.apiKey,
-      fetch: opts.fetch,
-      sleep: opts.sleep,
-    };
-
-    const totalSessions = uploadableResults.length;
-
-    // ── Batch upload: two-phase pipeline ──
-    // Phase 1: upload ALL metadata batches, then
-    // Phase 2: upload ALL content batches.
-    // This preserves the stage-level ordering contract of SyncProgressLogger
-    // (metadataStart → metadataDone → contentStart → contentDone) while
-    // keeping memory bounded — each batch's JSON strings, gzip buffers,
-    // and precomputed hashes are GC-eligible after the batch completes.
-    const pipelineBatches = splitBatches(
-      uploadableResults,
-      METADATA_BATCH_SIZE,
-    );
-
-    // Aggregated results across all batches
-    uploadResult = {
-      totalIngested: 0,
-      totalConflicts: 0,
-      totalBatches: 0,
-      errors: [],
-    };
-    contentResult = {
-      uploaded: 0,
-      skipped: 0,
-      errors: [],
-    };
-
-    // ── Phase 1: Metadata upload ──
-    log?.uploadMetadataStart(totalSessions);
-
-    for (const batch of pipelineBatches) {
-      // Transform to snapshots for this batch only (JSON + hashes)
-      const transformed = batch.map((r) =>
-        toSessionSnapshot(r.canonical, r.raw),
-      );
-      const batchSnapshots = transformed.map((t) => t.snapshot);
-
-      // Upload metadata for this batch
-      const batchUploadResult = await uploadMetadataBatches(
-        batchSnapshots,
-        uploadOpts,
-      );
-      uploadResult.totalIngested += batchUploadResult.totalIngested;
-      uploadResult.totalConflicts += batchUploadResult.totalConflicts;
-      uploadResult.totalBatches += batchUploadResult.totalBatches;
-      uploadResult.errors.push(...batchUploadResult.errors);
-      // batchSnapshots + transformed go out of scope → GC-eligible
-    }
-
+  // ── Fire logger stage callbacks (summary after all batches complete) ──
+  // Fires in correct ordering contract: metadataStart → metadataDone → contentStart → contentDone
+  if (uploadResult) {
+    log?.uploadMetadataStart(totalParsed);
     log?.uploadMetadataDone(
       uploadResult.totalIngested,
       uploadResult.totalConflicts,
     );
-
-    // ── Phase 2: Content upload ──
-    let contentDone = 0;
-    log?.uploadContentStart(totalSessions);
-
-    for (const batch of pipelineBatches) {
-      // Re-compute precomputed hashes for this batch (CPU-only, no I/O).
-      // This avoids holding all hashes in memory across the metadata phase.
-      const batchPrecomputed = new Map<string, PrecomputedHashes>();
-      for (const r of batch) {
-        const t = toSessionSnapshot(r.canonical, r.raw);
-        batchPrecomputed.set(t.snapshot.sessionKey, t.precomputed);
-      }
-
-      // Wrap content upload to track per-session progress
-      const wrappedContentOpts: ContentUploadOptions = { ...contentOpts };
-      const originalFetch = contentOpts.fetch ?? globalThis.fetch;
-      if (log) {
-        const completedSessions = new Set<string>();
-        wrappedContentOpts.fetch = async (input, init) => {
-          const response = await originalFetch(input, init);
-          const url =
-            typeof input === "string" ? input : (input as Request).url;
-          if (
-            url.includes("/api/ingest/content/") &&
-            url.endsWith("/canonical")
-          ) {
-            const parts = url.split("/");
-            const sessionKey = decodeURIComponent(parts[parts.length - 2]);
-            if (!completedSessions.has(sessionKey)) {
-              completedSessions.add(sessionKey);
-              contentDone++;
-              log.uploadContentProgress(contentDone, totalSessions);
-            }
-          }
-          return response;
-        };
-      }
-
-      const batchContentResult = await uploadContentBatch(
-        batch.map((r) => ({
-          canonical: r.canonical,
-          raw: r.raw,
-          precomputed: batchPrecomputed.get(r.canonical.sessionKey),
-        })),
-        log ? wrappedContentOpts : contentOpts,
-        opts.contentConcurrency,
-      );
-
-      contentResult.uploaded += batchContentResult.uploaded;
-      contentResult.skipped += batchContentResult.skipped;
-      contentResult.errors.push(...batchContentResult.errors);
-
-      // ── Rollback cursors for sessions with content upload errors ──
-      if (batchContentResult.errors.length > 0) {
-        const rolledBackFiles = new Set<string>();
-        let rollbackDbCursor = false;
-        for (const { sessionKey } of batchContentResult.errors) {
-          const filePath = sessionKeyToFile.get(sessionKey);
-          if (filePath && !rolledBackFiles.has(filePath)) {
-            rolledBackFiles.add(filePath);
-            const prev = prevCursors.get(filePath);
-            if (prev === undefined) {
-              delete cursorState.files[filePath];
-            } else {
-              cursorState.files[filePath] = prev;
-            }
-          }
-          if (dbSourcedSessionKeys.has(sessionKey)) {
-            rollbackDbCursor = true;
-          }
-        }
-        if (rollbackDbCursor) {
-          cursorState.openCodeSqlite = prevDbCursor;
-        }
-      }
-    }
-
+  }
+  if (contentResult) {
+    log?.uploadContentStart(totalParsed);
     log?.uploadContentDone(
       contentResult.uploaded,
       contentResult.skipped,
@@ -433,9 +452,11 @@ export async function runSyncPipeline(
     );
   }
 
+  cursorState.updatedAt = new Date().toISOString();
+
   return {
-    totalParsed: uploadableResults.length,
-    totalEmpty: emptyCount,
+    totalParsed,
+    totalEmpty,
     totalFiles,
     totalSkipped,
     parseErrors,
