@@ -6,6 +6,78 @@ import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Suspense } from "react";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { Skeleton } from "@/components/ui/skeleton";
+
+/** Skeleton placeholder matching login card structure (B-1 spec). */
+function LoginSkeleton() {
+  return (
+    <div className="relative flex min-h-screen flex-col bg-background overflow-hidden">
+      {/* Radial glow (same as real page) */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background: [
+            "radial-gradient(ellipse 70% 55% at 50% 50%,",
+            "hsl(var(--foreground) / 0.045) 0%,",
+            "hsl(var(--foreground) / 0.042) 10%,",
+            "hsl(var(--foreground) / 0.036) 20%,",
+            "hsl(var(--foreground) / 0.028) 32%,",
+            "hsl(var(--foreground) / 0.020) 45%,",
+            "hsl(var(--foreground) / 0.012) 58%,",
+            "hsl(var(--foreground) / 0.006) 72%,",
+            "hsl(var(--foreground) / 0.002) 86%,",
+            "transparent 100%)",
+          ].join(" "),
+        }}
+      />
+      <div className="flex flex-1 items-center justify-center p-4">
+        {/* Badge card skeleton */}
+        <div
+          className="relative w-72 aspect-[54/86] overflow-hidden rounded-2xl bg-card flex flex-col ring-1 ring-black/[0.08] dark:ring-white/[0.06]"
+          style={{
+            boxShadow: [
+              "0 1px 2px rgba(0,0,0,0.06)",
+              "0 4px 8px rgba(0,0,0,0.04)",
+              "0 12px 24px rgba(0,0,0,0.06)",
+              "0 24px 48px rgba(0,0,0,0.04)",
+              "0 0 0 0.5px rgba(0,0,0,0.02)",
+              "0 0 60px rgba(0,0,0,0.03)",
+            ].join(", "),
+          }}
+        >
+          {/* Header strip skeleton */}
+          <div className="bg-primary px-5 py-4">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-8 rounded-full bg-background/30" />
+              <Skeleton className="h-4 w-16 bg-primary-foreground/20" />
+              <Skeleton className="h-3 w-8 bg-primary-foreground/20" />
+            </div>
+            <div className="mt-3 flex items-center justify-between">
+              <Skeleton className="h-3 w-20 bg-primary-foreground/20" />
+              <Skeleton className="h-6 w-12 bg-primary-foreground/20" />
+            </div>
+          </div>
+
+          {/* Content skeleton */}
+          <div className="flex flex-1 flex-col items-center px-6 pt-6 pb-5">
+            <Skeleton className="h-24 w-24 rounded-full" />
+            <Skeleton className="mt-5 h-5 w-40" />
+            <Skeleton className="mt-2 h-3 w-32" />
+            <div className="mt-5 h-px w-full bg-border" />
+            <div className="mt-5" />
+            <Skeleton className="h-12 w-full rounded-xl" />
+            <Skeleton className="mt-3 h-3 w-36" />
+          </div>
+
+          {/* Footer strip skeleton */}
+          <div className="mt-auto flex items-center justify-center border-t border-border bg-secondary/50 py-2.5">
+            <Skeleton className="h-3 w-20" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Barcode() {
   const bars = [2, 1, 3, 1, 2, 1, 1, 3, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 2, 1];
@@ -227,13 +299,7 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center">
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      }
-    >
+    <Suspense fallback={<LoginSkeleton />}>
       <LoginContent />
     </Suspense>
   );
