@@ -1,0 +1,7 @@
+# OSV Scanner ignore configuration
+# https://google.github.io/osv-scanner/configuration/
+
+[[IgnoredVulns]]
+id = "GHSA-5f7q-jpqc-wp7h"
+reason = "Pika does not use PPR (experimental.ppr) - not affected by this DoS vulnerability"
+ignoreUntil = 2026-07-03T00:00:00Z  # Review in 3 months
