@@ -1,6 +1,6 @@
 {
   "name": "@nocoo/pika",
-  "version": "0.5.6",
+  "version": "0.5.7",
   "description": "Replay and search coding agent sessions",
   "type": "module",
   "bin": {
@@ -38,6 +38,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nicepkg/pika"
+    "url": "git+https://github.com/nocoo/pika.git"
   }
 }

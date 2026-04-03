@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.7] - 2026-04-03
+
+### Fixes
+
+- **Login skeleton** — Add dedicated `LoginSkeleton` component for Suspense fallback, matching badge card structure per Basalt B-1 spec
+
+### Chores
+
+- **Port migration** — Migrate dev/E2E ports from 7040/17040 to 7022/17022
+- **Dockerfile alignment** — Align Dockerfile EXPOSE port to 7022
+
 ## [0.5.6] - 2026-03-30
 
 ### Fixes
