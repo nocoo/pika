@@ -107,6 +107,7 @@ function SearchDialogContent({
             ref={inputRef}
             type="search"
             placeholder="Search messages, tool calls, code..."
+            aria-label="Search sessions"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-10"
