@@ -47,6 +47,8 @@ export function ActivityHeatmap({ data, className }: ActivityHeatmapProps) {
                         "h-3 w-3 rounded-sm transition-colors",
                         LEVEL_CLASSES[day.level] ?? LEVEL_CLASSES[0],
                       )}
+                      role="img"
+                      aria-label={`${day.count} session${day.count !== 1 ? "s" : ""} on ${day.date}`}
                     />
                   </TooltipTrigger>
                   <TooltipContent side="top" sideOffset={4}>
