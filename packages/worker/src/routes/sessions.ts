@@ -650,3 +650,94 @@ function batchSetClause(action: BatchAction): string {
       return "is_starred = 0";
   }
 }
+
+// ── Confirm raw upload ────────────────────────────────────────────
+
+interface ConfirmRawBody {
+  sessionKey: string;
+  rawHash: string;
+  rawSize: number;
+}
+
+/**
+ * POST /ingest/confirm-raw — Confirm a direct-to-R2 raw upload.
+ *
+ * Called after CLI uploads raw content directly to R2 via presigned URL.
+ * Verifies the R2 object exists, then updates D1 metadata.
+ */
+export async function handleConfirmRaw(
+  userId: string,
+  body: unknown,
+  env: Env,
+): Promise<Response> {
+  // Validate body
+  if (!body || typeof body !== "object") {
+    return Response.json({ error: "Invalid request body" }, { status: 400 });
+  }
+
+  const obj = body as Record<string, unknown>;
+
+  if (typeof obj.sessionKey !== "string" || !obj.sessionKey) {
+    return Response.json(
+      { error: "sessionKey (non-empty string) is required" },
+      { status: 400 },
+    );
+  }
+
+  if (typeof obj.rawHash !== "string" || !obj.rawHash) {
+    return Response.json(
+      { error: "rawHash (non-empty string) is required" },
+      { status: 400 },
+    );
+  }
+
+  if (!/^[0-9a-f]{8,128}$/i.test(obj.rawHash)) {
+    return Response.json(
+      { error: "rawHash must be a hex string (8-128 chars)" },
+      { status: 400 },
+    );
+  }
+
+  if (
+    typeof obj.rawSize !== "number" ||
+    obj.rawSize <= 0 ||
+    !Number.isInteger(obj.rawSize)
+  ) {
+    return Response.json(
+      { error: "rawSize (positive integer) is required" },
+      { status: 400 },
+    );
+  }
+
+  const { sessionKey, rawHash, rawSize } = obj as unknown as ConfirmRawBody;
+
+  // Build R2 key
+  const r2Key = `${userId}/${sessionKey}/raw/${rawHash}.json.gz`;
+
+  // Verify R2 object exists using head
+  const headResult = await env.BUCKET.head(r2Key);
+  if (!headResult) {
+    return Response.json(
+      { error: "R2 object not found: raw upload not verified" },
+      { status: 409 },
+    );
+  }
+
+  // Update D1
+  const result = await env.DB.prepare(
+    `UPDATE sessions
+     SET raw_key = ?, raw_size = ?, raw_hash = ?, updated_at = datetime('now')
+     WHERE user_id = ? AND session_key = ?`,
+  )
+    .bind(r2Key, rawSize, rawHash, userId, sessionKey)
+    .run();
+
+  if (result.meta.changes === 0) {
+    return Response.json(
+      { error: `Session not found: ${sessionKey}` },
+      { status: 404 },
+    );
+  }
+
+  return Response.json({ confirmed: true });
+}

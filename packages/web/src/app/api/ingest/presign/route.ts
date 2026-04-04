@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { resolveUser } from "@/lib/cli-auth";
-import { getD1Client } from "@/lib/d1";
-import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
 import { validatePresignRequest } from "@/lib/ingest";
 import { getR2Client } from "@/lib/r2";
 
@@ -12,24 +9,54 @@ import { getR2Client } from "@/lib/r2";
  * Generate a presigned PUT URL for direct-to-R2 raw content upload.
  * Body: { sessionKey: string, rawHash: string }
  * Response: { url: string, key: string }
+ *
+ * Auth: Either session cookie or Bearer pk_... API key.
+ * For API key auth, we validate via Worker /auth/me endpoint.
+ *
+ * Note: This route stays in Next.js because presigned URL generation
+ * requires the AWS S3 SDK with R2 credentials, which the Worker cannot
+ * provide (Workers use native R2 bindings instead).
  */
 export async function POST(request: Request) {
-  const d1 = getD1Client();
-  const db = new D1CliAuthDb(d1);
+  // Try session auth first
+  const session = await auth();
 
-  const user = await resolveUser(request, {
-    getSession: async () => {
-      const session = await auth();
-      if (!session?.user?.id) return null;
-      return {
-        userId: session.user.id,
-        email: session.user.email ?? undefined,
-      };
-    },
-    db,
-  });
+  let userId: string | null = null;
 
-  if (!user) {
+  if (session?.user?.id) {
+    userId = session.user.id;
+  } else {
+    // Check for Bearer API key - validate via Worker /auth/me
+    const authHeader = request.headers.get("Authorization");
+    if (authHeader?.startsWith("Bearer pk_")) {
+      try {
+        const workerUrl = process.env.WORKER_URL;
+        if (!workerUrl) {
+          return NextResponse.json(
+            { error: "WORKER_URL not configured" },
+            { status: 500 },
+          );
+        }
+
+        // Call Worker /auth/me to validate API key and get userId
+        const response = await fetch(new URL("/auth/me", workerUrl), {
+          method: "GET",
+          headers: {
+            Authorization: authHeader,
+          },
+        });
+
+        if (response.ok) {
+          const result = (await response.json()) as { userId: string };
+          userId = result.userId;
+        }
+      } catch {
+        // API key validation failed
+      }
+    }
+  }
+
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -46,7 +73,7 @@ export async function POST(request: Request) {
   }
 
   const r2 = getR2Client();
-  const key = `${user.userId}/${validation.sessionKey}/raw/${validation.rawHash}.json.gz`;
+  const key = `${userId}/${validation.sessionKey}/raw/${validation.rawHash}.json.gz`;
 
   try {
     const url = await r2.putPresignedUrl(key, "application/gzip");

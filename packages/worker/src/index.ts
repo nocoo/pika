@@ -55,6 +55,7 @@ import {
 import { handleSearch } from "./routes/search.js";
 import {
   handleBatchOperation,
+  handleConfirmRaw,
   handleFilters,
   handleGetSession,
   handleGetSessionContent,
@@ -913,6 +914,11 @@ export default {
     // ── GET Routes ────────────────────────────────────────────────
 
     if (request.method === "GET") {
+      // /auth/me — return authenticated user info
+      if (url.pathname === "/auth/me") {
+        return Response.json({ userId, source: authSource });
+      }
+
       // /sessions — list sessions with filters
       if (url.pathname === "/sessions") {
         return handleListSessions(userId, url.searchParams, env);
@@ -1022,6 +1028,17 @@ export default {
       // /auth/cli-key — generate CLI API key (internal only)
       if (url.pathname === "/auth/cli-key") {
         return handleCliKeyGeneration(userId, authSource, env);
+      }
+
+      // /ingest/confirm-raw — confirm direct-to-R2 raw upload
+      if (url.pathname === "/ingest/confirm-raw") {
+        let body: unknown;
+        try {
+          body = await request.json();
+        } catch {
+          return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+        }
+        return handleConfirmRaw(userId, body, env);
       }
     }
 

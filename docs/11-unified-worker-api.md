@@ -504,10 +504,10 @@ if (auth.source === "api_key") {
 - [x] `packages/web/src/lib/worker-client.ts`
 
 ### Files to Update (migrate to Worker before Phase 5)
-- [ ] `packages/web/src/app/api/auth/cli/route.ts` — refactor to call Worker `/auth/cli-key` for key gen
-- [ ] `packages/web/src/app/api/live/route.ts` — call Worker `/live` instead of D1 direct
-- [ ] `packages/web/src/app/api/ingest/presign/route.ts` — migrate to Worker `/ingest/presign`
-- [ ] `packages/web/src/app/api/ingest/confirm-raw/route.ts` — migrate to Worker `/ingest/confirm-raw`
+- [x] `packages/web/src/app/api/auth/cli/route.ts` — refactor to call Worker `/auth/cli-key` for key gen
+- [x] `packages/web/src/app/api/live/route.ts` — call Worker `/live` instead of D1 direct
+- [x] `packages/web/src/app/api/ingest/presign/route.ts` — uses Worker `/auth/me` for API key validation
+- [x] `packages/web/src/app/api/ingest/confirm-raw/route.ts` — calls Worker `/ingest/confirm-raw`
 
 ### Files to Delete (only after ALL D1 consumers migrated)
 - [ ] `packages/web/src/lib/d1.ts`

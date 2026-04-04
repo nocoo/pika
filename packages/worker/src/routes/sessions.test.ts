@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Env } from "../index";
 import {
   handleBatchOperation,
+  handleConfirmRaw,
   handleFilters,
   handleGetSession,
   handleGetSessionContent,
@@ -493,5 +494,150 @@ describe("handleBatchOperation", () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toContain("not both");
+  });
+});
+
+// ── handleConfirmRaw tests ─────────────────────────────────────
+
+describe("handleConfirmRaw", () => {
+  it("returns 400 for invalid body", async () => {
+    const env = mockEnv();
+
+    const res = await handleConfirmRaw("user-1", null, env);
+
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 for missing sessionKey", async () => {
+    const env = mockEnv();
+
+    const res = await handleConfirmRaw(
+      "user-1",
+      { rawHash: "abc123", rawSize: 1000 },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("sessionKey");
+  });
+
+  it("returns 400 for missing rawHash", async () => {
+    const env = mockEnv();
+
+    const res = await handleConfirmRaw(
+      "user-1",
+      { sessionKey: "sess-1", rawSize: 1000 },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("rawHash");
+  });
+
+  it("returns 400 for invalid rawHash format", async () => {
+    const env = mockEnv();
+
+    const res = await handleConfirmRaw(
+      "user-1",
+      { sessionKey: "sess-1", rawHash: "not-hex!", rawSize: 1000 },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("hex string");
+  });
+
+  it("returns 400 for missing rawSize", async () => {
+    const env = mockEnv();
+
+    const res = await handleConfirmRaw(
+      "user-1",
+      { sessionKey: "sess-1", rawHash: "abc12345" },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("rawSize");
+  });
+
+  it("returns 400 for non-positive rawSize", async () => {
+    const env = mockEnv();
+
+    const res = await handleConfirmRaw(
+      "user-1",
+      { sessionKey: "sess-1", rawHash: "abc12345", rawSize: 0 },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("rawSize");
+  });
+
+  it("returns 409 when R2 object not found", async () => {
+    const db = mockD1();
+    const bucket = {
+      head: vi.fn().mockResolvedValue(null),
+    } as unknown as R2Bucket;
+    const env = { DB: db, BUCKET: bucket, WORKER_SECRET: "test" };
+
+    const res = await handleConfirmRaw(
+      "user-1",
+      { sessionKey: "sess-1", rawHash: "abc12345", rawSize: 1000 },
+      env,
+    );
+
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toContain("R2 object not found");
+  });
+
+  it("returns 404 when session not found", async () => {
+    const db = mockD1({ runMeta: { changes: 0 } });
+    const bucket = {
+      head: vi.fn().mockResolvedValue({ size: 1000 }),
+    } as unknown as R2Bucket;
+    const env = { DB: db, BUCKET: bucket, WORKER_SECRET: "test" };
+
+    const res = await handleConfirmRaw(
+      "user-1",
+      { sessionKey: "nonexistent", rawHash: "abc12345", rawSize: 1000 },
+      env,
+    );
+
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toContain("Session not found");
+  });
+
+  it("confirms raw upload successfully", async () => {
+    const db = mockD1({ runMeta: { changes: 1 } });
+    const bucket = {
+      head: vi.fn().mockResolvedValue({ size: 1000 }),
+    } as unknown as R2Bucket;
+    const env = { DB: db, BUCKET: bucket, WORKER_SECRET: "test" };
+
+    const res = await handleConfirmRaw(
+      "user-1",
+      { sessionKey: "sess-1", rawHash: "abc12345", rawSize: 1000 },
+      env,
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.confirmed).toBe(true);
+
+    // Verify R2 head was called with correct key
+    expect(bucket.head).toHaveBeenCalledWith(
+      "user-1/sess-1/raw/abc12345.json.gz",
+    );
+
+    // Verify D1 update was called
+    const prepare = db.prepare as ReturnType<typeof vi.fn>;
+    expect(prepare).toHaveBeenCalled();
   });
 });

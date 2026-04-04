@@ -1,15 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { resolveUser } from "@/lib/cli-auth";
-import { getD1Client } from "@/lib/d1";
-import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
-import {
-  buildConfirmRawUpdate,
-  buildRawR2Key,
-  validateConfirmRawRequest,
-  verifyR2RawExists,
-} from "@/lib/ingest";
-import { getR2Client } from "@/lib/r2";
+import { validateConfirmRawRequest } from "@/lib/ingest";
+import { getWorkerClient, WorkerError } from "@/lib/worker-client";
 
 /**
  * POST /api/ingest/confirm-raw
@@ -19,24 +11,29 @@ import { getR2Client } from "@/lib/r2";
  *
  * Body: { sessionKey: string, rawHash: string, rawSize: number }
  * Response: { confirmed: true } or error
+ *
+ * Auth: Either session cookie or Bearer pk_... API key.
+ * For API key auth, we call the Worker which validates the key directly.
  */
 export async function POST(request: Request) {
-  const d1 = getD1Client();
-  const db = new D1CliAuthDb(d1);
+  // Try session auth first
+  const session = await auth();
 
-  const user = await resolveUser(request, {
-    getSession: async () => {
-      const session = await auth();
-      if (!session?.user?.id) return null;
-      return {
-        userId: session.user.id,
-        email: session.user.email ?? undefined,
-      };
-    },
-    db,
-  });
+  let userId: string | null = null;
 
-  if (!user) {
+  if (session?.user?.id) {
+    userId = session.user.id;
+  } else {
+    // Check for Bearer API key
+    const authHeader = request.headers.get("Authorization");
+    if (authHeader?.startsWith("Bearer ")) {
+      // For API key auth, the Worker will validate it directly
+      // We pass the auth header through to the Worker
+      userId = "__api_key__"; // Placeholder - Worker will resolve
+    }
+  }
+
+  if (!userId && !request.headers.get("Authorization")?.startsWith("Bearer ")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -52,52 +49,58 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
 
-  const r2Key = buildRawR2Key(
-    user.userId,
-    validation.sessionKey,
-    validation.rawHash,
-  );
-
-  // Verify R2 object exists before updating D1 metadata
-  const r2 = getR2Client();
-  let exists: boolean;
+  // If we have a session userId, use WorkerClient with WORKER_SECRET
+  // If we have an API key, pass it through to Worker directly
   try {
-    exists = await verifyR2RawExists(r2, r2Key);
-  } catch (err) {
-    return NextResponse.json(
-      {
-        error: `R2 HEAD check failed: ${err instanceof Error ? err.message : String(err)}`,
-      },
-      { status: 502 },
-    );
-  }
-  if (!exists) {
-    return NextResponse.json(
-      { error: `R2 object not found: raw upload not verified` },
-      { status: 409 },
-    );
-  }
+    const authHeader = request.headers.get("Authorization");
 
-  const update = buildConfirmRawUpdate({
-    userId: user.userId,
-    sessionKey: validation.sessionKey,
-    rawHash: validation.rawHash,
-    rawSize: validation.rawSize,
-  });
+    if (userId && userId !== "__api_key__") {
+      // Session auth - use WorkerClient
+      const client = getWorkerClient();
+      const result = await client.post("/ingest/confirm-raw", userId, {
+        sessionKey: validation.sessionKey,
+        rawHash: validation.rawHash,
+        rawSize: validation.rawSize,
+      });
+      return NextResponse.json(result);
+    }
 
-  try {
-    const meta = await d1.execute(update.sql, update.params);
-    if (meta.changes === 0) {
+    // API key auth - pass through to Worker
+    const workerUrl = process.env.WORKER_URL;
+    if (!workerUrl) {
       return NextResponse.json(
-        { error: `Session not found: ${validation.sessionKey}` },
-        { status: 404 },
+        { error: "WORKER_URL not configured" },
+        { status: 500 },
       );
     }
-    return NextResponse.json({ confirmed: true });
+
+    const response = await fetch(new URL("/ingest/confirm-raw", workerUrl), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authHeader!,
+      },
+      body: JSON.stringify({
+        sessionKey: validation.sessionKey,
+        rawHash: validation.rawHash,
+        rawSize: validation.rawSize,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      return NextResponse.json(result, { status: response.status });
+    }
+
+    return NextResponse.json(result);
   } catch (err) {
+    if (err instanceof WorkerError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     return NextResponse.json(
       {
-        error: `D1 update failed: ${err instanceof Error ? err.message : String(err)}`,
+        error: `Worker request failed: ${err instanceof Error ? err.message : String(err)}`,
       },
       { status: 500 },
     );
