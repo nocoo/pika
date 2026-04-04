@@ -510,21 +510,24 @@ if (auth.source === "api_key") {
 - [x] `packages/web/src/app/api/ingest/confirm-raw/route.ts` — calls Worker `/ingest/confirm-raw`
 
 ### Files to Delete (only after ALL D1 consumers migrated)
-- [ ] `packages/web/src/lib/d1.ts`
-- [ ] `packages/web/src/lib/d1.test.ts`
-- [ ] `packages/web/src/lib/d1-cli-auth-db.ts`
-- [ ] `packages/web/src/lib/d1-cli-auth-db.test.ts`
+- [ ] `packages/web/src/lib/d1.ts` — KEPT: required by NextAuth D1AuthAdapter
+- [ ] `packages/web/src/lib/d1.test.ts` — KEPT: tests for d1.ts
+- [x] `packages/web/src/lib/d1-cli-auth-db.ts` — DELETED: replaced by worker-cli-auth-db.ts
+- [x] `packages/web/src/lib/d1-cli-auth-db.test.ts` — DELETED
+- [x] `packages/web/src/lib/live.ts` — DELETED: /api/live now proxies to Worker /live
+- [x] `packages/web/src/lib/live.test.ts` — DELETED
 
-**⚠️ Deletion order**: These files can ONLY be deleted after all routes in "Files to Update" are migrated. Premature deletion breaks `/api/auth/cli`, `/api/live`, `/api/ingest/presign`, `/api/ingest/confirm-raw`.
+**Note**: `d1.ts` is retained because `auth-adapter.ts` uses it for NextAuth OAuth user persistence (users/accounts tables). Session/content queries all go through Worker now.
 
 ### Env Vars to Remove (Next.js, after migration complete)
-- [ ] `CF_ACCOUNT_ID`
-- [ ] `CF_D1_DATABASE_ID`
-- [ ] `CF_D1_API_TOKEN`
+**Note**: These env vars are STILL REQUIRED because `d1.ts` is retained for NextAuth adapter:
+- [ ] `CF_ACCOUNT_ID` — KEPT: needed by D1AuthAdapter
+- [ ] `CF_D1_DATABASE_ID` — KEPT: needed by D1AuthAdapter
+- [ ] `CF_D1_API_TOKEN` — KEPT: needed by D1AuthAdapter
 
 ### Env Vars to Keep
-- [ ] `WORKER_URL`
-- [ ] `WORKER_SECRET`
+- [x] `WORKER_URL`
+- [x] `WORKER_SECRET`
 
 ## Risks and Mitigations
 
