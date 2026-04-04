@@ -14,3 +14,4 @@
 | 08 | [OpenCode SQLite Driver Bug](./08-opencode-sqlite-driver-bug.md) | SQLite driver never wired in sync command — 4,383 sessions missing |
 | 09 | [Quality Upgrade: 6D Framework](./09-quality-upgrade-6d.md) | Six-dimension quality framework upgrade — G1/G2 gates, D1 isolation, L2 API E2E |
 | 10 | [Stream Pipeline Memory](./10-stream-pipeline-memory.md) | Sync pipeline memory optimization — stream-based batching to reduce 14 GB RSS to ~1-2 GB |
+| 11 | [Unified Worker API](./11-unified-worker-api.md) | Consolidate all D1/R2 operations through Worker — eliminate D1 HTTP API, add API key auth |
