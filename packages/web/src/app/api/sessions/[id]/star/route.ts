@@ -1,36 +1,19 @@
+/**
+ * PATCH /api/sessions/[id]/star — set star status.
+ *
+ * Proxies to Worker PATCH /sessions/:id/star.
+ * Body: { starred: boolean }
+ */
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { resolveUser } from "@/lib/cli-auth";
-import { getD1Client } from "@/lib/d1";
-import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
-import { buildToggleStarQuery } from "@/lib/sessions";
+import { getWorkerClient } from "@/lib/worker-client";
+import { handleWorkerError, resolveUserForWorker } from "@/lib/worker-proxy";
 
-async function authenticate(request: Request) {
-  const d1 = getD1Client();
-  const db = new D1CliAuthDb(d1);
-
-  const user = await resolveUser(request, {
-    getSession: async () => {
-      const session = await auth();
-      if (!session?.user?.id) return null;
-      return {
-        userId: session.user.id,
-        email: session.user.email ?? undefined,
-      };
-    },
-    db,
-  });
-
-  return { user, d1 };
-}
-
-/** PATCH /api/sessions/[id]/star — toggle star. Body: { starred: boolean } */
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { user, d1 } = await authenticate(request);
-  if (!user) {
+  const userId = await resolveUserForWorker(request);
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -43,20 +26,15 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const starred = (body as Record<string, unknown>)?.starred;
-  if (typeof starred !== "boolean") {
-    return NextResponse.json(
-      { error: "starred (boolean) is required" },
-      { status: 400 },
+  try {
+    const client = getWorkerClient();
+    const result = await client.patch(
+      `/sessions/${encodeURIComponent(id)}/star`,
+      userId,
+      body,
     );
+    return NextResponse.json(result);
+  } catch (err) {
+    return handleWorkerError(err);
   }
-
-  const { sql, params: qParams } = buildToggleStarQuery(
-    id,
-    user.userId,
-    starred,
-  );
-  await d1.execute(sql, qParams);
-
-  return NextResponse.json({ starred });
 }

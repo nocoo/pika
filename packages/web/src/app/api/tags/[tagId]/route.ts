@@ -1,42 +1,21 @@
+/**
+ * Tag routes with ID parameter.
+ *
+ * PATCH /api/tags/[tagId] — update a tag
+ * DELETE /api/tags/[tagId] — delete a tag
+ *
+ * Proxies to Worker.
+ */
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { resolveUser } from "@/lib/cli-auth";
-import { getD1Client } from "@/lib/d1";
-import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
-import {
-  buildDeleteTagQuery,
-  buildGetTagQuery,
-  buildUpdateTagQuery,
-  type TagRow,
-  validateUpdateTag,
-} from "@/lib/tags";
+import { getWorkerClient } from "@/lib/worker-client";
+import { handleWorkerError, resolveUserForWorker } from "@/lib/worker-proxy";
 
-async function authenticate(request: Request) {
-  const d1 = getD1Client();
-  const db = new D1CliAuthDb(d1);
-
-  const user = await resolveUser(request, {
-    getSession: async () => {
-      const session = await auth();
-      if (!session?.user?.id) return null;
-      return {
-        userId: session.user.id,
-        email: session.user.email ?? undefined,
-      };
-    },
-    db,
-  });
-
-  return { user, d1 };
-}
-
-/** PATCH /api/tags/[tagId] — update a tag. */
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ tagId: string }> },
 ) {
-  const { user, d1 } = await authenticate(request);
-  if (!user) {
+  const userId = await resolveUserForWorker(request);
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -49,58 +28,43 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const validation = validateUpdateTag(body);
-  if (!validation.valid) {
-    return NextResponse.json({ error: validation.errors }, { status: 400 });
-  }
-
-  const { sql, params: qParams } = buildUpdateTagQuery(
-    tagId,
-    user.userId,
-    validation.data!,
-  );
-
   try {
-    const meta = await d1.execute(sql, qParams);
-    if (meta.changes === 0) {
-      return NextResponse.json({ error: "Tag not found" }, { status: 404 });
-    }
+    const client = getWorkerClient();
+    const result = await client.patch(
+      `/tags/${encodeURIComponent(tagId)}`,
+      userId,
+      body,
+    );
+    return NextResponse.json(result);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (message.includes("UNIQUE")) {
-      return NextResponse.json(
-        { error: `Tag name "${validation.data?.name}" already exists` },
-        { status: 409 },
-      );
-    }
-    throw err;
+    return handleWorkerError(err);
   }
-
-  // Fetch the updated tag
-  const getQ = buildGetTagQuery(tagId, user.userId);
-  const result = await d1.firstOrNull<TagRow>(getQ.sql, getQ.params);
-
-  return NextResponse.json({ tag: result });
 }
 
-/** DELETE /api/tags/[tagId] — delete a tag. */
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ tagId: string }> },
 ) {
-  const { user, d1 } = await authenticate(request);
-  if (!user) {
+  const userId = await resolveUserForWorker(request);
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { tagId } = await params;
 
-  const { sql, params: qParams } = buildDeleteTagQuery(tagId, user.userId);
-  const meta = await d1.execute(sql, qParams);
+  try {
+    const client = getWorkerClient();
+    const result = await client.delete(
+      `/tags/${encodeURIComponent(tagId)}`,
+      userId,
+    );
 
-  if (meta.changes === 0) {
-    return NextResponse.json({ error: "Tag not found" }, { status: 404 });
+    if (result === null) {
+      return new NextResponse(null, { status: 204 });
+    }
+
+    return NextResponse.json(result);
+  } catch (err) {
+    return handleWorkerError(err);
   }
-
-  return new NextResponse(null, { status: 204 });
 }

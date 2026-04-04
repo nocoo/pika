@@ -1,61 +1,34 @@
+/**
+ * GET /api/sessions/[id] — get session detail.
+ *
+ * Proxies to Worker GET /sessions/:id.
+ *
+ * Note: The Worker returns the session data but not presigned URLs.
+ * Use /api/sessions/[id]/content for actual content fetching.
+ */
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { resolveUser } from "@/lib/cli-auth";
-import { getD1Client } from "@/lib/d1";
-import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
-import { getR2Client } from "@/lib/r2";
-import {
-  buildSessionDetailQuery,
-  type SessionDetailRow,
-} from "@/lib/session-detail";
+import { getWorkerClient } from "@/lib/worker-client";
+import { handleWorkerError, resolveUserForWorker } from "@/lib/worker-proxy";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const d1 = getD1Client();
-  const db = new D1CliAuthDb(d1);
-
-  const user = await resolveUser(request, {
-    getSession: async () => {
-      const session = await auth();
-      if (!session?.user?.id) return null;
-      return {
-        userId: session.user.id,
-        email: session.user.email ?? undefined,
-      };
-    },
-    db,
-  });
-
-  if (!user) {
+  const userId = await resolveUserForWorker(request);
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { id } = await params;
-  const { sql, params: queryParams } = buildSessionDetailQuery(id, user.userId);
-  const row = await d1.firstOrNull<SessionDetailRow>(sql, queryParams);
 
-  if (!row) {
-    return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  try {
+    const client = getWorkerClient();
+    const result = await client.get(
+      `/sessions/${encodeURIComponent(id)}`,
+      userId,
+    );
+    return NextResponse.json(result);
+  } catch (err) {
+    return handleWorkerError(err);
   }
-
-  // Generate presigned URLs for R2 content
-  const r2 = getR2Client();
-  let contentUrl: string | null = null;
-  let rawUrl: string | null = null;
-
-  if (row.content_key) {
-    contentUrl = await r2.getPresignedUrl(row.content_key);
-  }
-
-  if (row.raw_key) {
-    rawUrl = await r2.getPresignedUrl(row.raw_key);
-  }
-
-  return NextResponse.json({
-    session: row,
-    contentUrl,
-    rawUrl,
-  });
 }

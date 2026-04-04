@@ -1,10 +1,7 @@
 import { MAX_METADATA_BODY_BYTES } from "@pika/core";
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { resolveUser } from "@/lib/cli-auth";
-import { getD1Client } from "@/lib/d1";
-import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
 import { getProxyConfig, type ProxyConfig, proxyToWorker } from "@/lib/ingest";
+import { resolveUserForWorker } from "@/lib/worker-proxy";
 
 export async function POST(request: Request) {
   // Validate Content-Length before auth to fail fast on oversized payloads
@@ -22,22 +19,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Payload too large" }, { status: 413 });
   }
 
-  const d1 = getD1Client();
-  const db = new D1CliAuthDb(d1);
-
-  const user = await resolveUser(request, {
-    getSession: async () => {
-      const session = await auth();
-      if (!session?.user?.id) return null;
-      return {
-        userId: session.user.id,
-        email: session.user.email ?? undefined,
-      };
-    },
-    db,
-  });
-
-  if (!user) {
+  const userId = await resolveUserForWorker(request);
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -57,7 +40,7 @@ export async function POST(request: Request) {
   const result = await proxyToWorker(config, {
     method: "POST",
     path: "/ingest/sessions",
-    userId: user.userId,
+    userId,
     body: request.body,
     contentType: request.headers.get("Content-Type") ?? "application/json",
   });

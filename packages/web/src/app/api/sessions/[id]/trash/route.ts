@@ -1,36 +1,19 @@
+/**
+ * PATCH /api/sessions/[id]/trash — soft delete or restore.
+ *
+ * Proxies to Worker PATCH /sessions/:id/trash.
+ * Body: { deleted: boolean }
+ */
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { resolveUser } from "@/lib/cli-auth";
-import { getD1Client } from "@/lib/d1";
-import { D1CliAuthDb } from "@/lib/d1-cli-auth-db";
-import { buildRestoreQuery, buildSoftDeleteQuery } from "@/lib/sessions";
+import { getWorkerClient } from "@/lib/worker-client";
+import { handleWorkerError, resolveUserForWorker } from "@/lib/worker-proxy";
 
-async function authenticate(request: Request) {
-  const d1 = getD1Client();
-  const db = new D1CliAuthDb(d1);
-
-  const user = await resolveUser(request, {
-    getSession: async () => {
-      const session = await auth();
-      if (!session?.user?.id) return null;
-      return {
-        userId: session.user.id,
-        email: session.user.email ?? undefined,
-      };
-    },
-    db,
-  });
-
-  return { user, d1 };
-}
-
-/** PATCH /api/sessions/[id]/trash — soft-delete or restore. Body: { deleted: boolean } */
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { user, d1 } = await authenticate(request);
-  if (!user) {
+  const userId = await resolveUserForWorker(request);
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -43,22 +26,15 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const deleted = (body as Record<string, unknown>)?.deleted;
-  if (typeof deleted !== "boolean") {
-    return NextResponse.json(
-      { error: "deleted (boolean) is required" },
-      { status: 400 },
+  try {
+    const client = getWorkerClient();
+    const result = await client.patch(
+      `/sessions/${encodeURIComponent(id)}/trash`,
+      userId,
+      body,
     );
+    return NextResponse.json(result);
+  } catch (err) {
+    return handleWorkerError(err);
   }
-
-  const query = deleted
-    ? buildSoftDeleteQuery(id, user.userId)
-    : buildRestoreQuery(id, user.userId);
-
-  await d1.execute(query.sql, query.params);
-
-  return NextResponse.json({
-    deleted,
-    deleted_at: deleted ? new Date().toISOString() : null,
-  });
 }
