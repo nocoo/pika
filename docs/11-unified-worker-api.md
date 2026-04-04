@@ -494,12 +494,12 @@ if (auth.source === "api_key") {
 ## Migration Checklist
 
 ### Files to Create
-- [ ] `packages/worker/src/routes/sessions.ts`
-- [ ] `packages/worker/src/routes/projects.ts`
-- [ ] `packages/worker/src/routes/search.ts`
-- [ ] `packages/worker/src/routes/stats.ts`
-- [ ] `packages/worker/src/routes/tags.ts`
-- [ ] `packages/worker/src/auth.ts` — reuse `hashApiKey` from `cli-auth.ts`
+- [x] `packages/worker/src/routes/sessions.ts`
+- [x] `packages/worker/src/routes/projects.ts`
+- [x] `packages/worker/src/routes/search.ts`
+- [x] `packages/worker/src/routes/stats.ts`
+- [x] `packages/worker/src/routes/tags.ts`
+- [x] `packages/worker/src/auth.ts` — reuse `hashApiKey` from `cli-auth.ts`
 - [ ] `packages/worker/src/cache.ts`
 - [ ] `packages/web/src/lib/worker-client.ts`
 
