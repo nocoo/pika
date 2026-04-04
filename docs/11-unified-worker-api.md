@@ -127,7 +127,7 @@ async function hashApiKey(key: string): Promise<string> {
 |-------|--------|---------|--------|-----------------|
 | `/ingest/sessions` | POST | Batch upsert metadata | Exists | — |
 | `/ingest/content/:key/:type` | PUT | Upload content | Exists | — |
-| `/sessions/:id/star` | PATCH | Toggle star | New | `api/sessions/[id]/star/route.ts` PATCH |
+| `/sessions/:id/star` | PATCH | Set star status | New | `api/sessions/[id]/star/route.ts` PATCH |
 | `/sessions/:id/tags` | GET | List session tags | New | `api/sessions/[id]/tags/route.ts` GET |
 | `/sessions/:id/tags` | PUT | Add tag to session | New | `api/sessions/[id]/tags/route.ts` PUT |
 | `/sessions/:id/tags` | DELETE | Remove tag from session | New | `api/sessions/[id]/tags/route.ts` DELETE |
@@ -226,10 +226,18 @@ export class WorkerClient {
 
 ### Phase 5: Cleanup
 
+**Prerequisites**: All routes that use `getD1Client()` must be migrated first, including:
+- `/api/auth/cli` → migrate to Worker `/auth/cli-key` (key generation only)
+- `/api/live` → keep D1 health check via Worker `/live` (already exists)
+- `/api/ingest/presign` → migrate to Worker `/ingest/presign`
+- `/api/ingest/confirm-raw` → migrate to Worker `/ingest/confirm-raw`
+
+Only after all D1 consumers are migrated:
 - Remove `CF_D1_*` env vars from Next.js
-- Delete `lib/d1.ts` (only after all route handlers migrated)
-- Keep `lib/d1-cli-auth-db.ts` for auth routes
+- Delete `lib/d1.ts`, `lib/d1.test.ts`, `lib/d1-cli-auth-db.ts`, `lib/d1-cli-auth-db.test.ts`
 - Update docs and CLAUDE.md
+
+**⚠️ Warning**: Do NOT delete `d1.ts` while any Next.js route still imports `getD1Client()`. The files listed in "Files to Update" section all depend on it.
 
 ## Worker Route Structure
 
@@ -304,7 +312,8 @@ export default {
     
     if (request.method === "PATCH") {
       if (url.pathname.match(/^\/sessions\/[^/]+\/star$/)) {
-        return handleToggleStar(auth.userId, extractId(url.pathname), env);
+        // Body: { starred: boolean } — set star status (not toggle)
+        return handleSetStar(auth.userId, extractId(url.pathname), await request.json(), env);
       }
       if (url.pathname.match(/^\/sessions\/[^/]+\/trash$/)) {
         return handleTrashSession(auth.userId, extractId(url.pathname), await request.json(), env);
@@ -432,18 +441,19 @@ if (auth.source === "api_key") {
 - [ ] `packages/worker/src/cache.ts`
 - [ ] `packages/web/src/lib/worker-client.ts`
 
-### Files to Update
-- [ ] `packages/web/src/lib/d1-cli-auth-db.ts` — keep for CLI auth routes
-- [ ] `packages/web/src/app/api/auth/cli/route.ts` — keep (NextAuth dependency)
-- [ ] `packages/web/src/app/api/live/route.ts` — keep (health check)
-- [ ] `packages/web/src/app/api/ingest/presign/route.ts` — keep or migrate later
-- [ ] `packages/web/src/app/api/ingest/confirm-raw/route.ts` — keep or migrate later
+### Files to Update (migrate to Worker before Phase 5)
+- [ ] `packages/web/src/app/api/auth/cli/route.ts` — migrate key generation to Worker
+- [ ] `packages/web/src/app/api/live/route.ts` — use Worker `/live` instead of D1 direct
+- [ ] `packages/web/src/app/api/ingest/presign/route.ts` — migrate to Worker
+- [ ] `packages/web/src/app/api/ingest/confirm-raw/route.ts` — migrate to Worker
 
-### Files to Delete (after all routes migrated)
+### Files to Delete (only after ALL D1 consumers migrated)
 - [ ] `packages/web/src/lib/d1.ts`
 - [ ] `packages/web/src/lib/d1.test.ts`
+- [ ] `packages/web/src/lib/d1-cli-auth-db.ts`
+- [ ] `packages/web/src/lib/d1-cli-auth-db.test.ts`
 
-**Note**: `d1-cli-auth-db.ts` must remain — it's used by `/api/auth/cli` and other auth routes that depend on NextAuth session cookies.
+**⚠️ Deletion order**: These files can ONLY be deleted after all routes in "Files to Update" are migrated. Premature deletion breaks `/api/auth/cli`, `/api/live`, `/api/ingest/presign`, `/api/ingest/confirm-raw`.
 
 ### Env Vars to Remove (Next.js, after migration complete)
 - [ ] `CF_ACCOUNT_ID`
