@@ -93,13 +93,15 @@ export function SessionCard({ session, className }: SessionCardProps) {
             onClick={toggleStar}
             disabled={pending}
             className={cn(
-              "p-0.5 rounded transition-colors hover:text-amber-500",
-              starred ? "text-amber-500" : "text-muted-foreground/40",
+              "flex items-center justify-center h-8 w-8 -mr-1.5 rounded-md transition-colors hover:bg-accent",
+              starred
+                ? "text-amber-500"
+                : "text-muted-foreground/40 hover:text-amber-500/70",
             )}
             aria-label={starred ? "Unstar session" : "Star session"}
           >
             <Star
-              className="h-3.5 w-3.5"
+              className="h-4 w-4"
               fill={starred ? "currentColor" : "none"}
             />
           </button>
