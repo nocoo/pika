@@ -82,7 +82,7 @@ function LoginSkeleton() {
 function Barcode() {
   const bars = [2, 1, 3, 1, 2, 1, 1, 3, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 2, 1];
   return (
-    <div className="flex items-stretch gap-[1.5px] h-full">
+    <div className="flex items-stretch gap-[1.5px] h-full" aria-hidden="true">
       {bars.map((w, i) => (
         <div
           key={i}
