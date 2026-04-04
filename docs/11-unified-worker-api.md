@@ -136,18 +136,20 @@ async function hashApiKey(key: string): Promise<string> {
 | `/tags` | POST | Create tag | New | `api/tags/route.ts` POST |
 | `/tags/:id` | PATCH | Update tag | New | `api/tags/[tagId]/route.ts` PATCH |
 | `/tags/:id` | DELETE | Delete tag | New | `api/tags/[tagId]/route.ts` DELETE |
+| `/auth/cli-key` | POST | Generate CLI API key | New | `api/auth/cli/route.ts` (key gen only) |
+| `/ingest/presign` | POST | Presign R2 upload URL | New | `api/ingest/presign/route.ts` |
+| `/ingest/confirm-raw` | POST | Confirm raw upload | New | `api/ingest/confirm-raw/route.ts` |
 
 ### Auth-related Routes (remain in Next.js)
 
-These routes depend on NextAuth session cookies and must stay in Next.js:
+These routes depend on NextAuth session cookies and cannot move to Worker:
 
 | Route | Method | Purpose | Reason |
 |-------|--------|---------|--------|
-| `/api/auth/cli` | GET | CLI login flow | Requires NextAuth session + cookie redirect |
+| `/api/auth/cli` | GET | CLI login redirect flow | Requires NextAuth session cookie + browser redirect |
 | `/api/auth/[...nextauth]` | ALL | NextAuth handlers | Core auth, cannot move |
-| `/api/live` | GET | Health check | Checks both Next.js and D1 connectivity |
-| `/api/ingest/presign` | POST | Presign R2 upload URL | Could migrate, but low priority |
-| `/api/ingest/confirm-raw` | POST | Confirm raw upload | Could migrate, but low priority |
+
+**Note**: `/api/auth/cli` handles the browser OAuth flow and redirect. After successful auth, it will call Worker `/auth/cli-key` to generate the API key. The key generation logic moves to Worker; the OAuth redirect stays in Next.js.
 
 ## Implementation Plan
 
@@ -179,6 +181,35 @@ async function handleListSessions(
 - Add star/trash/tag mutation handlers
 - Add batch operations handler
 - Add tag CRUD handlers
+- Add `/auth/cli-key` endpoint for API key generation:
+
+```typescript
+/**
+ * POST /auth/cli-key — Generate a new CLI API key for authenticated user.
+ * 
+ * Called by Next.js /api/auth/cli after OAuth flow completes.
+ * Generates fresh key, stores hash in users.api_key, returns plaintext key.
+ */
+async function handleCliKeyGeneration(userId: string, env: Env): Promise<Response> {
+  // Generate pk_ + 32 hex chars
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+  const apiKey = `pk_${hex}`;
+  
+  // Hash for storage
+  const hashedKey = await hashApiKey(apiKey);
+  
+  // Store in users.api_key (existing column)
+  await env.DB.prepare("UPDATE users SET api_key = ? WHERE id = ?")
+    .bind(hashedKey, userId)
+    .run();
+  
+  // Return plaintext key (shown once to user)
+  return Response.json({ apiKey });
+}
+```
+
+- Add `/ingest/presign` and `/ingest/confirm-raw` endpoints
 
 ### Phase 3: API Key Auth
 
@@ -226,9 +257,9 @@ export class WorkerClient {
 
 ### Phase 5: Cleanup
 
-**Prerequisites**: All routes that use `getD1Client()` must be migrated first, including:
-- `/api/auth/cli` → migrate to Worker `/auth/cli-key` (key generation only)
-- `/api/live` → keep D1 health check via Worker `/live` (already exists)
+**Prerequisites**: All routes that use `getD1Client()` must be migrated first:
+- `/api/auth/cli` → refactor to call Worker `/auth/cli-key` for key generation (OAuth flow stays in Next.js)
+- `/api/live` → Next.js health check can call Worker `/live` (already exists)
 - `/api/ingest/presign` → migrate to Worker `/ingest/presign`
 - `/api/ingest/confirm-raw` → migrate to Worker `/ingest/confirm-raw`
 
@@ -287,13 +318,21 @@ export default {
     // Write routes
     if (request.method === "POST") {
       if (url.pathname === "/ingest/sessions") {
-        return handleSessionIngest(await request.json(), env);
+        // SECURITY: Always override body.userId with authenticated user
+        // to prevent impersonation via forged payload
+        const payload = await request.json();
+        payload.userId = auth.userId;
+        return handleSessionIngest(payload, env);
       }
       if (url.pathname === "/tags") {
         return handleCreateTag(auth.userId, await request.json(), env);
       }
       if (url.pathname === "/sessions/batch") {
         return handleBatchOperation(auth.userId, await request.json(), env);
+      }
+      if (url.pathname === "/auth/cli-key") {
+        // Generate API key for authenticated user, store hash in users.api_key
+        return handleCliKeyGeneration(auth.userId, env);
       }
     }
     
@@ -442,10 +481,10 @@ if (auth.source === "api_key") {
 - [ ] `packages/web/src/lib/worker-client.ts`
 
 ### Files to Update (migrate to Worker before Phase 5)
-- [ ] `packages/web/src/app/api/auth/cli/route.ts` — migrate key generation to Worker
-- [ ] `packages/web/src/app/api/live/route.ts` — use Worker `/live` instead of D1 direct
-- [ ] `packages/web/src/app/api/ingest/presign/route.ts` — migrate to Worker
-- [ ] `packages/web/src/app/api/ingest/confirm-raw/route.ts` — migrate to Worker
+- [ ] `packages/web/src/app/api/auth/cli/route.ts` — refactor to call Worker `/auth/cli-key` for key gen
+- [ ] `packages/web/src/app/api/live/route.ts` — call Worker `/live` instead of D1 direct
+- [ ] `packages/web/src/app/api/ingest/presign/route.ts` — migrate to Worker `/ingest/presign`
+- [ ] `packages/web/src/app/api/ingest/confirm-raw/route.ts` — migrate to Worker `/ingest/confirm-raw`
 
 ### Files to Delete (only after ALL D1 consumers migrated)
 - [ ] `packages/web/src/lib/d1.ts`
