@@ -501,7 +501,7 @@ if (auth.source === "api_key") {
 - [x] `packages/worker/src/routes/tags.ts`
 - [x] `packages/worker/src/auth.ts` — reuse `hashApiKey` from `cli-auth.ts`
 - [ ] `packages/worker/src/cache.ts`
-- [ ] `packages/web/src/lib/worker-client.ts`
+- [x] `packages/web/src/lib/worker-client.ts`
 
 ### Files to Update (migrate to Worker before Phase 5)
 - [ ] `packages/web/src/app/api/auth/cli/route.ts` — refactor to call Worker `/auth/cli-key` for key gen
