@@ -187,10 +187,25 @@ async function handleListSessions(
 /**
  * POST /auth/cli-key — Generate a new CLI API key for authenticated user.
  * 
+ * ⚠️ INTERNAL ONLY: Must be called with auth.source === "internal" (WORKER_SECRET).
+ * Rejects API key callers to prevent existing key holders from minting new keys.
+ * 
  * Called by Next.js /api/auth/cli after OAuth flow completes.
  * Generates fresh key, stores hash in users.api_key, returns plaintext key.
  */
-async function handleCliKeyGeneration(userId: string, env: Env): Promise<Response> {
+async function handleCliKeyGeneration(
+  userId: string,
+  authSource: "internal" | "api_key",
+  env: Env
+): Promise<Response> {
+  // Only allow internal calls (Next.js via WORKER_SECRET)
+  if (authSource !== "internal") {
+    return Response.json(
+      { error: "Forbidden: this endpoint is internal only" },
+      { status: 403 }
+    );
+  }
+
   // Generate pk_ + 32 hex chars
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
@@ -200,9 +215,17 @@ async function handleCliKeyGeneration(userId: string, env: Env): Promise<Respons
   const hashedKey = await hashApiKey(apiKey);
   
   // Store in users.api_key (existing column)
-  await env.DB.prepare("UPDATE users SET api_key = ? WHERE id = ?")
+  const result = await env.DB.prepare("UPDATE users SET api_key = ?, updated_at = datetime('now') WHERE id = ?")
     .bind(hashedKey, userId)
     .run();
+  
+  // Verify update succeeded (user exists)
+  if (result.meta.changes === 0) {
+    return Response.json(
+      { error: `User ${userId} not found. OAuth sign-in may not have persisted the user row.` },
+      { status: 404 }
+    );
+  }
   
   // Return plaintext key (shown once to user)
   return Response.json({ apiKey });
@@ -221,7 +244,7 @@ async function handleCliKeyGeneration(userId: string, env: Env): Promise<Respons
 
 - Create `lib/worker-client.ts` — HTTP client for worker
 - Replace `getD1Client()` calls with worker client
-- Remove `lib/d1.ts` and D1 HTTP API env vars
+- **Do NOT delete `lib/d1.ts` yet** — wait for Phase 5
 
 ```typescript
 // lib/worker-client.ts
@@ -331,8 +354,8 @@ export default {
         return handleBatchOperation(auth.userId, await request.json(), env);
       }
       if (url.pathname === "/auth/cli-key") {
-        // Generate API key for authenticated user, store hash in users.api_key
-        return handleCliKeyGeneration(auth.userId, env);
+        // INTERNAL ONLY: Generate API key, reject api_key callers
+        return handleCliKeyGeneration(auth.userId, auth.source, env);
       }
     }
     
