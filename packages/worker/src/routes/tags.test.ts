@@ -1,0 +1,394 @@
+/**
+ * Worker tags route handlers tests.
+ */
+
+import { describe, expect, it, vi } from "vitest";
+import type { Env } from "../index";
+import {
+  handleAddSessionTag,
+  handleCreateTag,
+  handleDeleteTag,
+  handleGetSessionTags,
+  handleListTags,
+  handleRemoveSessionTag,
+  handleUpdateTag,
+} from "./tags";
+
+// ── Mock helpers ───────────────────────────────────────────────
+
+function mockD1(opts?: {
+  results?: unknown[];
+  firstResult?: unknown;
+  runMeta?: { changes: number };
+  throwError?: Error;
+}): D1Database {
+  const {
+    results = [],
+    firstResult = null,
+    runMeta = { changes: 1 },
+    throwError,
+  } = opts ?? {};
+
+  const preparedStmt = {
+    bind: vi.fn().mockReturnThis(),
+    all: vi.fn().mockResolvedValue({ results }),
+    first: vi.fn().mockResolvedValue(firstResult),
+    run: throwError
+      ? vi.fn().mockRejectedValue(throwError)
+      : vi.fn().mockResolvedValue({ meta: runMeta }),
+  };
+
+  return {
+    prepare: vi.fn().mockReturnValue(preparedStmt),
+    batch: vi.fn().mockResolvedValue(results.map((r) => ({ results: [r] }))),
+  } as unknown as D1Database;
+}
+
+function mockEnv(dbOpts?: Parameters<typeof mockD1>[0]): Env {
+  return {
+    DB: mockD1(dbOpts),
+    BUCKET: {} as R2Bucket,
+    WORKER_SECRET: "test-secret",
+  };
+}
+
+// ── handleListTags tests ───────────────────────────────────────
+
+describe("handleListTags", () => {
+  it("returns all tags for user", async () => {
+    const tags = [
+      { id: "t1", name: "bug", color: "#ff0000" },
+      { id: "t2", name: "feature", color: "#00ff00" },
+    ];
+    const env = mockEnv({ results: tags });
+
+    const res = await handleListTags("user-1", env);
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.tags).toEqual(tags);
+  });
+});
+
+// ── handleCreateTag tests ──────────────────────────────────────
+
+describe("handleCreateTag", () => {
+  it("creates a tag with name only", async () => {
+    const env = mockEnv();
+
+    const res = await handleCreateTag("user-1", { name: "new-tag" }, env);
+
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.name).toBe("new-tag");
+    expect(body.color).toBeNull();
+    expect(body.id).toBeDefined();
+  });
+
+  it("creates a tag with name and color", async () => {
+    const env = mockEnv();
+
+    const res = await handleCreateTag(
+      "user-1",
+      { name: "colored", color: "#ff6b6b" },
+      env,
+    );
+
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.name).toBe("colored");
+    expect(body.color).toBe("#ff6b6b");
+  });
+
+  it("returns 400 for missing name", async () => {
+    const env = mockEnv();
+
+    const res = await handleCreateTag("user-1", { color: "#ff0000" }, env);
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.errors).toBeDefined();
+    expect(body.errors[0].field).toBe("name");
+  });
+
+  it("returns 400 for empty name", async () => {
+    const env = mockEnv();
+
+    const res = await handleCreateTag("user-1", { name: "   " }, env);
+
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 for name too long", async () => {
+    const env = mockEnv();
+    const longName = "a".repeat(51);
+
+    const res = await handleCreateTag("user-1", { name: longName }, env);
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.errors[0].message).toContain("50 characters");
+  });
+
+  it("returns 400 for invalid color format", async () => {
+    const env = mockEnv();
+
+    const res = await handleCreateTag(
+      "user-1",
+      { name: "test", color: "red" },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.errors[0].field).toBe("color");
+  });
+
+  it("returns 409 for duplicate tag name", async () => {
+    const env = mockEnv({
+      throwError: new Error("UNIQUE constraint failed"),
+    });
+
+    const res = await handleCreateTag("user-1", { name: "existing" }, env);
+
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toContain("already exists");
+  });
+
+  it("returns 400 for invalid request body", async () => {
+    const env = mockEnv();
+
+    const res = await handleCreateTag("user-1", null, env);
+
+    expect(res.status).toBe(400);
+  });
+});
+
+// ── handleUpdateTag tests ──────────────────────────────────────
+
+describe("handleUpdateTag", () => {
+  it("updates tag name", async () => {
+    const env = mockEnv({ runMeta: { changes: 1 } });
+
+    const res = await handleUpdateTag(
+      "user-1",
+      "tag-1",
+      { name: "updated" },
+      env,
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.updated).toBe(true);
+  });
+
+  it("updates tag color", async () => {
+    const env = mockEnv({ runMeta: { changes: 1 } });
+
+    const res = await handleUpdateTag(
+      "user-1",
+      "tag-1",
+      { color: "#0000ff" },
+      env,
+    );
+
+    expect(res.status).toBe(200);
+  });
+
+  it("clears tag color with null", async () => {
+    const env = mockEnv({ runMeta: { changes: 1 } });
+
+    const res = await handleUpdateTag("user-1", "tag-1", { color: null }, env);
+
+    expect(res.status).toBe(200);
+  });
+
+  it("returns 400 for no fields provided", async () => {
+    const env = mockEnv();
+
+    const res = await handleUpdateTag("user-1", "tag-1", {}, env);
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.errors[0].message).toContain("At least one field");
+  });
+
+  it("returns 404 when tag not found", async () => {
+    const env = mockEnv({ runMeta: { changes: 0 } });
+
+    const res = await handleUpdateTag(
+      "user-1",
+      "nonexistent",
+      { name: "new" },
+      env,
+    );
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 400 for invalid body", async () => {
+    const env = mockEnv();
+
+    const res = await handleUpdateTag("user-1", "tag-1", null, env);
+
+    expect(res.status).toBe(400);
+  });
+});
+
+// ── handleDeleteTag tests ──────────────────────────────────────
+
+describe("handleDeleteTag", () => {
+  it("deletes a tag", async () => {
+    const env = mockEnv({ runMeta: { changes: 1 } });
+
+    const res = await handleDeleteTag("user-1", "tag-1", env);
+
+    expect(res.status).toBe(204);
+  });
+
+  it("returns 404 when tag not found", async () => {
+    const env = mockEnv({ runMeta: { changes: 0 } });
+
+    const res = await handleDeleteTag("user-1", "nonexistent", env);
+
+    expect(res.status).toBe(404);
+  });
+});
+
+// ── handleGetSessionTags tests ─────────────────────────────────
+
+describe("handleGetSessionTags", () => {
+  it("returns tags for a session", async () => {
+    const tags = [
+      { id: "t1", name: "bug" },
+      { id: "t2", name: "high-priority" },
+    ];
+    const env = mockEnv({
+      firstResult: { id: "sess-1" }, // session lookup
+      results: tags, // tags query
+    });
+
+    // Mock needs to return session first, then tags
+    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const firstPrepare = db.prepare();
+    firstPrepare.first.mockResolvedValueOnce({ id: "sess-1" });
+    firstPrepare.all.mockResolvedValueOnce({ results: tags });
+
+    const res = await handleGetSessionTags("user-1", "sess-1", env);
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.tags).toBeDefined();
+  });
+
+  it("returns 404 when session not found", async () => {
+    const env = mockEnv({ firstResult: null });
+
+    const res = await handleGetSessionTags("user-1", "nonexistent", env);
+
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toContain("Session not found");
+  });
+});
+
+// ── handleAddSessionTag tests ──────────────────────────────────
+
+describe("handleAddSessionTag", () => {
+  it("adds a tag to a session", async () => {
+    const db = mockD1({
+      firstResult: { id: "sess-1" },
+    });
+    // Override to return different results for session and tag lookups
+    const prepare = db.prepare as ReturnType<typeof vi.fn>;
+    prepare.mockImplementation(() => ({
+      bind: vi.fn().mockReturnThis(),
+      first: vi
+        .fn()
+        .mockResolvedValueOnce({ id: "sess-1" })
+        .mockResolvedValueOnce({ id: "tag-1" }),
+      run: vi.fn().mockResolvedValue({ meta: { changes: 1 } }),
+    }));
+    const env = { DB: db, BUCKET: {} as R2Bucket, WORKER_SECRET: "test" };
+
+    const res = await handleAddSessionTag(
+      "user-1",
+      "sess-1",
+      { tagId: "tag-1" },
+      env,
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.added).toBe(true);
+  });
+
+  it("returns 400 for missing tagId", async () => {
+    const env = mockEnv();
+
+    const res = await handleAddSessionTag("user-1", "sess-1", {}, env);
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("tagId is required");
+  });
+
+  it("returns 404 when session not found", async () => {
+    const env = mockEnv({ firstResult: null });
+
+    const res = await handleAddSessionTag(
+      "user-1",
+      "nonexistent",
+      { tagId: "tag-1" },
+      env,
+    );
+
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toContain("Session not found");
+  });
+
+  it("returns 400 for invalid body", async () => {
+    const env = mockEnv();
+
+    const res = await handleAddSessionTag("user-1", "sess-1", null, env);
+
+    expect(res.status).toBe(400);
+  });
+});
+
+// ── handleRemoveSessionTag tests ───────────────────────────────
+
+describe("handleRemoveSessionTag", () => {
+  it("removes a tag from a session", async () => {
+    const env = mockEnv({ runMeta: { changes: 1 } });
+
+    const res = await handleRemoveSessionTag(
+      "user-1",
+      "sess-1",
+      { tagId: "tag-1" },
+      env,
+    );
+
+    expect(res.status).toBe(204);
+  });
+
+  it("returns 400 for missing tagId", async () => {
+    const env = mockEnv();
+
+    const res = await handleRemoveSessionTag("user-1", "sess-1", {}, env);
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("tagId is required");
+  });
+
+  it("returns 400 for invalid body", async () => {
+    const env = mockEnv();
+
+    const res = await handleRemoveSessionTag("user-1", "sess-1", null, env);
+
+    expect(res.status).toBe(400);
+  });
+});

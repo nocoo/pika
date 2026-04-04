@@ -12,7 +12,30 @@
  * - PUT  /ingest/content/:sessionKey/raw — raw content upload
  * - GET  /content/:key — read content from R2 (decompressed)
  *
- * Auth: shared secret (WORKER_SECRET) via Authorization: Bearer header.
+ * Read Routes (new):
+ * - GET  /sessions — list sessions with filters
+ * - GET  /sessions/:id — get session detail
+ * - GET  /sessions/:id/content — get session content
+ * - GET  /sessions/:id/tags — list tags for session
+ * - GET  /sessions/filters — available filter values
+ * - GET  /projects — list projects
+ * - GET  /projects/activity — activity heatmap
+ * - GET  /search — FTS search
+ * - GET  /stats — dashboard stats
+ * - GET  /tags — list tags
+ *
+ * Write Routes (new):
+ * - PATCH /sessions/:id/star — set star status
+ * - PATCH /sessions/:id/trash — soft delete/restore
+ * - PUT   /sessions/:id/tags — add tag to session
+ * - DELETE /sessions/:id/tags — remove tag from session
+ * - POST  /sessions/batch — batch operations
+ * - POST  /tags — create tag
+ * - PATCH /tags/:id — update tag
+ * - DELETE /tags/:id — delete tag
+ * - POST  /auth/cli-key — generate CLI API key (internal only)
+ *
+ * Auth: WORKER_SECRET (internal) or pk_... API key (CLI direct).
  * Limit: max 50 sessions per request (METADATA_BATCH_SIZE).
  */
 
@@ -24,6 +47,31 @@ import {
   PIKA_VERSION,
   validateSessionSnapshot,
 } from "@pika/core";
+import { hashApiKey, validateAuth } from "./auth.js";
+import {
+  handleListProjects,
+  handleProjectActivity,
+} from "./routes/projects.js";
+import { handleSearch } from "./routes/search.js";
+import {
+  handleBatchOperation,
+  handleFilters,
+  handleGetSession,
+  handleGetSessionContent,
+  handleListSessions,
+  handleSetStar,
+  handleTrashSession,
+} from "./routes/sessions.js";
+import { handleStats } from "./routes/stats.js";
+import {
+  handleAddSessionTag,
+  handleCreateTag,
+  handleDeleteTag,
+  handleGetSessionTags,
+  handleListTags,
+  handleRemoveSessionTag,
+  handleUpdateTag,
+} from "./routes/tags.js";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -41,17 +89,6 @@ export interface IngestSessionPayload {
 export interface ValidationResult {
   valid: boolean;
   errors: string[];
-}
-
-// ── Auth ───────────────────────────────────────────────────────
-
-export function validateWorkerAuth(
-  request: Request,
-  expectedSecret: string,
-): boolean {
-  const auth = request.headers.get("Authorization");
-  if (!auth) return false;
-  return auth === `Bearer ${expectedSecret}`;
 }
 
 // ── Request validation ─────────────────────────────────────────
@@ -783,6 +820,79 @@ async function handleContentRead(
   });
 }
 
+// ── CLI Key Generation ────────────────────────────────────────────
+
+/**
+ * POST /auth/cli-key — Generate a new CLI API key for authenticated user.
+ *
+ * ⚠️ INTERNAL ONLY: Must be called with auth.source === "internal" (WORKER_SECRET).
+ * Rejects API key callers to prevent existing key holders from minting new keys.
+ *
+ * Called by Next.js /api/auth/cli after OAuth flow completes.
+ * Generates fresh key, stores hash in users.api_key, returns plaintext key.
+ */
+async function handleCliKeyGeneration(
+  userId: string,
+  authSource: "internal" | "api_key",
+  env: Env,
+): Promise<Response> {
+  // Only allow internal calls (Next.js via WORKER_SECRET)
+  if (authSource !== "internal") {
+    return Response.json(
+      { error: "Forbidden: this endpoint is internal only" },
+      { status: 403 },
+    );
+  }
+
+  // Generate pk_ + 32 hex chars
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  const hex = Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  const apiKey = `pk_${hex}`;
+
+  // Hash for storage
+  const hashedKey = await hashApiKey(apiKey);
+
+  // Store in users.api_key (existing column)
+  const result = await env.DB.prepare(
+    "UPDATE users SET api_key = ?, updated_at = datetime('now') WHERE id = ?",
+  )
+    .bind(hashedKey, userId)
+    .run();
+
+  // Verify update succeeded (user exists)
+  if (result.meta.changes === 0) {
+    return Response.json(
+      {
+        error: `User ${userId} not found. OAuth sign-in may not have persisted the user row.`,
+      },
+      { status: 404 },
+    );
+  }
+
+  // Return plaintext key (shown once to user)
+  return Response.json({ apiKey });
+}
+
+// ── Path extraction helpers ───────────────────────────────────────
+
+/**
+ * Extract session ID from /sessions/:id or /sessions/:id/...
+ */
+function extractSessionId(pathname: string): string {
+  const match = pathname.match(/^\/sessions\/([^/]+)/);
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
+/**
+ * Extract tag ID from /tags/:id
+ */
+function extractTagId(pathname: string): string {
+  const match = pathname.match(/^\/tags\/([^/]+)$/);
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -792,75 +902,231 @@ export default {
       return handleLive(env);
     }
 
-    // 1. Shared secret auth (all remaining routes)
-    if (!validateWorkerAuth(request, env.WORKER_SECRET)) {
+    // 1. Auth check — accepts WORKER_SECRET or pk_... API key
+    const auth = await validateAuth(request, env.WORKER_SECRET, env.DB);
+    if (!auth.valid) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 2. POST /ingest/sessions — metadata upsert
-    if (request.method === "POST" && url.pathname === "/ingest/sessions") {
-      const userId = request.headers.get("X-User-Id");
-      if (!userId) {
-        return Response.json(
-          { error: "Missing X-User-Id header" },
-          { status: 400 },
+    const { userId, source: authSource } = auth;
+
+    // ── GET Routes ────────────────────────────────────────────────
+
+    if (request.method === "GET") {
+      // /sessions — list sessions with filters
+      if (url.pathname === "/sessions") {
+        return handleListSessions(userId, url.searchParams, env);
+      }
+
+      // /sessions/filters — available filter values
+      if (url.pathname === "/sessions/filters") {
+        return handleFilters(userId, env);
+      }
+
+      // /sessions/:id/content — get session content
+      if (url.pathname.match(/^\/sessions\/[^/]+\/content$/)) {
+        return handleGetSessionContent(
+          userId,
+          extractSessionId(url.pathname),
+          env,
         );
       }
 
-      let body: unknown;
-      try {
-        body = await request.json();
-      } catch {
-        return Response.json({ error: "Invalid JSON body" }, { status: 400 });
-      }
-
-      // Override body userId with authenticated header value (CLI may send deviceId)
-      const payload = body as IngestSessionPayload;
-      payload.userId = userId;
-      return handleSessionIngest(payload, env);
-    }
-
-    // 3. GET /content/* — read content from R2
-    if (request.method === "GET" && url.pathname.startsWith("/content/")) {
-      const userId = request.headers.get("X-User-Id");
-      if (!userId) {
-        return Response.json(
-          { error: "Missing X-User-Id header" },
-          { status: 400 },
+      // /sessions/:id/tags — list tags for session
+      if (url.pathname.match(/^\/sessions\/[^/]+\/tags$/)) {
+        return handleGetSessionTags(
+          userId,
+          extractSessionId(url.pathname),
+          env,
         );
       }
-      const key = decodeURIComponent(url.pathname.slice("/content/".length));
-      return handleContentRead(key, userId, env);
+
+      // /sessions/:id — get session detail
+      if (url.pathname.match(/^\/sessions\/[^/]+$/)) {
+        return handleGetSession(userId, extractSessionId(url.pathname), env);
+      }
+
+      // /projects/activity — activity heatmap
+      if (url.pathname === "/projects/activity") {
+        return handleProjectActivity(userId, url.searchParams, env);
+      }
+
+      // /projects — list projects
+      if (url.pathname === "/projects") {
+        return handleListProjects(userId, url.searchParams, env);
+      }
+
+      // /search — FTS search
+      if (url.pathname === "/search") {
+        return handleSearch(userId, url.searchParams, env);
+      }
+
+      // /stats — dashboard stats
+      if (url.pathname === "/stats") {
+        return handleStats(userId, env);
+      }
+
+      // /tags — list tags
+      if (url.pathname === "/tags") {
+        return handleListTags(userId, env);
+      }
+
+      // /content/:key — read content from R2
+      if (url.pathname.startsWith("/content/")) {
+        const key = decodeURIComponent(url.pathname.slice("/content/".length));
+        return handleContentRead(key, userId, env);
+      }
     }
 
-    // 4. PUT /ingest/content/:sessionKey/:type — content upload
+    // ── POST Routes ───────────────────────────────────────────────
+
+    if (request.method === "POST") {
+      // /ingest/sessions — metadata upsert
+      if (url.pathname === "/ingest/sessions") {
+        let body: unknown;
+        try {
+          body = await request.json();
+        } catch {
+          return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+        }
+
+        // SECURITY: Always override body.userId with authenticated user
+        // to prevent impersonation via forged payload
+        const payload = body as IngestSessionPayload;
+        payload.userId = userId;
+        return handleSessionIngest(payload, env);
+      }
+
+      // /sessions/batch — batch operations
+      if (url.pathname === "/sessions/batch") {
+        let body: unknown;
+        try {
+          body = await request.json();
+        } catch {
+          return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+        }
+        return handleBatchOperation(userId, body, env);
+      }
+
+      // /tags — create tag
+      if (url.pathname === "/tags") {
+        let body: unknown;
+        try {
+          body = await request.json();
+        } catch {
+          return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+        }
+        return handleCreateTag(userId, body, env);
+      }
+
+      // /auth/cli-key — generate CLI API key (internal only)
+      if (url.pathname === "/auth/cli-key") {
+        return handleCliKeyGeneration(userId, authSource, env);
+      }
+    }
+
+    // ── PUT Routes ────────────────────────────────────────────────
+
     if (request.method === "PUT") {
-      const parsed = parseContentPath(url.pathname);
-      if (parsed) {
-        const userId = request.headers.get("X-User-Id");
-        if (!userId) {
-          return Response.json(
-            { error: "Missing X-User-Id header" },
-            { status: 400 },
+      // /ingest/content/:sessionKey/:type — content upload
+      const contentParsed = parseContentPath(url.pathname);
+      if (contentParsed) {
+        if (contentParsed.type === "canonical") {
+          return handleCanonicalUpload(
+            contentParsed.sessionKey,
+            userId,
+            request,
+            env,
           );
         }
+        return handleRawUpload(contentParsed.sessionKey, userId, request, env);
+      }
 
-        if (parsed.type === "canonical") {
-          return handleCanonicalUpload(parsed.sessionKey, userId, request, env);
+      // /sessions/:id/tags — add tag to session
+      if (url.pathname.match(/^\/sessions\/[^/]+\/tags$/)) {
+        let body: unknown;
+        try {
+          body = await request.json();
+        } catch {
+          return Response.json({ error: "Invalid JSON body" }, { status: 400 });
         }
-        return handleRawUpload(parsed.sessionKey, userId, request, env);
+        return handleAddSessionTag(
+          userId,
+          extractSessionId(url.pathname),
+          body,
+          env,
+        );
       }
     }
 
-    // 4. Method not allowed for known paths
-    if (url.pathname === "/ingest/sessions" && request.method !== "POST") {
-      return Response.json({ error: "Method not allowed" }, { status: 405 });
+    // ── PATCH Routes ──────────────────────────────────────────────
+
+    if (request.method === "PATCH") {
+      // /sessions/:id/star — set star status
+      if (url.pathname.match(/^\/sessions\/[^/]+\/star$/)) {
+        let body: unknown;
+        try {
+          body = await request.json();
+        } catch {
+          return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+        }
+        return handleSetStar(userId, extractSessionId(url.pathname), body, env);
+      }
+
+      // /sessions/:id/trash — soft delete/restore
+      if (url.pathname.match(/^\/sessions\/[^/]+\/trash$/)) {
+        let body: unknown;
+        try {
+          body = await request.json();
+        } catch {
+          return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+        }
+        return handleTrashSession(
+          userId,
+          extractSessionId(url.pathname),
+          body,
+          env,
+        );
+      }
+
+      // /tags/:id — update tag
+      if (url.pathname.match(/^\/tags\/[^/]+$/)) {
+        let body: unknown;
+        try {
+          body = await request.json();
+        } catch {
+          return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+        }
+        return handleUpdateTag(userId, extractTagId(url.pathname), body, env);
+      }
     }
 
-    const contentParsed = parseContentPath(url.pathname);
-    if (contentParsed && request.method !== "PUT") {
-      return Response.json({ error: "Method not allowed" }, { status: 405 });
+    // ── DELETE Routes ─────────────────────────────────────────────
+
+    if (request.method === "DELETE") {
+      // /sessions/:id/tags — remove tag from session
+      if (url.pathname.match(/^\/sessions\/[^/]+\/tags$/)) {
+        let body: unknown;
+        try {
+          body = await request.json();
+        } catch {
+          return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+        }
+        return handleRemoveSessionTag(
+          userId,
+          extractSessionId(url.pathname),
+          body,
+          env,
+        );
+      }
+
+      // /tags/:id — delete tag
+      if (url.pathname.match(/^\/tags\/[^/]+$/)) {
+        return handleDeleteTag(userId, extractTagId(url.pathname), env);
+      }
     }
+
+    // ── 404 Not Found ─────────────────────────────────────────────
 
     return Response.json({ error: "Not found" }, { status: 404 });
   },

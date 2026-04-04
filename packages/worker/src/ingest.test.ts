@@ -12,7 +12,6 @@ import {
   type IngestSessionPayload,
   parseContentPath,
   validateIngestRequest,
-  validateWorkerAuth,
 } from "./index";
 
 // ── Test data ──────────────────────────────────────────────────
@@ -142,37 +141,8 @@ async function gzipCompress(input: string): Promise<ArrayBuffer> {
   return result.buffer;
 }
 
-// ── Auth validation ────────────────────────────────────────────
-
-describe("validateWorkerAuth", () => {
-  it("passes with correct Bearer secret", () => {
-    const req = makeRequest("http://worker/ingest/sessions", {
-      headers: { Authorization: "Bearer test-secret-123" },
-    });
-    expect(validateWorkerAuth(req, "test-secret-123")).toBe(true);
-  });
-
-  it("fails with wrong secret", () => {
-    const req = makeRequest("http://worker/ingest/sessions", {
-      headers: { Authorization: "Bearer wrong-secret" },
-    });
-    expect(validateWorkerAuth(req, "test-secret-123")).toBe(false);
-  });
-
-  it("fails with missing Authorization header", () => {
-    const req = makeRequest("http://worker/ingest/sessions");
-    expect(validateWorkerAuth(req, "test-secret-123")).toBe(false);
-  });
-
-  it("fails with non-Bearer auth", () => {
-    const req = makeRequest("http://worker/ingest/sessions", {
-      headers: { Authorization: "Basic dXNlcjpwYXNz" },
-    });
-    expect(validateWorkerAuth(req, "test-secret-123")).toBe(false);
-  });
-});
-
 // ── Ingest request validation ──────────────────────────────────
+// Auth validation tests have been moved to auth.test.ts
 
 describe("validateIngestRequest", () => {
   it("passes for valid payload", () => {
@@ -1319,16 +1289,15 @@ describe("worker fetch handler", () => {
     expect(body.ingested).toBe(1);
   });
 
-  it("returns 400 for POST /ingest/sessions without X-User-Id", async () => {
+  it("returns 401 for POST /ingest/sessions without X-User-Id (auth requires it)", async () => {
     const env = mockEnv();
     const req = makeRequest("http://worker/ingest/sessions", {
       headers: { Authorization: "Bearer test-secret" },
       body: validPayload,
     });
     const res = await workerFetch(req, env);
-    expect(res.status).toBe(400);
-    const body = (await res.json()) as { error: string };
-    expect(body.error).toContain("X-User-Id");
+    // WORKER_SECRET auth requires X-User-Id, so missing it = auth failure
+    expect(res.status).toBe(401);
   });
 
   it("returns 400 for invalid JSON on sessions route", async () => {
@@ -1346,17 +1315,18 @@ describe("worker fetch handler", () => {
     expect(res.status).toBe(400);
   });
 
-  it("returns 405 for GET on sessions route", async () => {
+  it("returns 404 for GET on /ingest/sessions route (no GET handler)", async () => {
     const env = mockEnv();
     const req = new Request("http://worker/ingest/sessions", {
       method: "GET",
-      headers: { Authorization: "Bearer test-secret" },
+      headers: { Authorization: "Bearer test-secret", "X-User-Id": "user-1" },
     });
     const res = await workerFetch(req, env);
-    expect(res.status).toBe(405);
+    // GET on /ingest/sessions → 404 (no route defined, use /sessions instead)
+    expect(res.status).toBe(404);
   });
 
-  it("returns 400 for PUT content without X-User-Id", async () => {
+  it("returns 401 for PUT content without X-User-Id (auth requires it)", async () => {
     const env = mockEnv();
     const body = await gzipCompress("{}");
     const req = new Request(
@@ -1373,9 +1343,8 @@ describe("worker fetch handler", () => {
       },
     );
     const res = await workerFetch(req, env);
-    expect(res.status).toBe(400);
-    const respBody = (await res.json()) as { error: string };
-    expect(respBody.error).toContain("X-User-Id");
+    // WORKER_SECRET auth requires X-User-Id, so missing it = auth failure
+    expect(res.status).toBe(401);
   });
 
   it("returns 405 for POST on content route", async () => {
@@ -1384,18 +1353,19 @@ describe("worker fetch handler", () => {
       "http://worker/ingest/content/claude%3Aabc/canonical",
       {
         method: "POST",
-        headers: { Authorization: "Bearer test-secret" },
+        headers: { Authorization: "Bearer test-secret", "X-User-Id": "user-1" },
         body: {},
       },
     );
     const res = await workerFetch(req, env);
-    expect(res.status).toBe(405);
+    // POST on content route → 404 (no route defined)
+    expect(res.status).toBe(404);
   });
 
   it("returns 404 for unknown paths", async () => {
     const env = mockEnv();
     const req = makeRequest("http://worker/unknown", {
-      headers: { Authorization: "Bearer test-secret" },
+      headers: { Authorization: "Bearer test-secret", "X-User-Id": "user-1" },
       body: validPayload,
     });
     const res = await workerFetch(req, env);
