@@ -28,8 +28,10 @@ function SearchDialogContent({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   // Focus input when dialog content mounts
@@ -38,6 +40,58 @@ function SearchDialogContent({
     const timer = setTimeout(() => inputRef.current?.focus(), 50);
     return () => clearTimeout(timer);
   }, []);
+
+  // Reset selection when results change
+  const resultsLength = results.length;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset selection when results array changes
+  useEffect(() => {
+    setSelectedIndex(-1);
+  }, [resultsLength]);
+
+  // Keyboard navigation
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (results.length === 0) return;
+
+      switch (e.key) {
+        case "ArrowDown":
+          e.preventDefault();
+          setSelectedIndex((prev) => {
+            const next = prev < results.length - 1 ? prev + 1 : 0;
+            // Scroll selected item into view
+            const container = resultsRef.current;
+            const item = container?.querySelector(
+              `[data-result-index="${next}"]`,
+            );
+            item?.scrollIntoView({ block: "nearest" });
+            return next;
+          });
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          setSelectedIndex((prev) => {
+            const next = prev > 0 ? prev - 1 : results.length - 1;
+            const container = resultsRef.current;
+            const item = container?.querySelector(
+              `[data-result-index="${next}"]`,
+            );
+            item?.scrollIntoView({ block: "nearest" });
+            return next;
+          });
+          break;
+        case "Enter":
+          if (selectedIndex >= 0 && selectedIndex < results.length) {
+            e.preventDefault();
+            const result = results[selectedIndex];
+            if (result) {
+              onResultClick(result.session_id, result.ordinal);
+            }
+          }
+          break;
+      }
+    },
+    [results, selectedIndex, onResultClick],
+  );
 
   // ── Search execution ────────────────────────────────────────
 
@@ -85,7 +139,8 @@ function SearchDialogContent({
   }, [query, source, executeSearch]);
 
   return (
-    <div className="flex flex-col gap-4 min-h-0">
+    // biome-ignore lint/a11y/noStaticElementInteractions: keyboard navigation for combobox pattern
+    <div className="flex flex-col gap-4 min-h-0" onKeyDown={handleKeyDown}>
       {/* Search input + filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center shrink-0">
         <div className="relative flex-1">
@@ -108,6 +163,9 @@ function SearchDialogContent({
             type="search"
             placeholder="Search messages, tool calls, code..."
             aria-label="Search sessions"
+            aria-activedescendant={
+              selectedIndex >= 0 ? `search-result-${selectedIndex}` : undefined
+            }
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-10"
@@ -128,12 +186,26 @@ function SearchDialogContent({
         />
       </div>
 
-      {/* Results count */}
+      {/* Results count + keyboard hint */}
       {searched && !loading && (
-        <div className="text-xs text-muted-foreground shrink-0">
-          {total === 0
-            ? "No results found"
-            : `${total} result${total !== 1 ? "s" : ""}`}
+        <div className="flex items-center justify-between text-xs text-muted-foreground shrink-0">
+          <span>
+            {total === 0
+              ? "No results found"
+              : `${total} result${total !== 1 ? "s" : ""}`}
+          </span>
+          {results.length > 0 && (
+            <span className="hidden sm:inline">
+              <kbd className="rounded border border-border bg-secondary px-1 py-0.5 font-mono text-[10px]">
+                ↑↓
+              </kbd>{" "}
+              navigate{" "}
+              <kbd className="rounded border border-border bg-secondary px-1 py-0.5 font-mono text-[10px]">
+                ↵
+              </kbd>{" "}
+              select
+            </span>
+          )}
         </div>
       )}
 
@@ -143,7 +215,12 @@ function SearchDialogContent({
       )}
 
       {/* Scrollable results area */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div
+        ref={resultsRef}
+        className="flex-1 overflow-y-auto min-h-0"
+        role="listbox"
+        aria-label="Search results"
+      >
         {/* Loading skeleton */}
         {loading && (
           <div className="flex flex-col gap-3">
@@ -201,6 +278,9 @@ function SearchDialogContent({
                 key={`${result.session_id}-${result.message_id}-${result.chunk_index}-${i}`}
                 result={result}
                 onClick={() => onResultClick(result.session_id, result.ordinal)}
+                selected={i === selectedIndex}
+                id={`search-result-${i}`}
+                data-result-index={i}
               />
             ))}
           </div>

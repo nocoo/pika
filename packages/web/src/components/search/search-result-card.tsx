@@ -27,6 +27,12 @@ interface SearchResultCardProps {
   className?: string;
   /** When provided, renders as a button instead of a Link (used in dialog mode). */
   onClick?: () => void;
+  /** Whether this result is currently selected (keyboard navigation). */
+  selected?: boolean;
+  /** Element ID for aria-activedescendant. */
+  id?: string;
+  /** Data attribute for scroll targeting. */
+  "data-result-index"?: number;
 }
 
 // ── Shared inner content ──────────────────────────────────────
@@ -94,15 +100,27 @@ export function SearchResultCard({
   result,
   className,
   onClick,
+  selected,
+  id,
+  "data-result-index": dataResultIndex,
 }: SearchResultCardProps) {
   const cardClassName = cn(
     "flex flex-col gap-2 rounded-[var(--radius-card)] bg-card p-4 transition-colors hover:bg-accent/50 text-left w-full",
+    selected && "ring-2 ring-primary bg-accent/30",
     className,
   );
 
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={cardClassName}>
+      <button
+        type="button"
+        onClick={onClick}
+        className={cardClassName}
+        id={id}
+        role="option"
+        aria-selected={selected}
+        data-result-index={dataResultIndex}
+      >
         <SearchResultCardInner result={result} />
       </button>
     );
