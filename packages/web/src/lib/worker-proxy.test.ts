@@ -56,6 +56,27 @@ describe("resolveUserForWorker", () => {
     mockAuth.mockReset();
   });
 
+  it("returns E2E test user when E2E_SKIP_AUTH is true in development", async () => {
+    setEnv("E2E_SKIP_AUTH", "true");
+    setEnv("NODE_ENV", "development");
+
+    const request = new Request("http://localhost:7022/api/test");
+    const result = await resolveUserForWorker(request);
+
+    expect(result).toBe("e2e-test-user-id");
+  });
+
+  it("does NOT bypass in production even with E2E_SKIP_AUTH", async () => {
+    setEnv("E2E_SKIP_AUTH", "true");
+    setEnv("NODE_ENV", "production");
+    mockAuth.mockResolvedValue(null);
+
+    const request = new Request("http://localhost:7022/api/test");
+    const result = await resolveUserForWorker(request);
+
+    expect(result).toBeNull();
+  });
+
   it("returns session userId when authenticated via session", async () => {
     mockAuth.mockResolvedValue({
       user: { id: "session-user-123", email: "test@example.com" },

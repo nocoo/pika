@@ -7,27 +7,45 @@
 
 import { NextResponse } from "next/server";
 import { auth } from "./auth";
+import { E2E_TEST_USER_ID } from "./cli-auth";
 import { getWorkerClient, WorkerError } from "./worker-client";
+
+/**
+ * Check if running in E2E test mode.
+ * E2E mode bypasses auth and uses a fixed test user.
+ */
+function isE2EMode(): boolean {
+  return (
+    process.env.E2E_SKIP_AUTH === "true" &&
+    process.env.NODE_ENV === "development"
+  );
+}
 
 /**
  * Resolve the authenticated user from the request.
  *
  * Supports:
- * 1. Session auth (cookie-based, browser dashboard)
- * 2. Bearer pk_... API key (CLI uploads) - validated via Worker /auth/me
+ * 1. E2E bypass (E2E_SKIP_AUTH=true in development)
+ * 2. Session auth (cookie-based, browser dashboard)
+ * 3. Bearer pk_... API key (CLI uploads) - validated via Worker /auth/me
  *
  * Returns userId or null if not authenticated.
  */
 export async function resolveUserForWorker(
   request: Request,
 ): Promise<string | null> {
-  // 1. Session auth
+  // 1. E2E bypass
+  if (isE2EMode()) {
+    return E2E_TEST_USER_ID;
+  }
+
+  // 2. Session auth
   const session = await auth();
   if (session?.user?.id) {
     return session.user.id;
   }
 
-  // 2. API key auth - validate via Worker /auth/me
+  // 3. API key auth - validate via Worker /auth/me
   const authHeader = request.headers.get("Authorization");
   if (authHeader?.startsWith("Bearer pk_")) {
     try {
