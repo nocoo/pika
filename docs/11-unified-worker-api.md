@@ -38,13 +38,28 @@ CLI ──► Next.js API ──► Worker ──► D1/R2   (all operations)
 Next.js API (validates JWT) ──► Worker (validates WORKER_SECRET + X-User-Id)
 ```
 
-### New Auth: API Key for CLI Direct Access
+### Current CLI Auth (unchanged)
+
+CLI uses `pk_` prefixed API key stored as SHA-256 hash in `users.api_key` column:
+
+```sql
+-- Existing schema (from docs/02-database.md)
+CREATE TABLE users (
+  ...
+  api_key TEXT UNIQUE,  -- SHA-256 hash of "pk_" + 32 hex chars
+  ...
+);
+```
+
+The Worker will reuse this existing auth model — no schema migration required.
+
+### New Auth: API Key for Worker Direct Access
 
 Add API key auth to Worker, allowing CLI to call Worker directly (bypassing Next.js for performance-critical paths).
 
 ```typescript
 // Worker auth: accept either WORKER_SECRET or API key
-function validateAuth(request: Request, env: Env): AuthResult {
+async function validateAuth(request: Request, env: Env): Promise<AuthResult> {
   const auth = request.headers.get("Authorization");
   if (!auth?.startsWith("Bearer ")) {
     return { valid: false };
@@ -60,65 +75,79 @@ function validateAuth(request: Request, env: Env): AuthResult {
   }
   
   // 2. API key (pk_...) — CLI direct access
+  // Hash the key and lookup in users.api_key (same as cli-auth.ts)
   if (token.startsWith("pk_")) {
-    const userId = await lookupApiKey(token, env.DB);
-    if (!userId) return { valid: false };
-    return { valid: true, userId, source: "api_key" };
+    const hashedKey = await hashApiKey(token);
+    const user = await env.DB.prepare(
+      "SELECT id FROM users WHERE api_key = ?"
+    ).bind(hashedKey).first<{ id: string }>();
+    if (!user) return { valid: false };
+    return { valid: true, userId: user.id, source: "api_key" };
   }
   
   return { valid: false };
 }
-```
 
-### API Key Lookup
-
-```sql
--- Existing table (from NextAuth adapter)
-CREATE TABLE api_keys (
-  id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL REFERENCES users(id),
-  key_hash TEXT NOT NULL UNIQUE,  -- SHA-256 of pk_...
-  created_at TEXT NOT NULL,
-  last_used_at TEXT
-);
-
--- Worker lookup (by hash, not raw key)
-SELECT user_id FROM api_keys WHERE key_hash = ?
+// Reuse hashApiKey from packages/web/src/lib/cli-auth.ts
+async function hashApiKey(key: string): Promise<string> {
+  const data = new TextEncoder().encode(key);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 ```
 
 **Security:**
-- API keys stored as SHA-256 hash (never raw)
-- Worker computes hash on each request
+- API keys stored as SHA-256 hash in `users.api_key` (existing schema)
+- Worker computes hash on each request, same as `cli-auth.ts`
 - Rate limit by API key: 100 req/s per key
 
 ## New Worker Routes
 
 ### Read Routes (migrate from D1 direct)
 
-| Route | Method | Purpose | Current Location |
-|-------|--------|---------|------------------|
-| `/sessions` | GET | List sessions with filters | `lib/sessions.ts` |
-| `/sessions/:id` | GET | Get session detail | `lib/session-detail.ts` |
-| `/sessions/:id/content` | GET | Get session content | Already in worker |
-| `/projects` | GET | List projects | `lib/projects.ts` |
-| `/projects/activity` | GET | Activity heatmap | `lib/stats.ts` |
-| `/search` | GET | FTS search | `lib/search.ts` |
-| `/tags` | GET | List tags | `lib/tags.ts` |
-| `/stats` | GET | Dashboard stats | `lib/stats.ts` |
-| `/filters` | GET | Available filter values | `lib/sessions.ts` |
+| Route | Method | Purpose | Current Next.js Location |
+|-------|--------|---------|--------------------------|
+| `/sessions` | GET | List sessions with filters | `api/sessions/route.ts` |
+| `/sessions/:id` | GET | Get session detail | `api/sessions/[id]/route.ts` |
+| `/sessions/:id/content` | GET | Get session content (proxy to R2) | `api/sessions/[id]/content/route.ts` → Worker `/content/:key` |
+| `/projects` | GET | List projects | `api/projects/route.ts` |
+| `/projects/activity` | GET | Activity heatmap | `api/projects/activity/route.ts` |
+| `/search` | GET | FTS search | `api/search/route.ts` |
+| `/tags` | GET | List tags | `api/tags/route.ts` |
+| `/stats` | GET | Dashboard stats | `api/stats/route.ts` |
+| `/sessions/filters` | GET | Available filter values | `api/sessions/filters/route.ts` |
 
-### Write Routes (already in worker, add new)
+**Note**: `/sessions/:id/content` currently does D1 lookup first, then proxies to Worker's `/content/:key`. After migration, Worker handles both steps internally.
 
-| Route | Method | Purpose | Status |
+### Write Routes
+
+| Route | Method | Purpose | Status | Current Next.js |
+|-------|--------|---------|--------|-----------------|
+| `/ingest/sessions` | POST | Batch upsert metadata | Exists | — |
+| `/ingest/content/:key/:type` | PUT | Upload content | Exists | — |
+| `/sessions/:id/star` | PATCH | Toggle star | New | `api/sessions/[id]/star/route.ts` PATCH |
+| `/sessions/:id/tags` | GET | List session tags | New | `api/sessions/[id]/tags/route.ts` GET |
+| `/sessions/:id/tags` | PUT | Add tag to session | New | `api/sessions/[id]/tags/route.ts` PUT |
+| `/sessions/:id/tags` | DELETE | Remove tag from session | New | `api/sessions/[id]/tags/route.ts` DELETE |
+| `/sessions/:id/trash` | PATCH | Soft delete/restore | New | `api/sessions/[id]/trash/route.ts` PATCH |
+| `/sessions/batch` | POST | Batch operations | New | `api/sessions/batch/route.ts` POST |
+| `/tags` | POST | Create tag | New | `api/tags/route.ts` POST |
+| `/tags/:id` | PATCH | Update tag | New | `api/tags/[tagId]/route.ts` PATCH |
+| `/tags/:id` | DELETE | Delete tag | New | `api/tags/[tagId]/route.ts` DELETE |
+
+### Auth-related Routes (remain in Next.js)
+
+These routes depend on NextAuth session cookies and must stay in Next.js:
+
+| Route | Method | Purpose | Reason |
 |-------|--------|---------|--------|
-| `/ingest/sessions` | POST | Batch upsert metadata | Exists |
-| `/ingest/content/:key/:type` | PUT | Upload content | Exists |
-| `/sessions/:id/star` | PATCH | Toggle star | New |
-| `/sessions/:id/tags` | PATCH | Update tags | New |
-| `/sessions/:id/trash` | DELETE | Soft delete | New |
-| `/sessions/batch` | PATCH | Batch operations | New |
-| `/tags` | POST | Create tag | New |
-| `/tags/:id` | PATCH/DELETE | Update/delete tag | New |
+| `/api/auth/cli` | GET | CLI login flow | Requires NextAuth session + cookie redirect |
+| `/api/auth/[...nextauth]` | ALL | NextAuth handlers | Core auth, cannot move |
+| `/api/live` | GET | Health check | Checks both Next.js and D1 connectivity |
+| `/api/ingest/presign` | POST | Presign R2 upload URL | Could migrate, but low priority |
+| `/api/ingest/confirm-raw` | POST | Confirm raw upload | Could migrate, but low priority |
 
 ## Implementation Plan
 
@@ -198,7 +227,8 @@ export class WorkerClient {
 ### Phase 5: Cleanup
 
 - Remove `CF_D1_*` env vars from Next.js
-- Delete `lib/d1.ts`, `lib/d1-cli-auth-db.ts`
+- Delete `lib/d1.ts` (only after all route handlers migrated)
+- Keep `lib/d1-cli-auth-db.ts` for auth routes
 - Update docs and CLAUDE.md
 
 ## Worker Route Structure
@@ -213,7 +243,7 @@ export default {
     if (url.pathname === "/live") return handleLive(env);
     
     // Auth check
-    const auth = validateAuth(request, env);
+    const auth = await validateAuth(request, env);
     if (!auth.valid) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -225,14 +255,20 @@ export default {
           return handleListSessions(auth.userId, url.searchParams, env);
         case url.pathname.match(/^\/sessions\/[^/]+$/)?.length > 0:
           return handleGetSession(auth.userId, extractId(url.pathname), env);
+        case url.pathname.match(/^\/sessions\/[^/]+\/content$/)?.length > 0:
+          return handleGetSessionContent(auth.userId, extractId(url.pathname), env);
+        case url.pathname.match(/^\/sessions\/[^/]+\/tags$/)?.length > 0:
+          return handleGetSessionTags(auth.userId, extractId(url.pathname), env);
+        case url.pathname === "/sessions/filters":
+          return handleFilters(auth.userId, env);
         case url.pathname === "/projects":
           return handleListProjects(auth.userId, url.searchParams, env);
+        case url.pathname === "/projects/activity":
+          return handleProjectActivity(auth.userId, url.searchParams, env);
         case url.pathname === "/search":
           return handleSearch(auth.userId, url.searchParams, env);
         case url.pathname === "/stats":
           return handleStats(auth.userId, env);
-        case url.pathname === "/filters":
-          return handleFilters(auth.userId, env);
         case url.pathname === "/tags":
           return handleListTags(auth.userId, env);
         case url.pathname.startsWith("/content/"):
@@ -248,6 +284,9 @@ export default {
       if (url.pathname === "/tags") {
         return handleCreateTag(auth.userId, await request.json(), env);
       }
+      if (url.pathname === "/sessions/batch") {
+        return handleBatchOperation(auth.userId, await request.json(), env);
+      }
     }
     
     if (request.method === "PUT") {
@@ -257,23 +296,31 @@ export default {
           ? handleCanonicalUpload(contentPath.sessionKey, auth.userId, request, env)
           : handleRawUpload(contentPath.sessionKey, auth.userId, request, env);
       }
+      // PUT /sessions/:id/tags — add tag
+      if (url.pathname.match(/^\/sessions\/[^/]+\/tags$/)) {
+        return handleAddSessionTag(auth.userId, extractId(url.pathname), await request.json(), env);
+      }
     }
     
     if (request.method === "PATCH") {
       if (url.pathname.match(/^\/sessions\/[^/]+\/star$/)) {
         return handleToggleStar(auth.userId, extractId(url.pathname), env);
       }
-      if (url.pathname.match(/^\/sessions\/[^/]+\/tags$/)) {
-        return handleUpdateTags(auth.userId, extractId(url.pathname), await request.json(), env);
+      if (url.pathname.match(/^\/sessions\/[^/]+\/trash$/)) {
+        return handleTrashSession(auth.userId, extractId(url.pathname), await request.json(), env);
       }
-      if (url.pathname === "/sessions/batch") {
-        return handleBatchOperation(auth.userId, await request.json(), env);
+      if (url.pathname.match(/^\/tags\/[^/]+$/)) {
+        return handleUpdateTag(auth.userId, extractTagId(url.pathname), await request.json(), env);
       }
     }
     
     if (request.method === "DELETE") {
-      if (url.pathname.match(/^\/sessions\/[^/]+\/trash$/)) {
-        return handleTrashSession(auth.userId, extractId(url.pathname), env);
+      // DELETE /sessions/:id/tags — remove tag
+      if (url.pathname.match(/^\/sessions\/[^/]+\/tags$/)) {
+        return handleRemoveSessionTag(auth.userId, extractId(url.pathname), await request.json(), env);
+      }
+      if (url.pathname.match(/^\/tags\/[^/]+$/)) {
+        return handleDeleteTag(auth.userId, extractTagId(url.pathname), env);
       }
     }
     
@@ -284,16 +331,28 @@ export default {
 
 ## Caching Strategy
 
-Worker-side caching using Cloudflare Cache API:
+Worker-side caching using Cloudflare Cache API with **user-scoped keys**:
 
 ```typescript
-async function withCache<T>(
+/**
+ * Cache key MUST include userId to prevent cross-user data leakage.
+ * User-specific data (sessions, projects, stats) is private.
+ */
+function buildCacheKey(request: Request, userId: string): Request {
+  const url = new URL(request.url);
+  // Append userId to cache key to isolate per-user
+  url.searchParams.set("_uid", userId);
+  return new Request(url.toString(), { method: "GET" });
+}
+
+async function withCache(
   request: Request,
+  userId: string,
   ttlSeconds: number,
   handler: () => Promise<Response>,
 ): Promise<Response> {
   const cache = caches.default;
-  const cacheKey = new Request(request.url, { method: "GET" });
+  const cacheKey = buildCacheKey(request, userId);
   
   // Check cache
   const cached = await cache.match(cacheKey);
@@ -312,9 +371,11 @@ async function withCache<T>(
   return response;
 }
 
-// Usage
-return withCache(request, 60, () => handleListSessions(userId, params, env));
+// Usage — userId is REQUIRED for user-scoped routes
+return withCache(request, auth.userId, 60, () => handleListSessions(auth.userId, params, env));
 ```
+
+**⚠️ Critical**: Cache key MUST include `userId`. Without it, two users hitting the same URL would share cached results — a data isolation breach.
 
 **Cache TTLs:**
 | Route | TTL | Rationale |
@@ -324,7 +385,7 @@ return withCache(request, 60, () => handleListSessions(userId, params, env));
 | `/projects` | 5min | Derived from sessions |
 | `/stats` | 5min | Aggregate, slow to change |
 | `/search` | 0 | Must be fresh |
-| `/filters` | 5min | Derived values |
+| `/sessions/filters` | 5min | Derived values |
 
 ## Rate Limiting
 
@@ -367,17 +428,24 @@ if (auth.source === "api_key") {
 - [ ] `packages/worker/src/routes/search.ts`
 - [ ] `packages/worker/src/routes/stats.ts`
 - [ ] `packages/worker/src/routes/tags.ts`
-- [ ] `packages/worker/src/auth.ts`
+- [ ] `packages/worker/src/auth.ts` — reuse `hashApiKey` from `cli-auth.ts`
 - [ ] `packages/worker/src/cache.ts`
 - [ ] `packages/web/src/lib/worker-client.ts`
 
-### Files to Delete
+### Files to Update
+- [ ] `packages/web/src/lib/d1-cli-auth-db.ts` — keep for CLI auth routes
+- [ ] `packages/web/src/app/api/auth/cli/route.ts` — keep (NextAuth dependency)
+- [ ] `packages/web/src/app/api/live/route.ts` — keep (health check)
+- [ ] `packages/web/src/app/api/ingest/presign/route.ts` — keep or migrate later
+- [ ] `packages/web/src/app/api/ingest/confirm-raw/route.ts` — keep or migrate later
+
+### Files to Delete (after all routes migrated)
 - [ ] `packages/web/src/lib/d1.ts`
 - [ ] `packages/web/src/lib/d1.test.ts`
-- [ ] `packages/web/src/lib/d1-cli-auth-db.ts`
-- [ ] `packages/web/src/lib/d1-cli-auth-db.test.ts`
 
-### Env Vars to Remove (Next.js)
+**Note**: `d1-cli-auth-db.ts` must remain — it's used by `/api/auth/cli` and other auth routes that depend on NextAuth session cookies.
+
+### Env Vars to Remove (Next.js, after migration complete)
 - [ ] `CF_ACCOUNT_ID`
 - [ ] `CF_D1_DATABASE_ID`
 - [ ] `CF_D1_API_TOKEN`
