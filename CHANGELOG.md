@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2026-04-05
+
+### Features
+
+- **Unified Worker API** — Migrate all session/content D1 queries through Cloudflare Worker instead of direct D1 HTTP API. Eliminates 100 req/s rate limit and simplifies auth to single `WORKER_SECRET`
+- **CLI update command** — Add `pika update` and `pika update --check` for self-updating CLI to latest version. Auto-detects package manager (bun/pnpm/yarn/npm)
+- **Keyboard navigation** — Add arrow key navigation to search results
+
+### Fixes
+
+- **Accessibility** — Add aria-label to search input, aria-hidden to decorative elements, focus-visible styles, and 32×32px touch targets for star buttons
+- **E2E bypass** — Add E2E_SKIP_AUTH support to resolveUserForWorker for test environments
+
+### Chores
+
+- **Cleanup** — Remove unused D1 CLI auth and live modules (replaced by Worker proxy)
+- **Documentation** — Add unified Worker API design doc (docs/11)
+
 ## [0.5.7] - 2026-04-03
 
 ### Fixes
