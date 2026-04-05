@@ -85,7 +85,7 @@ describe("handleCliAuth", () => {
 
   it("redirects to sign-in with missing callback when unauthenticated", async () => {
     const result = await handleCliAuth(
-      { callback: null, userEmail: null, userId: null },
+      { callback: null, userEmail: null, userId: null, state: null },
       defaultDeps(),
     );
     expect(result.error).toBe("Missing callback parameter");
@@ -95,7 +95,7 @@ describe("handleCliAuth", () => {
   it("redirects to sign-in with callbackUrl when unauthenticated", async () => {
     const callback = "http://localhost:12345/callback";
     const result = await handleCliAuth(
-      { callback, userEmail: null, userId: null },
+      { callback, userEmail: null, userId: null, state: null },
       defaultDeps(),
     );
     expect(result.error).toBeUndefined();
@@ -106,7 +106,7 @@ describe("handleCliAuth", () => {
 
   it("returns error when authenticated but callback is missing", async () => {
     const result = await handleCliAuth(
-      { callback: null, userEmail: "u@e.com", userId: "u1" },
+      { callback: null, userEmail: "u@e.com", userId: "u1", state: null },
       defaultDeps(),
     );
     expect(result.error).toBe("Missing callback parameter");
@@ -115,7 +115,12 @@ describe("handleCliAuth", () => {
 
   it("returns error when callback is not a valid URL", async () => {
     const result = await handleCliAuth(
-      { callback: "not-a-url", userEmail: "u@e.com", userId: "u1" },
+      {
+        callback: "not-a-url",
+        userEmail: "u@e.com",
+        userId: "u1",
+        state: null,
+      },
       defaultDeps(),
     );
     expect(result.error).toBe("Invalid callback URL");
@@ -128,6 +133,7 @@ describe("handleCliAuth", () => {
         callback: "http://evil.com/callback",
         userEmail: "u@e.com",
         userId: "u1",
+        state: null,
       },
       defaultDeps(),
     );
@@ -141,7 +147,7 @@ describe("handleCliAuth", () => {
     const deps = defaultDeps();
 
     const result = await handleCliAuth(
-      { callback, userEmail: "user@example.com", userId: "u1" },
+      { callback, userEmail: "user@example.com", userId: "u1", state: null },
       { ...deps, generateKey: () => fixedKey },
     );
 
@@ -162,7 +168,7 @@ describe("handleCliAuth", () => {
   it("allows 127.0.0.1 as callback host", async () => {
     const callback = "http://127.0.0.1:54321/callback";
     const result = await handleCliAuth(
-      { callback, userEmail: "user@example.com", userId: "u1" },
+      { callback, userEmail: "user@example.com", userId: "u1", state: null },
       {
         ...defaultDeps(),
         generateKey: () => "pk_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -176,11 +182,46 @@ describe("handleCliAuth", () => {
   it("uses real generateApiKey when no custom generator provided", async () => {
     const callback = "http://localhost:12345/callback";
     const result = await handleCliAuth(
-      { callback, userEmail: "user@example.com", userId: "u1" },
+      { callback, userEmail: "user@example.com", userId: "u1", state: null },
       defaultDeps(),
     );
     expect(result.apiKey).toBeDefined();
     expect(isValidApiKey(result.apiKey!)).toBe(true);
+  });
+
+  it("passes state nonce back in callback URL when provided", async () => {
+    const callback = "http://localhost:12345/callback";
+    const result = await handleCliAuth(
+      {
+        callback,
+        userEmail: "user@example.com",
+        userId: "u1",
+        state: "csrf-nonce-123",
+      },
+      {
+        ...defaultDeps(),
+        generateKey: () => "pk_cccccccccccccccccccccccccccccccc",
+      },
+    );
+
+    expect(result.error).toBeUndefined();
+    const url = new URL(result.redirectUrl!);
+    expect(url.searchParams.get("state")).toBe("csrf-nonce-123");
+  });
+
+  it("omits state from callback URL when not provided", async () => {
+    const callback = "http://localhost:12345/callback";
+    const result = await handleCliAuth(
+      { callback, userEmail: "user@example.com", userId: "u1", state: null },
+      {
+        ...defaultDeps(),
+        generateKey: () => "pk_dddddddddddddddddddddddddddddddd",
+      },
+    );
+
+    expect(result.error).toBeUndefined();
+    const url = new URL(result.redirectUrl!);
+    expect(url.searchParams.has("state")).toBe(false);
   });
 });
 

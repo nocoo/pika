@@ -68,6 +68,8 @@ export interface CliAuthParams {
   callback: string | null;
   userEmail: string | null;
   userId: string | null;
+  /** Optional CSRF state nonce to pass back to the CLI callback. */
+  state: string | null;
 }
 
 export interface CliAuthResult {
@@ -97,7 +99,7 @@ export async function handleCliAuth(
     generateKey?: () => string;
   },
 ): Promise<CliAuthResult> {
-  const { callback, userEmail, userId } = params;
+  const { callback, userEmail, userId, state } = params;
 
   // Not authenticated → redirect to sign-in (check before callback validation
   // so the unauthenticated redirect preserves the full URL including callback)
@@ -141,6 +143,11 @@ export async function handleCliAuth(
 
   callbackUrl.searchParams.set("api_key", apiKey);
   callbackUrl.searchParams.set("email", userEmail);
+
+  // Pass back CSRF state nonce if provided
+  if (state) {
+    callbackUrl.searchParams.set("state", state);
+  }
 
   return {
     redirectUrl: callbackUrl.toString(),

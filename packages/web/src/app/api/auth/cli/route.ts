@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
   const session = await auth();
   const url = new URL(request.url);
   const callback = url.searchParams.get("callback");
+  const state = url.searchParams.get("state");
 
   // For authenticated users, pre-generate the key via Worker
   // before calling handleCliAuth. This way the Worker handles
@@ -34,6 +35,7 @@ export async function GET(request: NextRequest) {
   const result = await handleCliAuth(
     {
       callback,
+      state,
       userEmail: session?.user?.email ?? null,
       userId: session?.user?.id ?? null,
     },
