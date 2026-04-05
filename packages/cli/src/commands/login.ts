@@ -1,22 +1,13 @@
-import { homedir, platform } from "node:os";
+import { homedir } from "node:os";
 import { join } from "node:path";
+import {
+  consola,
+  defineCommand,
+  openBrowser,
+  performLogin,
+} from "@nocoo/cli-base";
 import { CONFIG_DIR, LOGIN_TIMEOUT_MS } from "@pika/core";
-import { defineCommand } from "citty";
-import consola from "consola";
 import { ConfigManager } from "../config/manager";
-import { performLogin } from "./login-flow";
-
-/** Platform-aware browser open command */
-function getBrowserCommand(): string {
-  switch (platform()) {
-    case "darwin":
-      return "open";
-    case "win32":
-      return "start";
-    default:
-      return "xdg-open";
-  }
-}
 
 export default defineCommand({
   meta: {
@@ -47,18 +38,9 @@ export default defineCommand({
     consola.start("Opening browser for authentication...");
 
     const result = await performLogin({
-      openBrowser: async (url: string) => {
-        const { exec } = await import("node:child_process");
-        const cmd = getBrowserCommand();
-        return new Promise<void>((resolve, reject) => {
-          exec(`${cmd} "${url}"`, (error) => {
-            if (error) reject(error);
-            else resolve();
-          });
-        });
-      },
+      openBrowser,
       log: (msg: string) => consola.info(msg),
-      config,
+      onSaveToken: (token: string) => config.write({ token }),
       apiUrl: config.getApiUrl(),
       timeoutMs: LOGIN_TIMEOUT_MS,
     });

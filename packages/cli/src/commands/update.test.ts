@@ -4,35 +4,45 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mock child_process BEFORE importing the module
+// Mock child_process for the execSync in update.ts itself
 vi.mock("node:child_process", () => ({
   execSync: vi.fn(),
 }));
 
-// Mock consola
-vi.mock("consola", () => ({
-  consola: {
-    info: vi.fn(),
-    success: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  },
-}));
+// Mock cli-base - must use inline function to avoid hoisting issue
+const mockDetectPackageManager = vi.fn();
+const mockGetLatestVersion = vi.fn();
+const mockGetUpdateCommand = vi.fn();
 
-// Mock fetch
-const mockFetch = vi.fn();
-vi.stubGlobal("fetch", mockFetch);
+vi.mock("@nocoo/cli-base", async () => {
+  const actual = await vi.importActual("@nocoo/cli-base");
+  return {
+    ...actual,
+    consola: {
+      info: vi.fn(),
+      success: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    },
+    detectPackageManager: (...args: unknown[]) =>
+      mockDetectPackageManager(...args),
+    getLatestVersion: (...args: unknown[]) => mockGetLatestVersion(...args),
+    getUpdateCommand: (...args: unknown[]) => mockGetUpdateCommand(...args),
+  };
+});
 
 // Import after mocks are set up
 import { execSync } from "node:child_process";
-import { consola } from "consola";
+import { consola } from "@nocoo/cli-base";
 import updateCommand from "./update";
 
 describe("pika update", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(execSync).mockReset();
-    mockFetch.mockReset();
+    mockDetectPackageManager.mockReset();
+    mockGetLatestVersion.mockReset();
+    mockGetUpdateCommand.mockReset();
   });
 
   afterEach(() => {
@@ -41,15 +51,8 @@ describe("pika update", () => {
 
   describe("version check", () => {
     it("fetches latest version from npm registry", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => ({ version: "1.0.0" }),
-      });
-
-      // Mock package manager detection to fail (so we don't try to update)
-      vi.mocked(execSync).mockImplementation(() => {
-        throw new Error("Not found");
-      });
+      mockGetLatestVersion.mockResolvedValue("1.0.0");
+      mockDetectPackageManager.mockReturnValue(null);
 
       await updateCommand.run?.({
         args: { check: true },
@@ -57,17 +60,11 @@ describe("pika update", () => {
         cmd: updateCommand,
       });
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        "https://registry.npmjs.org/@nocoo/pika/latest",
-      );
+      expect(mockGetLatestVersion).toHaveBeenCalledWith("@nocoo/pika");
     });
 
     it("shows message when already on latest version", async () => {
-      // Mock current version matches latest
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => ({ version: "0.6.2" }), // Matches PIKA_VERSION
-      });
+      mockGetLatestVersion.mockResolvedValue("0.6.2"); // Matches PIKA_VERSION
 
       await updateCommand.run?.({
         args: { check: false },
@@ -81,10 +78,7 @@ describe("pika update", () => {
     });
 
     it("shows update available in check mode", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => ({ version: "99.0.0" }),
-      });
+      mockGetLatestVersion.mockResolvedValue("99.0.0");
 
       await updateCommand.run?.({
         args: { check: true },
@@ -96,26 +90,28 @@ describe("pika update", () => {
         expect.stringContaining("Update available"),
       );
     });
+
+    it("shows warning when npm registry fetch fails", async () => {
+      mockGetLatestVersion.mockResolvedValue(null);
+
+      await updateCommand.run?.({
+        args: { check: false },
+        rawArgs: [],
+        cmd: updateCommand,
+      });
+
+      expect(consola.warn).toHaveBeenCalledWith(
+        "Could not fetch latest version from npm registry",
+      );
+    });
   });
 
   describe("package manager detection", () => {
-    it("detects bun installation (first in order)", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => ({ version: "99.0.0" }),
-      });
-
-      vi.mocked(execSync).mockImplementation((cmd: string) => {
-        // Only bun should find the package (checked first)
-        if (cmd.includes("bun pm ls -g")) {
-          return "@nocoo/pika@0.5.7";
-        }
-        if (cmd.includes("bun update -g")) {
-          return ""; // Success
-        }
-        // All other package managers should fail
-        throw new Error("Not found");
-      });
+    it("detects bun installation", async () => {
+      mockGetLatestVersion.mockResolvedValue("99.0.0");
+      mockDetectPackageManager.mockReturnValue("bun");
+      mockGetUpdateCommand.mockReturnValue("bun update -g @nocoo/pika");
+      vi.mocked(execSync).mockReturnValue("");
 
       await updateCommand.run?.({
         args: { check: false },
@@ -126,17 +122,12 @@ describe("pika update", () => {
       expect(consola.info).toHaveBeenCalledWith(
         "Detected package manager: bun",
       );
+      expect(mockGetUpdateCommand).toHaveBeenCalledWith("bun", "@nocoo/pika");
     });
 
     it("shows manual instructions when package manager not detected", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => ({ version: "99.0.0" }),
-      });
-
-      vi.mocked(execSync).mockImplementation(() => {
-        throw new Error("Not found");
-      });
+      mockGetLatestVersion.mockResolvedValue("99.0.0");
+      mockDetectPackageManager.mockReturnValue(null);
 
       await updateCommand.run?.({
         args: { check: false },
@@ -152,22 +143,10 @@ describe("pika update", () => {
 
   describe("update execution", () => {
     it("runs npm update command", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => ({ version: "99.0.0" }),
-      });
-
-      let updateCalled = false;
-      vi.mocked(execSync).mockImplementation((cmd: string) => {
-        if (cmd.includes("npm list -g")) {
-          return "@nocoo/pika@0.5.7";
-        }
-        if (cmd.includes("npm update -g")) {
-          updateCalled = true;
-          return "";
-        }
-        throw new Error("Not found");
-      });
+      mockGetLatestVersion.mockResolvedValue("99.0.0");
+      mockDetectPackageManager.mockReturnValue("npm");
+      mockGetUpdateCommand.mockReturnValue("npm update -g @nocoo/pika");
+      vi.mocked(execSync).mockReturnValue("");
 
       await updateCommand.run?.({
         args: { check: false },
@@ -175,8 +154,32 @@ describe("pika update", () => {
         cmd: updateCommand,
       });
 
-      expect(updateCalled).toBe(true);
+      expect(vi.mocked(execSync)).toHaveBeenCalledWith(
+        "npm update -g @nocoo/pika",
+        { stdio: "inherit" },
+      );
       expect(consola.success).toHaveBeenCalledWith("Update complete!");
+    });
+
+    it("shows error when update fails", async () => {
+      mockGetLatestVersion.mockResolvedValue("99.0.0");
+      mockDetectPackageManager.mockReturnValue("npm");
+      mockGetUpdateCommand.mockReturnValue("npm update -g @nocoo/pika");
+      vi.mocked(execSync).mockImplementation(() => {
+        throw new Error("Permission denied");
+      });
+
+      await expect(
+        updateCommand.run?.({
+          args: { check: false },
+          rawArgs: [],
+          cmd: updateCommand,
+        }),
+      ).rejects.toThrow("Permission denied");
+
+      expect(consola.error).toHaveBeenCalledWith(
+        expect.stringContaining("Update failed"),
+      );
     });
   });
 });

@@ -10,12 +10,11 @@
     "dist/bin.js"
   ],
   "scripts": {
-    "build": "bun build src/bin.ts --target=bun --outfile=dist/bin.js --external citty --external consola",
+    "build": "bun build src/bin.ts --target=bun --outfile=dist/bin.js --external @nocoo/cli-base",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "citty": "^0.2.1",
-    "consola": "^3.4.2"
+    "@nocoo/cli-base": "^0.1.1"
   },
   "devDependencies": {
     "@pika/core": "workspace:*"

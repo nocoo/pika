@@ -1,8 +1,7 @@
 import { basename, join } from "node:path";
+import { consola, defineCommand } from "@nocoo/cli-base";
 import type { OpenCodeSqliteCursor } from "@pika/core";
 import { CONFIG_DIR, SOURCES } from "@pika/core";
-import { defineCommand } from "citty";
-import consola from "consola";
 import { ConfigManager } from "../config/manager";
 import type { DriverSet } from "../drivers/registry";
 import { buildDriverSet } from "../drivers/registry";

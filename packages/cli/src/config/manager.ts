@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { ConfigManager as BaseConfigManager } from "@nocoo/cli-base";
 import { CONFIG_FILE, DEV_CONFIG_FILE } from "@pika/core";
 
 const PROD_API_URL = "https://pika.hexly.ai";
@@ -11,38 +10,19 @@ export interface PikaConfig {
   deviceId?: string;
 }
 
-export class ConfigManager {
-  readonly configDir: string;
+/**
+ * Pika-specific configuration manager.
+ * Extends cli-base ConfigManager with pika-specific helpers.
+ */
+export class ConfigManager extends BaseConfigManager<PikaConfig> {
   private readonly isDev: boolean;
 
   constructor(configDir: string, isDev = false) {
-    this.configDir = configDir;
-    this.isDev = isDev;
-  }
-
-  private get configPath(): string {
-    const fileName = this.isDev ? DEV_CONFIG_FILE : CONFIG_FILE;
-    return join(this.configDir, fileName);
-  }
-
-  read(): PikaConfig {
-    try {
-      const content = readFileSync(this.configPath, "utf-8");
-      return JSON.parse(content) as PikaConfig;
-    } catch {
-      return {};
-    }
-  }
-
-  write(partial: Partial<PikaConfig>): void {
-    if (!existsSync(this.configDir)) {
-      mkdirSync(this.configDir, { recursive: true });
-    }
-    const existing = this.read();
-    const merged = { ...existing, ...partial };
-    writeFileSync(this.configPath, `${JSON.stringify(merged, null, 2)}\n`, {
-      mode: 0o600,
+    super(configDir, isDev, {
+      prodFilename: CONFIG_FILE,
+      devFilename: DEV_CONFIG_FILE,
     });
+    this.isDev = isDev;
   }
 
   getToken(): string | undefined {

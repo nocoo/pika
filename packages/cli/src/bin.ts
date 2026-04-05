@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { runMain } from "citty";
+import { runMain } from "@nocoo/cli-base";
 import { main } from "./cli";
 
 runMain(main);

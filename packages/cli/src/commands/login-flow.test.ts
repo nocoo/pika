@@ -1,9 +1,9 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { type LoginDeps, performLogin } from "@nocoo/cli-base";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConfigManager } from "../config/manager";
-import { type LoginDeps, performLogin } from "./login-flow";
 
 describe("login flow", () => {
   let tempDir: string;
@@ -25,7 +25,7 @@ describe("login flow", () => {
     // Mock deps
     const deps: LoginDeps = {
       openBrowser: vi.fn().mockResolvedValue(undefined),
-      config,
+      onSaveToken: (token: string) => config.write({ token }),
       apiUrl: "http://localhost:9999",
       timeoutMs: 5000,
     };
@@ -37,7 +37,8 @@ describe("login flow", () => {
     await new Promise((r) => setTimeout(r, 100));
 
     // Find the port by inspecting the openBrowser call
-    const callbackUrl = (deps.openBrowser as any).mock.calls[0][0] as string;
+    const callbackUrl = (deps.openBrowser as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as string;
     expect(callbackUrl).toContain("/api/auth/cli?callback=");
 
     // Extract the callback URL from the query
@@ -65,7 +66,7 @@ describe("login flow", () => {
 
     const deps: LoginDeps = {
       openBrowser: vi.fn().mockResolvedValue(undefined),
-      config,
+      onSaveToken: (token: string) => config.write({ token }),
       apiUrl: "http://localhost:9999",
       timeoutMs: 5000,
     };
@@ -73,7 +74,8 @@ describe("login flow", () => {
     const loginPromise = performLogin(deps);
     await new Promise((r) => setTimeout(r, 100));
 
-    const callbackUrl = (deps.openBrowser as any).mock.calls[0][0] as string;
+    const callbackUrl = (deps.openBrowser as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as string;
     const url = new URL(callbackUrl);
     const cliCallback = url.searchParams.get("callback");
     await fetch(`${cliCallback}?api_key=${newApiKey}&email=new@example.com`);
@@ -86,7 +88,7 @@ describe("login flow", () => {
   it("returns error when callback has no api_key", async () => {
     const deps: LoginDeps = {
       openBrowser: vi.fn().mockResolvedValue(undefined),
-      config,
+      onSaveToken: (token: string) => config.write({ token }),
       apiUrl: "http://localhost:9999",
       timeoutMs: 5000,
     };
@@ -94,7 +96,8 @@ describe("login flow", () => {
     const loginPromise = performLogin(deps);
     await new Promise((r) => setTimeout(r, 100));
 
-    const callbackUrl = (deps.openBrowser as any).mock.calls[0][0] as string;
+    const callbackUrl = (deps.openBrowser as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as string;
     const url = new URL(callbackUrl);
     const cliCallback = url.searchParams.get("callback");
 
@@ -109,7 +112,7 @@ describe("login flow", () => {
   it("times out after configured duration", async () => {
     const deps: LoginDeps = {
       openBrowser: vi.fn().mockResolvedValue(undefined),
-      config,
+      onSaveToken: (token: string) => config.write({ token }),
       apiUrl: "http://localhost:9999",
       timeoutMs: 200, // Very short timeout for test
     };
@@ -124,7 +127,7 @@ describe("login flow", () => {
     const deps: LoginDeps = {
       openBrowser: vi.fn().mockRejectedValue(new Error("no browser")),
       log: logFn,
-      config,
+      onSaveToken: (token: string) => config.write({ token }),
       apiUrl: "http://localhost:9999",
       timeoutMs: 5000,
     };
@@ -138,7 +141,8 @@ describe("login flow", () => {
     expect(logFn.mock.calls[0][0]).toContain("/api/auth/cli?callback=");
 
     // Complete the flow so the test doesn't hang
-    const callbackUrl = (deps.openBrowser as any).mock.calls[0][0] as string;
+    const callbackUrl = (deps.openBrowser as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as string;
     const url = new URL(callbackUrl);
     const cliCallback = url.searchParams.get("callback")!;
     await fetch(`${cliCallback}?api_key=pk_${"f".repeat(32)}&email=t@t.com`);
@@ -148,7 +152,7 @@ describe("login flow", () => {
   it("uses 127.0.0.1 in callback URL (not localhost)", async () => {
     const deps: LoginDeps = {
       openBrowser: vi.fn().mockResolvedValue(undefined),
-      config,
+      onSaveToken: (token: string) => config.write({ token }),
       apiUrl: "http://localhost:9999",
       timeoutMs: 5000,
     };
@@ -156,7 +160,8 @@ describe("login flow", () => {
     const loginPromise = performLogin(deps);
     await new Promise((r) => setTimeout(r, 100));
 
-    const browserUrl = (deps.openBrowser as any).mock.calls[0][0] as string;
+    const browserUrl = (deps.openBrowser as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as string;
     const url = new URL(browserUrl);
     const cliCallback = url.searchParams.get("callback")!;
 
@@ -171,7 +176,7 @@ describe("login flow", () => {
   it("handles non-callback paths with 404", async () => {
     const deps: LoginDeps = {
       openBrowser: vi.fn().mockResolvedValue(undefined),
-      config,
+      onSaveToken: (token: string) => config.write({ token }),
       apiUrl: "http://localhost:9999",
       timeoutMs: 5000,
     };
@@ -179,7 +184,8 @@ describe("login flow", () => {
     const loginPromise = performLogin(deps);
     await new Promise((r) => setTimeout(r, 100));
 
-    const callbackUrl = (deps.openBrowser as any).mock.calls[0][0] as string;
+    const callbackUrl = (deps.openBrowser as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as string;
     const url = new URL(callbackUrl);
     const cliCallback = url.searchParams.get("callback")!;
     const callbackParsed = new URL(cliCallback);
