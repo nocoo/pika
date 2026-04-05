@@ -64,7 +64,7 @@ describe("pika update", () => {
     });
 
     it("shows message when already on latest version", async () => {
-      mockGetLatestVersion.mockResolvedValue("0.6.2"); // Matches PIKA_VERSION
+      mockGetLatestVersion.mockResolvedValue("0.6.3"); // Matches PIKA_VERSION
 
       await updateCommand.run?.({
         args: { check: false },

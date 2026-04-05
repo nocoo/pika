@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.3] - 2026-04-06
+
+### Improvements
+
+- **CLI refactor** — Migrate to `@nocoo/cli-base` shared infrastructure library, reducing duplicate code for config management, OAuth login, update checking, and browser opening
+- **Login page** — Beautified OAuth success page with basalt design system (dark theme, Inter font, golden yellow checkmark icon)
+
 ## [0.6.2] - 2026-04-06
 
 ### Fixes
