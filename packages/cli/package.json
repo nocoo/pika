@@ -14,7 +14,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@nocoo/cli-base": "^0.1.2"
+    "@nocoo/cli-base": "^0.1.5"
   },
   "devDependencies": {
     "@pika/core": "workspace:*"
