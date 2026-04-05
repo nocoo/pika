@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.2] - 2026-04-06
+
+### Fixes
+
+- **CLI update command** — Use correct npm package name `@nocoo/pika` instead of `@pika/cli`
+
 ## [0.6.1] - 2026-04-05
 
 ### Fixes
