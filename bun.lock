@@ -19,7 +19,7 @@
         "pika": "dist/bin.js",
       },
       "dependencies": {
-        "@nocoo/cli-base": "^0.1.1",
+        "@nocoo/cli-base": "^0.1.2",
       },
       "devDependencies": {
         "@pika/core": "workspace:*",
@@ -363,7 +363,7 @@
 
     "@next/swc-win32-x64-msvc": ["@next/swc-win32-x64-msvc@16.2.2", "", { "os": "win32", "cpu": "x64" }, "sha512-aHaKceJgdySReT7qeck5oShucxWRiiEuwCGK8HHALe6yZga8uyFpLkPgaRw3kkF04U7ROogL/suYCNt/+CuXGA=="],
 
-    "@nocoo/cli-base": ["@nocoo/cli-base@0.1.1", "", { "dependencies": { "citty": "^0.2.2", "consola": "^3.4.2", "picocolors": "^1.1.1", "yocto-spinner": "^1.1.0" } }, "sha512-H9NKumDdPHL4iVLU9v+jM6+9Lj6avU4Hq327mgK6zV7np8ZUB/VjCpZpewFK/0v9pd8AsCTtUpJXM2Y6+mN9zg=="],
+    "@nocoo/cli-base": ["@nocoo/cli-base@0.1.2", "", { "dependencies": { "citty": "^0.2.2", "consola": "^3.4.2", "picocolors": "^1.1.1", "yocto-spinner": "^1.1.0" } }, "sha512-SC3gOeQskeQKxkaqdeXmBd85ZXhWj0jUlyyJDwBjxH1xsOarmtOVlGh8cUhmdyIruaLGrfHDumkc5WSpqX2tpg=="],
 
     "@nocoo/pika": ["@nocoo/pika@workspace:packages/cli"],
 
