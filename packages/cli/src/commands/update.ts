@@ -10,7 +10,7 @@ import { defineCommand } from "citty";
 import { consola } from "consola";
 
 /** Package name on npm */
-const PACKAGE_NAME = "@pika/cli";
+const PACKAGE_NAME = "@nocoo/pika";
 
 /** Detect which package manager installed the CLI globally */
 function detectPackageManager(): "npm" | "bun" | "pnpm" | "yarn" | null {

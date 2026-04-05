@@ -58,7 +58,7 @@ describe("pika update", () => {
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://registry.npmjs.org/@pika/cli/latest",
+        "https://registry.npmjs.org/@nocoo/pika/latest",
       );
     });
 
@@ -108,7 +108,7 @@ describe("pika update", () => {
       vi.mocked(execSync).mockImplementation((cmd: string) => {
         // Only bun should find the package (checked first)
         if (cmd.includes("bun pm ls -g")) {
-          return "@pika/cli@0.5.7";
+          return "@nocoo/pika@0.5.7";
         }
         if (cmd.includes("bun update -g")) {
           return ""; // Success
@@ -160,7 +160,7 @@ describe("pika update", () => {
       let updateCalled = false;
       vi.mocked(execSync).mockImplementation((cmd: string) => {
         if (cmd.includes("npm list -g")) {
-          return "@pika/cli@0.5.7";
+          return "@nocoo/pika@0.5.7";
         }
         if (cmd.includes("npm update -g")) {
           updateCalled = true;
