@@ -11,5 +11,6 @@ export const main = defineCommand({
     sync: () => import("./commands/sync.js").then((m) => m.default),
     login: () => import("./commands/login.js").then((m) => m.default),
     status: () => import("./commands/status.js").then((m) => m.default),
+    update: () => import("./commands/update.js").then((m) => m.default),
   },
 });
