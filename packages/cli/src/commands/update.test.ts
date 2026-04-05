@@ -66,7 +66,7 @@ describe("pika update", () => {
       // Mock current version matches latest
       mockFetch.mockResolvedValue({
         ok: true,
-        json: async () => ({ version: "0.6.0" }), // Matches PIKA_VERSION
+        json: async () => ({ version: "0.6.1" }), // Matches PIKA_VERSION
       });
 
       await updateCommand.run?.({
