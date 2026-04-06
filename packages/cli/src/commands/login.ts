@@ -43,7 +43,7 @@ export default defineCommand({
       onSaveToken: (token: string) => config.write({ token }),
       apiUrl: config.getApiUrl(),
       timeoutMs: LOGIN_TIMEOUT_MS,
-      useStateNonce: true,
+      accentColor: "#3b82f6", // Pika blue
     });
 
     if (result.success) {

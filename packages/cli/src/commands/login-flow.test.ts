@@ -5,6 +5,9 @@ import { type LoginDeps, performLogin } from "@nocoo/cli-base";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConfigManager } from "../config/manager";
 
+// Test nonce generator for deterministic testing
+const TEST_NONCE = "test-nonce-1234567890abcdef";
+
 describe("login flow", () => {
   let tempDir: string;
   let config: ConfigManager;
@@ -28,6 +31,7 @@ describe("login flow", () => {
       onSaveToken: (token: string) => config.write({ token }),
       apiUrl: "http://localhost:9999",
       timeoutMs: 5000,
+      generateNonce: () => TEST_NONCE,
     };
 
     // Start login in background
@@ -40,14 +44,15 @@ describe("login flow", () => {
     const callbackUrl = (deps.openBrowser as ReturnType<typeof vi.fn>).mock
       .calls[0][0] as string;
     expect(callbackUrl).toContain("/api/auth/cli?callback=");
+    expect(callbackUrl).toContain(`state=${TEST_NONCE}`);
 
     // Extract the callback URL from the query
     const url = new URL(callbackUrl);
     const cliCallback = url.searchParams.get("callback");
     expect(cliCallback).toBeTruthy();
 
-    // Simulate the server redirecting back to CLI callback
-    const callbackWithToken = `${cliCallback}?api_key=${apiKey}&email=${encodeURIComponent(email)}`;
+    // Simulate the server redirecting back to CLI callback (with state)
+    const callbackWithToken = `${cliCallback}?api_key=${apiKey}&email=${encodeURIComponent(email)}&state=${TEST_NONCE}`;
     const res = await fetch(callbackWithToken);
     expect(res.ok).toBe(true);
 
@@ -69,6 +74,7 @@ describe("login flow", () => {
       onSaveToken: (token: string) => config.write({ token }),
       apiUrl: "http://localhost:9999",
       timeoutMs: 5000,
+      generateNonce: () => TEST_NONCE,
     };
 
     const loginPromise = performLogin(deps);
@@ -78,7 +84,7 @@ describe("login flow", () => {
       .calls[0][0] as string;
     const url = new URL(callbackUrl);
     const cliCallback = url.searchParams.get("callback");
-    await fetch(`${cliCallback}?api_key=${newApiKey}&email=new@example.com`);
+    await fetch(`${cliCallback}?api_key=${newApiKey}&email=new@example.com&state=${TEST_NONCE}`);
 
     const result = await loginPromise;
     expect(result.success).toBe(true);
@@ -91,6 +97,7 @@ describe("login flow", () => {
       onSaveToken: (token: string) => config.write({ token }),
       apiUrl: "http://localhost:9999",
       timeoutMs: 5000,
+      generateNonce: () => TEST_NONCE,
     };
 
     const loginPromise = performLogin(deps);
@@ -101,8 +108,8 @@ describe("login flow", () => {
     const url = new URL(callbackUrl);
     const cliCallback = url.searchParams.get("callback");
 
-    // Hit callback without api_key
-    const res = await fetch(`${cliCallback}?error=access_denied`);
+    // Hit callback without api_key (but with valid state)
+    const res = await fetch(`${cliCallback}?error=access_denied&state=${TEST_NONCE}`);
     expect(res.status).toBe(400);
 
     const result = await loginPromise;
@@ -130,6 +137,7 @@ describe("login flow", () => {
       onSaveToken: (token: string) => config.write({ token }),
       apiUrl: "http://localhost:9999",
       timeoutMs: 5000,
+      generateNonce: () => TEST_NONCE,
     };
 
     const loginPromise = performLogin(deps);
@@ -145,16 +153,17 @@ describe("login flow", () => {
       .calls[0][0] as string;
     const url = new URL(callbackUrl);
     const cliCallback = url.searchParams.get("callback")!;
-    await fetch(`${cliCallback}?api_key=pk_${"f".repeat(32)}&email=t@t.com`);
+    await fetch(`${cliCallback}?api_key=pk_${"f".repeat(32)}&email=t@t.com&state=${TEST_NONCE}`);
     await loginPromise;
   });
 
-  it("uses 127.0.0.1 in callback URL (not localhost)", async () => {
+  it("uses localhost in callback URL (macOS IPv6 compatibility)", async () => {
     const deps: LoginDeps = {
       openBrowser: vi.fn().mockResolvedValue(undefined),
       onSaveToken: (token: string) => config.write({ token }),
       apiUrl: "http://localhost:9999",
       timeoutMs: 5000,
+      generateNonce: () => TEST_NONCE,
     };
 
     const loginPromise = performLogin(deps);
@@ -165,11 +174,11 @@ describe("login flow", () => {
     const url = new URL(browserUrl);
     const cliCallback = url.searchParams.get("callback")!;
 
-    // Callback URL must use 127.0.0.1 (matches server.listen bind address)
-    expect(cliCallback).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/callback$/);
+    // Callback URL uses localhost (not 127.0.0.1) for macOS IPv6 compatibility
+    expect(cliCallback).toMatch(/^http:\/\/localhost:\d+\/callback$/);
 
     // Complete the flow
-    await fetch(`${cliCallback}?api_key=pk_${"e".repeat(32)}&email=t@t.com`);
+    await fetch(`${cliCallback}?api_key=pk_${"e".repeat(32)}&email=t@t.com&state=${TEST_NONCE}`);
     await loginPromise;
   });
 
@@ -179,6 +188,7 @@ describe("login flow", () => {
       onSaveToken: (token: string) => config.write({ token }),
       apiUrl: "http://localhost:9999",
       timeoutMs: 5000,
+      generateNonce: () => TEST_NONCE,
     };
 
     const loginPromise = performLogin(deps);
@@ -197,7 +207,7 @@ describe("login flow", () => {
 
     // Now hit the real callback to let the test finish
     await fetch(
-      `${cliCallback}?api_key=pk_${"d".repeat(32)}&email=test@test.com`,
+      `${cliCallback}?api_key=pk_${"d".repeat(32)}&email=test@test.com&state=${TEST_NONCE}`,
     );
     await loginPromise;
   });
