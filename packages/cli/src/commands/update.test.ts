@@ -34,6 +34,7 @@ vi.mock("@nocoo/cli-base", async () => {
 // Import after mocks are set up
 import { execSync } from "node:child_process";
 import { consola } from "@nocoo/cli-base";
+import { PIKA_VERSION } from "@pika/core";
 import updateCommand from "./update";
 
 describe("pika update", () => {
@@ -64,7 +65,7 @@ describe("pika update", () => {
     });
 
     it("shows message when already on latest version", async () => {
-      mockGetLatestVersion.mockResolvedValue("0.6.3"); // Matches PIKA_VERSION
+      mockGetLatestVersion.mockResolvedValue(PIKA_VERSION); // Matches current version
 
       await updateCommand.run?.({
         args: { check: false },
