@@ -95,11 +95,28 @@ console.log(`   ⏳ Updating bun.lock...`);
 execSync("bun install", { cwd: ROOT, stdio: "inherit" });
 console.log(`   ✓ bun.lock`);
 
+// Rebuild CLI (version is inlined at build time)
+console.log(`   ⏳ Building CLI...`);
+execSync("bun run --cwd packages/cli build", { cwd: ROOT, stdio: "inherit" });
+console.log(`   ✓ packages/cli/dist/bin.js`);
+
+// Verify version in built artifact
+const binJs = readFileSync(join(ROOT, "packages/cli/dist/bin.js"), "utf-8");
+const versionMatch = binJs.match(/"(\d+\.\d+\.\d+)"/);
+if (!versionMatch || versionMatch[1] !== newVersion) {
+  console.error(`\n❌ Version mismatch in dist/bin.js!`);
+  console.error(`   Expected: ${newVersion}`);
+  console.error(`   Found: ${versionMatch?.[1] ?? "none"}`);
+  console.error(`   The build did not pick up the new version.`);
+  process.exit(1);
+}
+console.log(`   ✓ Version verified in dist/bin.js`);
+
 console.log(`
 ✅ Version bumped to ${newVersion}
 
 Next steps:
-  1. git add -A && git commit -m "chore: release v${newVersion}"
-  2. git push
-  3. cd packages/cli && npm publish
+  1. cd packages/cli && npm publish
+  2. git add -A && git commit -m "chore: release v${newVersion}"
+  3. git push
 `);
