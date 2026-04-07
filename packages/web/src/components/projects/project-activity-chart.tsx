@@ -56,7 +56,7 @@ export function ProjectActivityChart({
       setError(null);
       try {
         const res = await fetch(
-          `/api/projects/activity?project=${encodeURIComponent(projectKey)}`,
+          `/api/projects/activity?projectKey=${encodeURIComponent(projectKey)}`,
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json: { activity: ProjectDailyActivity[] } = await res.json();
