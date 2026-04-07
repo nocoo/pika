@@ -1,87 +1,133 @@
 "use client";
 
 import type { Source } from "@pika/core";
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { Cell, Pie, PieChart, Tooltip } from "recharts";
 import { sourceLabel } from "@/lib/format";
 import { agentColor } from "@/lib/palette";
-import { cn } from "@/lib/utils";
+import { cn, formatTokens } from "@/lib/utils";
+import { DashboardResponsiveContainer } from "./dashboard-responsive-container";
 
-// ── Types ──────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface SourceChartProps {
   data: { source: Source; count: number }[];
   className?: string;
 }
 
-// ── SourceChart ────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// Custom tooltip
+// ---------------------------------------------------------------------------
 
+function DonutTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{
+    name: string;
+    value: number;
+    payload: { fill: string; percent: number };
+  }>;
+}) {
+  if (!active || !payload?.length) return null;
+  const item = payload[0] as (typeof payload)[number];
+
+  return (
+    <div className="rounded-[var(--radius-widget)] bg-popover border border-border p-2.5">
+      <div className="flex items-center gap-2">
+        <div
+          className="h-3 w-3 rounded-full"
+          style={{ backgroundColor: item.payload.fill }}
+        />
+        <span className="text-sm font-medium text-foreground">{item.name}</span>
+      </div>
+      <div className="text-sm text-muted-foreground">
+        {item.value} sessions ({(item.payload.percent * 100).toFixed(1)}%)
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+/**
+ * Donut chart showing session count breakdown by source tool.
+ */
 export function SourceChart({ data, className }: SourceChartProps) {
   if (data.length === 0) {
     return (
       <div
         className={cn(
-          "flex items-center justify-center h-[200px] text-sm text-muted-foreground",
+          "flex items-center justify-center rounded-[var(--radius-card)] bg-secondary p-8 text-sm text-muted-foreground",
           className,
         )}
       >
-        No data yet
+        No usage data yet
       </div>
     );
   }
 
+  const total = data.reduce((sum, d) => sum + d.count, 0);
   const chartData = data.map((d) => ({
     name: sourceLabel(d.source),
     value: d.count,
     fill: agentColor(d.source).color,
+    percent: total > 0 ? d.count / total : 0,
   }));
 
   return (
-    <div className={cn("flex flex-col gap-3", className)}>
-      <div className="h-[200px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={chartData}
-              cx="50%"
-              cy="50%"
-              innerRadius={50}
-              outerRadius={80}
-              paddingAngle={2}
-              dataKey="value"
-              stroke="none"
-            >
-              {chartData.map((entry, index) => (
-                <Cell key={index} fill={entry.fill} />
-              ))}
-            </Pie>
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "hsl(var(--popover))",
-                border: "1px solid hsl(var(--border))",
-                borderRadius: "8px",
-                color: "hsl(var(--popover-foreground))",
-                fontSize: "12px",
-              }}
-              formatter={(value) => [String(value), "sessions"]}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
+    <div
+      className={cn(
+        "flex flex-col rounded-[var(--radius-card)] bg-secondary p-4 md:p-5",
+        className,
+      )}
+    >
+      <p className="mb-3 text-xs md:text-sm text-muted-foreground">By Agent</p>
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1">
-        {data.map((d) => (
-          <div key={d.source} className="flex items-center gap-1.5 text-xs">
-            <div
-              className="h-2.5 w-2.5 rounded-full"
-              style={{ backgroundColor: agentColor(d.source).color }}
-            />
-            <span className="text-muted-foreground">
-              {sourceLabel(d.source)}
-            </span>
-            <span className="font-medium text-foreground">{d.count}</span>
-          </div>
-        ))}
+      <div className="flex flex-1 flex-col items-center">
+        <div className="flex-1 w-full max-w-[220px] min-h-[140px]">
+          <DashboardResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={chartData}
+                cx="50%"
+                cy="50%"
+                innerRadius="50%"
+                outerRadius="80%"
+                dataKey="value"
+                strokeWidth={0}
+                paddingAngle={2}
+              >
+                {chartData.map((entry) => (
+                  <Cell key={entry.name} fill={entry.fill} />
+                ))}
+              </Pie>
+              <Tooltip content={<DonutTooltip />} isAnimationActive={false} />
+            </PieChart>
+          </DashboardResponsiveContainer>
+        </div>
+
+        {/* Legend */}
+        <div className="mt-3 grid w-full grid-cols-2 gap-x-4 gap-y-2">
+          {chartData.map((item) => (
+            <div key={item.name} className="flex items-center gap-2">
+              <div
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{ background: item.fill }}
+              />
+              <span className="text-xs text-muted-foreground truncate">
+                {item.name}
+              </span>
+              <span className="ml-auto text-xs font-medium text-foreground">
+                {formatTokens(item.value)}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 export interface DashboardSegmentProps {
   title: string;
   children: React.ReactNode;
+  /** Optional action slot (e.g., period selector) displayed on the right of the header */
+  action?: React.ReactNode;
   className?: string;
 }
 
@@ -16,6 +18,7 @@ export interface DashboardSegmentProps {
  */
 export function DashboardSegment({
   title,
+  action,
   children,
   className,
 }: DashboardSegmentProps) {
@@ -26,6 +29,7 @@ export function DashboardSegment({
           {title}
         </h2>
         <div className="h-px flex-1 bg-border/60" />
+        {action && <div className="shrink-0">{action}</div>}
       </div>
       {children}
     </section>

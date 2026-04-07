@@ -464,29 +464,33 @@ export default function ProjectsPage() {
               <CollapsibleContent>
                 <div className="flex flex-col gap-4 pt-3">
                   {filteredOverview && (
-                    <StatGrid className="lg:grid-cols-2 xl:grid-cols-4">
+                    <StatGrid columns={4}>
                       <StatCard
-                        label="Total Projects"
+                        title="Total Projects"
                         value={filteredOverview.totalProjects.toLocaleString()}
                         icon={FolderKanban}
+                        accentColor="bg-primary"
                       />
                       <StatCard
-                        label="Total Sessions"
+                        title="Total Sessions"
                         value={filteredOverview.totalSessions.toLocaleString()}
                         icon={Layers}
+                        accentColor="bg-chart-3"
                       />
                       <StatCard
-                        label="Total Tokens"
+                        title="Total Tokens"
                         value={formatTokens(
                           filteredOverview.totalInputTokens +
                             filteredOverview.totalOutputTokens,
                         )}
                         icon={Coins}
+                        accentColor="bg-chart-4"
                       />
                       <StatCard
-                        label="Total Messages"
+                        title="Total Messages"
                         value={filteredOverview.totalMessages.toLocaleString()}
                         icon={MessageSquare}
+                        accentColor="bg-chart-5"
                       />
                     </StatGrid>
                   )}
@@ -498,7 +502,7 @@ export default function ProjectsPage() {
 
           {loading && (
             <div className="flex flex-col gap-4">
-              <StatGrid className="lg:grid-cols-2 xl:grid-cols-4">
+              <StatGrid columns={4}>
                 {Array.from({ length: 4 }).map((_, i) => (
                   <Skeleton key={i} className="h-[88px] rounded-xl" />
                 ))}
