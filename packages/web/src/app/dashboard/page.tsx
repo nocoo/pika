@@ -20,7 +20,6 @@ import { SourceChart } from "@/components/dashboard/source-chart";
 import { StatCard, StatGrid } from "@/components/dashboard/stat-card";
 import { TopProjects } from "@/components/dashboard/top-projects";
 import { Skeleton } from "@/components/ui/skeleton";
-import { buildHeatmapData } from "@/lib/format";
 import type { SessionRow } from "@/lib/sessions";
 import type { StatsResponse } from "@/lib/stats";
 import { formatTokens } from "@/lib/utils";
@@ -69,7 +68,7 @@ export default function DashboardPage() {
   }
 
   const overview = stats?.overview;
-  const heatmapData = stats ? buildHeatmapData(stats.dailyActivity) : [];
+  const heatmapData = stats?.dailyActivity ?? [];
 
   return (
     <div className="flex flex-col gap-6">
