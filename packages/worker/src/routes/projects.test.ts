@@ -97,8 +97,8 @@ describe("handleListProjects", () => {
 describe("handleProjectActivity", () => {
   it("returns daily activity for a project", async () => {
     const activity = [
-      { date: "2026-01-01", count: 5 },
-      { date: "2026-01-02", count: 3 },
+      { date: "2026-01-01", sessions: 5, messages: 50, tokens: 10000, duration: 3600 },
+      { date: "2026-01-02", sessions: 3, messages: 30, tokens: 6000, duration: 1800 },
     ];
     const env = mockEnv({ results: activity });
 
@@ -122,7 +122,7 @@ describe("handleProjectActivity", () => {
   });
 
   it("handles multiple project keys", async () => {
-    const activity = [{ date: "2026-01-01", count: 8 }];
+    const activity = [{ date: "2026-01-01", sessions: 8, messages: 80, tokens: 16000, duration: 7200 }];
     const env = mockEnv({ results: activity });
 
     const params = new URLSearchParams({ projectKey: "pika,claude" });

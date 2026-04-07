@@ -40,7 +40,10 @@ export interface ProjectSourceRow {
 
 export interface DailyActivity {
   date: string;
-  count: number;
+  sessions: number;
+  messages: number;
+  tokens: number;
+  duration: number;
 }
 
 // ── Handlers ───────────────────────────────────────────────────
@@ -120,6 +123,7 @@ ORDER BY project_key, count DESC
 
 /**
  * GET /projects/activity — Daily activity for one or more projects.
+ * Returns sessions, messages, tokens, and duration per day.
  */
 export async function handleProjectActivity(
   userId: string,
@@ -140,10 +144,19 @@ export async function handleProjectActivity(
   let sql: string;
   let params: unknown[];
 
+  const selectClause = `
+SELECT
+  date(started_at) AS date,
+  COUNT(*) AS sessions,
+  COALESCE(SUM(total_messages), 0) AS messages,
+  COALESCE(SUM(total_input_tokens), 0) + COALESCE(SUM(total_output_tokens), 0) AS tokens,
+  COALESCE(SUM(duration_seconds), 0) AS duration
+FROM sessions
+  `.trim();
+
   if (keys.length === 1) {
     sql = `
-SELECT date(started_at) AS date, COUNT(*) AS count
-FROM sessions
+${selectClause}
 WHERE user_id = ? AND deleted_at IS NULL AND COALESCE(project_name, project_ref) = ? AND started_at >= datetime('now', ? || ' days')
 GROUP BY date(started_at)
 ORDER BY date ASC
@@ -152,8 +165,7 @@ ORDER BY date ASC
   } else {
     const placeholders = keys.map(() => "?").join(", ");
     sql = `
-SELECT date(started_at) AS date, COUNT(*) AS count
-FROM sessions
+${selectClause}
 WHERE user_id = ? AND deleted_at IS NULL AND COALESCE(project_name, project_ref) IN (${placeholders}) AND started_at >= datetime('now', ? || ' days')
 GROUP BY date(started_at)
 ORDER BY date ASC
