@@ -40,7 +40,10 @@ export interface ProjectOverview {
 
 export interface ProjectDailyActivity {
   date: string; // YYYY-MM-DD
-  count: number;
+  sessions: number;
+  messages: number;
+  tokens: number;
+  duration: number;
 }
 
 export interface ProjectsResponse {
