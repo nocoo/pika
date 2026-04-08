@@ -20,13 +20,14 @@ This document outlines the abstractions to be added to `@nocoo/cli-base` to enab
 **Critical**: Machine-readable output (json/minimal) goes to stdout only. Human-readable messages (success, error, hints) go to stderr.
 
 ```bash
-# AI agent can safely parse stdout
+# AI agent can safely parse stdout (full response envelope)
 pika sessions list --format=json > sessions.json
+# stdout: {"sessions":[{"id":"sess_abc",...}],"cursor":"...","hasMore":true}
 
 # Human sees helpful messages on stderr
 pika sessions list --format=json 2>&1 | head
 # stderr: Fetching sessions...
-# stdout: [{"id":"sess_abc",...}]
+# stdout: {"sessions":[...],"cursor":"...","hasMore":true}
 ```
 
 ## New Modules
@@ -250,12 +251,29 @@ export interface ParsedPaginationArgs {
   mode: PaginationMode;
 }
 
-/** Parse and validate pagination args */
-export function parsePaginationArgs(args: {
-  limit?: string;
-  page?: string;
-  cursor?: string;
-}): ParsedPaginationArgs;
+/**
+ * Parse and validate pagination args.
+ * 
+ * - Validates limit is numeric and within bounds
+ * - Enforces mutual exclusion: page and cursor cannot both be set
+ * - Returns validated defaults when inputs are missing or invalid
+ * 
+ * @param args Raw string args from citty
+ * @param options Validation options
+ * @returns Validated pagination params
+ * @throws Error if page and cursor are both provided
+ */
+export function parsePaginationArgs(
+  args: {
+    limit?: string;
+    page?: string;
+    cursor?: string;
+  },
+  options?: {
+    defaultLimit?: number;  // CLI-specific default (e.g., 50 for Pika)
+    maxLimit?: number;      // CLI-specific max (e.g., 100)
+  }
+): ParsedPaginationArgs;
 
 /** Build query params for API request */
 export function buildPaginationParams(

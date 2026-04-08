@@ -337,9 +337,16 @@ Each command follows a consistent pattern for testability. The core logic return
 ```typescript
 // commands/sessions/list.ts
 
-import { defineCommand, resolveFormat } from "@nocoo/cli-base";
-import type { ApiClient, OutputFormatter } from "@nocoo/cli-base";
-import { sessionListColumns, pikaPaginationArgs, pikaFormatArg } from "../../output/formatters.js";
+import {
+  defineCommand,
+  resolveFormat,
+  parsePaginationArgs,
+  buildPaginationParams,
+  OutputFormatter,
+} from "@nocoo/cli-base";
+import type { ApiClient } from "@nocoo/cli-base";
+import { sessionListColumns } from "../../output/formatters.js";
+import { createPikaClient, PIKA_PAGINATION } from "../../api/client.js";
 import type { SessionListResponse } from "./types.js";
 
 /** Result type for testability — no side effects in core logic */
@@ -364,6 +371,7 @@ export async function runSessionsList(
 ): Promise<ListResult> {
   const { client, formatter } = deps;
 
+  // Build params from pre-validated pagination args
   const params: Record<string, string> = {
     limit: String(args.limit),
   };
@@ -401,23 +409,6 @@ export async function runSessionsList(
   return { ok: true };
 }
 
-/** Pika-specific pagination args (override base defaults) */
-export const pikaPaginationArgs = {
-  limit: {
-    type: "string",
-    default: "50",
-    description: "Maximum number of items to return (max: 100)",
-  },
-  page: {
-    type: "string",
-    description: "Page number (starts at 1). Uses offset pagination.",
-  },
-  cursor: {
-    type: "string",
-    description: "Cursor for keyset pagination (from previous response)",
-  },
-} as const;
-
 /** Command definition — wires dependencies and handles exit code */
 export default defineCommand({
   meta: {
@@ -425,7 +416,20 @@ export default defineCommand({
     description: "List sessions with optional filters",
   },
   args: {
-    ...pikaPaginationArgs,
+    // Pika-specific pagination args (defined in api/client.ts)
+    limit: {
+      type: "string",
+      default: "50",
+      description: "Maximum number of items to return (max: 100)",
+    },
+    page: {
+      type: "string",
+      description: "Page number (starts at 1). Uses offset pagination.",
+    },
+    cursor: {
+      type: "string",
+      description: "Cursor for keyset pagination (from previous response)",
+    },
     format: {
       type: "string",
       description: "Output format: json, table, minimal, auto (default: auto)",
@@ -445,11 +449,17 @@ export default defineCommand({
       format: resolveFormat(args.format),
     });
 
+    // Use shared pagination parser with Pika-specific defaults
+    const pagination = parsePaginationArgs(
+      { limit: args.limit, page: args.page, cursor: args.cursor },
+      PIKA_PAGINATION  // { defaultLimit: 50, maxLimit: 100 }
+    );
+
     const result = await runSessionsList(
       {
-        limit: args.limit ? parseInt(args.limit, 10) : 50,
-        cursor: args.cursor,
-        page: args.page ? parseInt(args.page, 10) : undefined,
+        limit: pagination.limit,
+        cursor: pagination.cursor,
+        page: pagination.page,
         project: args.project,
         source: args.source,
       },
@@ -462,6 +472,13 @@ export default defineCommand({
     }
   },
 });
+
+// ── api/client.ts ─────────────────────────────────────────────
+// Pika-specific pagination config (matches API constants)
+export const PIKA_PAGINATION = {
+  defaultLimit: 50,
+  maxLimit: 100,
+} as const;
 ```
 
 ### Testing Pattern
