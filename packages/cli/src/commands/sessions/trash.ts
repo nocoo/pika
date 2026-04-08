@@ -7,6 +7,14 @@ import {
   ApiError,
 } from "../../output/formatter.js";
 
+// ─── API Response type ────────────────────────────────────────
+
+interface TrashResponse {
+  deleted: boolean;
+  deleted_at: string | null;
+  affected: number;
+}
+
 // ─── Core logic ───────────────────────────────────────────────
 
 export async function runSessionsTrash(
@@ -21,7 +29,7 @@ export async function runSessionsTrash(
 ): Promise<void> {
   const { client, formatter } = deps;
 
-  const response = await client.patch<{ deleted: boolean }>(
+  const response = await client.patch<TrashResponse>(
     `/sessions/${args.id}/trash`,
     { deleted: !args.restore }
   );
@@ -30,6 +38,17 @@ export async function runSessionsTrash(
     throw new ApiError(
       response.error ?? `API error: ${response.status}`,
       response.status
+    );
+  }
+
+  const data = response.data!;
+
+  // Worker returns affected=0 when session not found or already in desired state
+  if (data.affected === 0) {
+    const action = args.restore ? "restore" : "trash";
+    throw new ApiError(
+      `Session ${args.id} not found or already ${args.restore ? "restored" : "trashed"}`,
+      404
     );
   }
 
