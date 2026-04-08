@@ -95,13 +95,36 @@ $ pika sessions get sess_abc123 --format=json
 ### Level 4: Full Content (separate command)
 
 ```bash
+# Full JSON with all messages and tool calls
 $ pika sessions content sess_abc123
 {
   "messages": [
     { "role": "user", "content": "I need to fix the login bug..." },
-    { "role": "assistant", "content": "Let me analyze the issue..." }
+    { "role": "assistant", "content": [
+      { "type": "text", "text": "Let me analyze the issue..." },
+      { "type": "tool_use", "name": "Read", "input": { "path": "auth.ts" } }
+    ]},
+    { "role": "user", "content": [
+      { "type": "tool_result", "content": "export function login()..." }
+    ]},
+    { "role": "assistant", "content": "I found the bug. The token expiry..." }
   ]
 }
+
+# Clean conversation without tool noise
+$ pika sessions content sess_abc123 --no-tools --format=markdown
+## User
+I need to fix the login bug...
+
+## Assistant
+Let me analyze the issue...
+
+## Assistant
+I found the bug. The token expiry...
+
+# Only human messages
+$ pika sessions content sess_abc123 --role=user --format=text
+I need to fix the login bug...
 ```
 
 ## Command Specifications
@@ -159,12 +182,74 @@ Options:
 pika sessions content <id> [options]
 
 Options:
-  --format <fmt>      Output: json (default)
+  --role <role>       Filter by role: user, assistant, all (default: all)
+  --no-tools          Exclude tool calls and tool results from assistant messages
+  --limit <n>         Limit to first N messages (after filtering)
+  --offset <n>        Skip first N messages (after filtering)
+  --format <fmt>      Output: json, text, markdown (default: json)
 ```
 
 **API**: `GET /sessions/:id/content`
 
-**Response**: Raw conversation content from R2, decompressed.
+**Response**: Raw conversation content from R2, decompressed. Filtering is done client-side.
+
+**Filtering behavior**:
+
+| Option | Effect |
+|--------|--------|
+| `--role=user` | Only human messages |
+| `--role=assistant` | Only AI messages (includes tool calls unless `--no-tools`) |
+| `--no-tools` | Strips `tool_use` and `tool_result` blocks from output |
+| `--limit/--offset` | Applied after role filtering, useful for pagination |
+
+**Format behavior**:
+
+| Format | Output |
+|--------|--------|
+| `json` | Full message objects with metadata (default) |
+| `text` | Plain text content only, one message per block |
+| `markdown` | Formatted with role headers (`## User`, `## Assistant`) |
+
+**Examples**:
+
+```bash
+# View only human messages
+pika sessions content sess_abc123 --role=user
+
+# View AI responses without tool noise
+pika sessions content sess_abc123 --role=assistant --no-tools
+
+# Export clean conversation as markdown
+pika sessions content sess_abc123 --no-tools --format=markdown > conversation.md
+
+# Get first 10 messages
+pika sessions content sess_abc123 --limit=10
+
+# Paginate through messages
+pika sessions content sess_abc123 --offset=10 --limit=10
+```
+
+**Output examples**:
+
+```bash
+# --format=text --role=user
+I need to fix the login bug where OAuth tokens expire too quickly.
+
+Can you also add a refresh token mechanism?
+
+# --format=markdown --no-tools
+## User
+I need to fix the login bug where OAuth tokens expire too quickly.
+
+## Assistant
+Let me analyze the authentication flow. The issue is in `auth.ts` where the token expiry is hardcoded to 1 hour...
+
+## User
+Can you also add a refresh token mechanism?
+
+## Assistant
+I'll add refresh token support. Here's the implementation...
+```
 
 ### sessions trash
 
