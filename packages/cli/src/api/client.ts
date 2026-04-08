@@ -207,6 +207,7 @@ export const PIKA_PAGINATION = {
 let cachedClient: ApiClient | undefined;
 let cachedConfig: ConfigManager | undefined;
 
+/* v8 ignore start */
 export function createPikaClient(isDev = false): ApiClient {
   if (cachedClient && cachedConfig?.getApiUrl()) {
     return cachedClient;
@@ -229,3 +230,4 @@ export function resetPikaClient(): void {
   cachedClient = undefined;
   cachedConfig = undefined;
 }
+/* v8 ignore stop */

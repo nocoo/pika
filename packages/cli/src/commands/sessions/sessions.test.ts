@@ -176,6 +176,66 @@ describe("sessions list", () => {
     expect(stderr.join("")).not.toContain("--cursor");
   });
 
+  it("passes filter parameters to client", async () => {
+    const response: SessionListResponse = {
+      sessions: [],
+      cursor: null,
+      hasMore: false,
+    };
+    const client = createMockClient({ "/sessions": response });
+    const { formatter } = createMockFormatter("json");
+
+    await runSessionsList(
+      {
+        limit: 50,
+        mode: "cursor",
+        format: "json",
+        project: "pika",
+        source: "claude-code",
+        starred: true,
+        deleted: true,
+        from: "2026-04-01",
+        to: "2026-04-08",
+        sort: "started_at",
+      },
+      { client, formatter }
+    );
+
+    expect(client.get).toHaveBeenCalledWith(
+      "/sessions",
+      expect.objectContaining({
+        projectKey: "pika",
+        source: "claude-code",
+        starred: "true",
+        deleted: "true",
+        from: "2026-04-01",
+        to: "2026-04-08",
+        sort: "started_at",
+      })
+    );
+  });
+
+  it("shows page-based pagination hint", async () => {
+    const response: SessionListResponse = {
+      sessions: [sampleSession],
+      cursor: null,
+      hasMore: true,
+      page: 2,
+      pageSize: 50,
+      totalCount: 150,
+    };
+    const client = createMockClient({ "/sessions": response });
+    const { formatter, stderr } = createMockFormatter("table");
+
+    await runSessionsList(
+      { limit: 50, mode: "page", page: 2, format: "table" },
+      { client, formatter }
+    );
+
+    expect(stderr.join("")).toContain("Page 2 of 3");
+    expect(stderr.join("")).toContain("--page 3");
+  });
+
   it("throws ApiError on failure", async () => {
     const client = createMockClient({}, { status: 500, error: "Server error" });
     const { formatter } = createMockFormatter("json");

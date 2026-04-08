@@ -142,6 +142,23 @@ describe("ApiClient", () => {
     });
   });
 
+  describe("PUT requests", () => {
+    it("sends PUT with body", async () => {
+      mockFetch.mockResolvedValueOnce(mockResponse({ updated: true }));
+
+      const client = createClient("token");
+      await client.put("/sessions/123/tags", { tagId: "tag-456" });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://api.example.com/sessions/123/tags",
+        expect.objectContaining({
+          method: "PUT",
+          body: JSON.stringify({ tagId: "tag-456" }),
+        })
+      );
+    });
+  });
+
   describe("PATCH requests", () => {
     it("sends PATCH with body", async () => {
       mockFetch.mockResolvedValueOnce(mockResponse({ starred: true }));
@@ -294,6 +311,49 @@ describe("ApiClient", () => {
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
       expect(result.status).toBe(404);
+    });
+
+    it("retries on 5xx server errors", async () => {
+      const client = new ApiClient({
+        baseUrl: "https://api.example.com",
+        getToken: () => "token",
+        fetchFn: mockFetch as unknown as typeof fetch,
+        retry: { maxAttempts: 2, backoffMs: 10 },
+      });
+
+      mockFetch
+        .mockResolvedValueOnce(
+          mockResponse({ error: "Server error" }, 502, false)
+        )
+        .mockResolvedValueOnce(mockResponse({ data: "success" }));
+
+      const result = await client.get("/test");
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(result.ok).toBe(true);
+    });
+
+    it("returns last error after max retries", async () => {
+      const client = new ApiClient({
+        baseUrl: "https://api.example.com",
+        getToken: () => "token",
+        fetchFn: mockFetch as unknown as typeof fetch,
+        retry: { maxAttempts: 2, backoffMs: 10 },
+      });
+
+      mockFetch
+        .mockResolvedValueOnce(
+          mockResponse({ error: "Rate limited" }, 429, false)
+        )
+        .mockResolvedValueOnce(
+          mockResponse({ error: "Still rate limited" }, 429, false)
+        );
+
+      const result = await client.get("/test");
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe(429);
     });
   });
 });

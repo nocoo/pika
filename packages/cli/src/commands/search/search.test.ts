@@ -152,4 +152,35 @@ describe("search", () => {
       runSearch({ query: "test", format: "json" }, { client, formatter })
     ).rejects.toThrow("Server error");
   });
+
+  it("handles empty results", async () => {
+    const emptyResponse: SearchResponse = {
+      results: [],
+      total: 0,
+    };
+    const client = createMockClient(emptyResponse);
+    const { formatter, stdout, stderr } = createMockFormatter("table");
+
+    await runSearch(
+      { query: "nonexistent", format: "table" },
+      { client, formatter }
+    );
+
+    expect(stderr.join("")).toContain("Found 0 results");
+  });
+
+  it("omits optional filter parameters when not provided", async () => {
+    const client = createMockClient(sampleResponse);
+    const { formatter } = createMockFormatter("json");
+
+    await runSearch(
+      { query: "OAuth", format: "json" },
+      { client, formatter }
+    );
+
+    const callArgs = (client.get as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(callArgs[1]).not.toHaveProperty("source");
+    expect(callArgs[1]).not.toHaveProperty("from");
+    expect(callArgs[1]).not.toHaveProperty("to");
+  });
 });

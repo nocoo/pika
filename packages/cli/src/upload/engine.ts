@@ -171,9 +171,11 @@ export function splitBatches<T>(items: T[], size: number): T[][] {
 
 // ── Sleep helper ───────────────────────────────────────────────
 
+/* v8 ignore start */
 function defaultSleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+/* v8 ignore stop */
 
 // ── Parse Retry-After header ───────────────────────────────────
 

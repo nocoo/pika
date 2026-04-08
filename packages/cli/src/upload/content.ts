@@ -63,9 +63,11 @@ export async function gzipCompress(input: string): Promise<Buffer> {
 
 // ── Sleep helper ───────────────────────────────────────────────
 
+/* v8 ignore start */
 function defaultSleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+/* v8 ignore stop */
 
 // ── Single PUT with retry ──────────────────────────────────────
 

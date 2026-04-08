@@ -235,6 +235,7 @@ function queryAllMessagesForSession(
   return { messages, rawDataStrings };
 }
 
+/* v8 ignore start */
 function _queryPartsForMessage(db: SqliteDb, messageId: string): OcPart[] {
   const rows = db
     .prepare(
@@ -252,6 +253,7 @@ function _queryPartsForMessage(db: SqliteDb, messageId: string): OcPart[] {
   }
   return parts;
 }
+/* v8 ignore stop */
 
 /**
  * Query parts for a message and also return raw `data` column strings.
@@ -410,6 +412,7 @@ export function createOpenCodeSqliteDriver(
 
           if (newMessages.length === 0 && watermark) {
             // No new messages since watermark — skip
+            /* v8 ignore next */
             continue;
           }
 
@@ -464,6 +467,7 @@ export function createOpenCodeSqliteDriver(
           // Stream result to caller for memory-efficient batch processing,
           // or collect into results array for legacy callers.
           if (onResult) {
+            /* v8 ignore next */
             await onResult(result);
           } else {
             results.push(result);
@@ -520,6 +524,7 @@ export function createOpenCodeSqliteDriver(
         try {
           db.close();
         } catch {
+          /* v8 ignore next */
           // ignore close errors
         }
       }

@@ -154,6 +154,96 @@ describe("OutputFormatter", () => {
       expect(stderr.join("")).toContain("Be careful");
     });
   });
+
+  describe("item", () => {
+    it("outputs item as json in json format", () => {
+      const { formatter, stdout } = createFormatter("json");
+      formatter.item({ id: "123", name: "Test" });
+      const output = stdout.join("");
+      expect(output).toContain('"id": "123"');
+      expect(output).toContain('"name": "Test"');
+    });
+
+    it("outputs item as key-value pairs in table format", () => {
+      const { formatter, stdout } = createFormatter("table");
+      formatter.item({ id: "123", name: "Test" });
+      const output = stdout.join("");
+      expect(output).toContain("id");
+      expect(output).toContain("123");
+      expect(output).toContain("name");
+      expect(output).toContain("Test");
+    });
+
+    it("falls back to json for other formats", () => {
+      const { formatter, stdout } = createFormatter("minimal");
+      formatter.item({ id: "123" });
+      expect(stdout.join("")).toContain('"id": "123"');
+    });
+  });
+
+  describe("getFormat", () => {
+    it("returns the configured format", () => {
+      const { formatter } = createFormatter("json");
+      expect(formatter.getFormat()).toBe("json");
+    });
+  });
+
+  describe("table truncation", () => {
+    it("truncates long values with ellipsis", () => {
+      const { formatter, stdout } = createFormatter("table");
+
+      const items = [{ id: "1", name: "A very long name that exceeds width" }];
+
+      formatter.response(
+        { items, raw: { items } },
+        {
+          columns: [
+            { key: "id", header: "ID", width: 2 },
+            { key: "name", header: "Name", width: 10 },
+          ],
+          minimalKey: "id",
+        }
+      );
+
+      const output = stdout.join("");
+      expect(output).toContain("A very lo…");
+    });
+
+    it("handles null/undefined values", () => {
+      const { formatter, stdout } = createFormatter("table");
+
+      const items = [{ id: "1", name: null as unknown as string }];
+
+      formatter.response(
+        { items, raw: { items } },
+        {
+          columns: [
+            { key: "id", header: "ID" },
+            { key: "name", header: "Name" },
+          ],
+          minimalKey: "id",
+        }
+      );
+
+      const output = stdout.join("");
+      expect(output).toContain("ID");
+      expect(output).toContain("1");
+    });
+  });
+
+  describe("response default fallback", () => {
+    it("falls back to json for unknown formats", () => {
+      const { formatter, stdout } = createFormatter("text");
+      const apiResponse = { items: [{ id: "1" }] };
+
+      formatter.response(
+        { items: apiResponse.items, raw: apiResponse },
+        { columns: [], minimalKey: "id" }
+      );
+
+      expect(stdout.join("")).toContain('"items"');
+    });
+  });
 });
 
 describe("resolveFormat", () => {
@@ -163,12 +253,25 @@ describe("resolveFormat", () => {
     expect(resolveFormat("minimal")).toBe("minimal");
   });
 
+  it("returns text/markdown when explicitly requested", () => {
+    expect(resolveFormat("text")).toBe("text");
+    expect(resolveFormat("markdown")).toBe("markdown");
+  });
+
   it("returns table when TTY and no explicit format", () => {
     expect(resolveFormat(undefined, true)).toBe("table");
   });
 
   it("returns json when not TTY and no explicit format", () => {
     expect(resolveFormat(undefined, false)).toBe("json");
+  });
+
+  it("returns table for invalid explicit format with TTY", () => {
+    expect(resolveFormat("invalid", true)).toBe("table");
+  });
+
+  it("returns json for invalid explicit format without TTY", () => {
+    expect(resolveFormat("invalid", false)).toBe("json");
   });
 });
 
