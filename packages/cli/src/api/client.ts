@@ -77,7 +77,11 @@ export class ApiClient {
   }
 
   private buildUrl(path: string, params?: Record<string, string>): string {
-    const url = new URL(path, this.baseUrl);
+    // Ensure baseUrl ends with / for proper path joining
+    // e.g., "https://host/api" + "/sessions" → "https://host/api/sessions"
+    const base = this.baseUrl.endsWith("/") ? this.baseUrl : `${this.baseUrl}/`;
+    const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+    const url = new URL(cleanPath, base);
     if (params) {
       for (const [key, value] of Object.entries(params)) {
         if (value !== undefined && value !== "") {

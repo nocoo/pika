@@ -66,6 +66,23 @@ describe("ApiClient", () => {
   });
 
   describe("GET requests", () => {
+    it("preserves /api path segment in base URL", async () => {
+      mockFetch.mockResolvedValueOnce(mockResponse({ items: [] }));
+
+      const client = new ApiClient({
+        baseUrl: "https://example.com/api",
+        getToken: () => "token",
+        fetchFn: mockFetch as unknown as typeof fetch,
+        retry: { maxAttempts: 1 },
+      });
+      await client.get("/sessions");
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://example.com/api/sessions",
+        expect.any(Object)
+      );
+    });
+
     it("builds URL with query params", async () => {
       mockFetch.mockResolvedValueOnce(mockResponse({ items: [] }));
 
