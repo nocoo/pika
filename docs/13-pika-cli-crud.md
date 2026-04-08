@@ -62,7 +62,7 @@ $ pika sessions list
 │ sess_def456  │ Add search feature      │ codex       │   18 │ yesterday │
 │ sess_ghi789  │ Refactor API client     │ claude-code │   67 │ 3d ago    │
 └──────────────┴─────────────────────────┴─────────────┴──────┴───────────┘
-Showing 3 of 156 sessions. Use --limit to see more.
+More results available. Use --cursor <token> to continue.
 ```
 
 ### Level 3: Detail (single item)
@@ -119,8 +119,8 @@ Options:
   --source <name>     Filter by source (claude-code, codex, etc.)
   --starred           Show only starred sessions
   --deleted           Show only deleted sessions (trash)
-  --from <date>       Sessions after this date (ISO 8601)
-  --to <date>         Sessions before this date
+  --from <date>       Filter by last_message_at >= date (ISO 8601)
+  --to <date>         Filter by last_message_at <= date (ISO 8601)
   --sort <field>      Sort by: last_message_at, started_at, total_messages, duration_seconds
   --format <fmt>      Output: json, table, minimal, auto (default: auto)
 ```
@@ -225,8 +225,8 @@ pika search <query> [options]
 Options:
   --limit <n>       Max results (default: 50, max: 100)
   --source <name>   Filter by source
-  --from <date>     Sessions after this date
-  --to <date>       Sessions before this date
+  --from <date>     Filter by last_message_at >= date (ISO 8601)
+  --to <date>       Filter by last_message_at <= date (ISO 8601)
   --format <fmt>    Output: json, table, auto (default: auto)
 ```
 
