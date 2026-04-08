@@ -700,21 +700,21 @@ export const main = defineCommand({
 
 ## Implementation Phases
 
-### Phase 1: Foundation
-1. Implement cli-base enhancements (doc 12)
-2. Add `ApiClient` wrapper in pika
-3. Add test utilities
+### Phase 1: Foundation ✅
+1. ~~Implement cli-base enhancements (doc 12)~~ — Implemented in pika directly
+2. ~~Add `ApiClient` wrapper in pika~~ — `packages/cli/src/api/client.ts`
+3. ~~Add test utilities~~ — `OutputFormatter`, `parsePaginationArgs`, etc.
 
-### Phase 2: Read Operations
-1. `sessions list` / `sessions get` / `sessions content`
-2. `projects list`
-3. `search`
-4. `tags list`
+### Phase 2: Read Operations ✅
+1. ~~`sessions list` / `sessions get` / `sessions content`~~ — Done
+2. ~~`projects list`~~ — Done
+3. ~~`search`~~ — Done
+4. ~~`tags list`~~ — Done
 
-### Phase 3: Write Operations
-1. `sessions trash`
-2. `sessions star`
-3. `tags create` / `tags add` / `tags remove`
+### Phase 3: Write Operations ✅
+1. ~~`sessions trash`~~ — Done
+2. ~~`sessions star`~~ — Done
+3. ~~`tags create` / `tags add` / `tags remove`~~ — Done
 
 ### Phase 4: Polish
 1. Error message improvements
