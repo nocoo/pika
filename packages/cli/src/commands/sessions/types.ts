@@ -30,20 +30,25 @@ export interface SessionListResponse {
 }
 
 export interface SessionContentResponse {
-  messages: ContentMessage[];
+  messages: CanonicalMessage[];
 }
 
-export interface ContentMessage {
-  role: "user" | "assistant";
-  content: string | ContentBlock[];
-}
-
-export interface ContentBlock {
-  type: "text" | "tool_use" | "tool_result";
-  text?: string;
-  name?: string;
-  input?: unknown;
-  content?: string;
+/**
+ * Canonical message format from R2 storage.
+ * All content is plain string (no Anthropic-style blocks).
+ * Tool information stored in separate fields.
+ */
+export interface CanonicalMessage {
+  role: "user" | "assistant" | "tool" | "system";
+  content: string;
+  toolName?: string;
+  toolInput?: string;
+  toolResult?: string;
+  model?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  cachedTokens?: number;
+  timestamp: string;
 }
 
 // ─── Table column definitions ─────────────────────────────────

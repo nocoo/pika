@@ -6,7 +6,7 @@ import {
   ApiError,
   type OutputFormat,
 } from "../../output/formatter.js";
-import type { SessionContentResponse, ContentMessage, ContentBlock } from "./types.js";
+import type { SessionContentResponse, CanonicalMessage } from "./types.js";
 
 // ─── Content filtering ────────────────────────────────────────
 
@@ -20,9 +20,9 @@ interface FilterOptions {
 }
 
 function filterMessages(
-  messages: ContentMessage[],
+  messages: CanonicalMessage[],
   options: FilterOptions
-): ContentMessage[] {
+): CanonicalMessage[] {
   let result = messages;
 
   // Filter by role
@@ -30,11 +30,9 @@ function filterMessages(
     result = result.filter((m) => m.role === options.role);
   }
 
-  // Strip tool calls if requested
+  // Exclude tool messages if requested
   if (options.noTools) {
-    result = result
-      .map((m) => stripToolBlocks(m))
-      .filter((m) => hasContent(m));
+    result = result.filter((m) => m.role !== "tool");
   }
 
   // Apply offset/limit
@@ -49,52 +47,32 @@ function filterMessages(
   return result;
 }
 
-function stripToolBlocks(message: ContentMessage): ContentMessage {
-  if (typeof message.content === "string") {
-    return message;
-  }
-
-  const filteredBlocks = message.content.filter(
-    (block) => block.type !== "tool_use" && block.type !== "tool_result"
-  );
-
-  return {
-    ...message,
-    content: filteredBlocks,
-  };
-}
-
-function hasContent(message: ContentMessage): boolean {
-  if (typeof message.content === "string") {
-    return message.content.length > 0;
-  }
-  return message.content.length > 0;
-}
-
 // ─── Content formatting ───────────────────────────────────────
 
-function formatAsText(messages: ContentMessage[]): string {
-  return messages.map((m) => extractText(m)).join("\n\n");
+function formatAsText(messages: CanonicalMessage[]): string {
+  return messages.map((m) => m.content).join("\n\n");
 }
 
-function formatAsMarkdown(messages: ContentMessage[]): string {
+function formatAsMarkdown(messages: CanonicalMessage[]): string {
   return messages
     .map((m) => {
-      const roleHeader = m.role === "user" ? "## User" : "## Assistant";
-      return `${roleHeader}\n${extractText(m)}`;
+      const roleHeader = formatRoleHeader(m.role);
+      return `${roleHeader}\n${m.content}`;
     })
     .join("\n\n");
 }
 
-function extractText(message: ContentMessage): string {
-  if (typeof message.content === "string") {
-    return message.content;
+function formatRoleHeader(role: CanonicalMessage["role"]): string {
+  switch (role) {
+    case "user":
+      return "## User";
+    case "assistant":
+      return "## Assistant";
+    case "tool":
+      return "## Tool";
+    case "system":
+      return "## System";
   }
-
-  return message.content
-    .filter((block) => block.type === "text")
-    .map((block) => block.text ?? "")
-    .join("\n");
 }
 
 // ─── Core logic ───────────────────────────────────────────────

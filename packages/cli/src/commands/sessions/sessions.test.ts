@@ -228,21 +228,32 @@ describe("sessions get", () => {
 // ─── sessions content tests ───────────────────────────────────
 
 describe("sessions content", () => {
+  // Canonical format: content is always string, tool info in separate fields
   const sampleContent: SessionContentResponse = {
     messages: [
-      { role: "user", content: "Fix the login bug" },
-      {
-        role: "assistant",
-        content: [
-          { type: "text", text: "I'll analyze the issue" },
-          { type: "tool_use", name: "Read", input: { path: "auth.ts" } },
-        ],
-      },
       {
         role: "user",
-        content: [{ type: "tool_result", content: "export function login()" }],
+        content: "Fix the login bug",
+        timestamp: "2026-04-08T10:00:00Z",
       },
-      { role: "assistant", content: "Found the bug!" },
+      {
+        role: "assistant",
+        content: "I'll analyze the issue",
+        timestamp: "2026-04-08T10:00:01Z",
+      },
+      {
+        role: "tool",
+        content: "export function login()",
+        toolName: "Read",
+        toolInput: '{"path":"auth.ts"}',
+        toolResult: "export function login()",
+        timestamp: "2026-04-08T10:00:02Z",
+      },
+      {
+        role: "assistant",
+        content: "Found the bug!",
+        timestamp: "2026-04-08T10:00:03Z",
+      },
     ],
   };
 
@@ -259,8 +270,8 @@ describe("sessions content", () => {
 
     const output = stdout.join("");
     expect(output).toContain("Fix the login bug");
-    expect(output).toContain("tool_use");
-    expect(output).toContain("tool_result");
+    expect(output).toContain("tool");
+    expect(output).toContain("Read");
   });
 
   it("filters by user role", async () => {
@@ -297,7 +308,7 @@ describe("sessions content", () => {
     expect(output).not.toContain("Fix the login bug");
   });
 
-  it("strips tool blocks with noTools", async () => {
+  it("excludes tool messages with noTools", async () => {
     const client = createMockClient({
       "/sessions/sess_123/content": sampleContent,
     });
@@ -309,8 +320,8 @@ describe("sessions content", () => {
     );
 
     const output = stdout.join("");
-    expect(output).not.toContain("tool_use");
-    expect(output).not.toContain("tool_result");
+    const parsed = JSON.parse(output);
+    expect(parsed.messages.every((m: { role: string }) => m.role !== "tool")).toBe(true);
     expect(output).toContain("I'll analyze");
     expect(output).toContain("Found the bug");
   });
