@@ -396,7 +396,7 @@ describe("sessions content", () => {
     expect(stderr.join("")).toContain("no content");
   });
 
-  it("formats tool messages with toolName/toolInput/toolResult in text format", async () => {
+  it("formats tool messages in plain text without markdown decorations", async () => {
     const contentWithTool: SessionContentResponse = {
       messages: [
         {
@@ -412,17 +412,64 @@ describe("sessions content", () => {
     const client = createMockClient({
       "/sessions/sess_123/content": contentWithTool,
     });
-    // Use json format to capture stdout (text format writes directly to process.stdout)
-    const { formatter, stdout } = createMockFormatter("json");
+    const { formatter } = createMockFormatter("text");
+    const textOutput: string[] = [];
+    const mockStdout = {
+      write: (s: string) => {
+        textOutput.push(s);
+        return true;
+      },
+    } as NodeJS.WritableStream;
 
-    // We need to test the formatting function directly, or check markdown output
     await runSessionsContent(
-      { id: "sess_123", role: "all", noTools: false, format: "markdown" },
-      { client, formatter }
+      { id: "sess_123", role: "all", noTools: false, format: "text" },
+      { client, formatter, stdout: mockStdout }
     );
 
-    // Note: markdown format writes to process.stdout, not formatter.stdout
-    // So we test via json and check the message structure instead
+    const output = textOutput.join("");
+    // Should use plain text format [Read] not markdown **Read**
+    expect(output).toContain("[Read]");
+    expect(output).not.toContain("**Read**");
+    expect(output).toContain("Input:");
+    expect(output).toContain("Result:");
+  });
+
+  it("formats tool messages in markdown with bold decorations", async () => {
+    const contentWithTool: SessionContentResponse = {
+      messages: [
+        {
+          role: "tool",
+          content: "",
+          toolName: "Read",
+          toolInput: '{"path":"auth.ts"}',
+          toolResult: "export function login() {}",
+          timestamp: "2026-04-08T10:00:00Z",
+        },
+      ],
+    };
+    const client = createMockClient({
+      "/sessions/sess_123/content": contentWithTool,
+    });
+    const { formatter } = createMockFormatter("markdown");
+    const mdOutput: string[] = [];
+    const mockStdout = {
+      write: (s: string) => {
+        mdOutput.push(s);
+        return true;
+      },
+    } as NodeJS.WritableStream;
+
+    await runSessionsContent(
+      { id: "sess_123", role: "all", noTools: false, format: "markdown" },
+      { client, formatter, stdout: mockStdout }
+    );
+
+    const output = mdOutput.join("");
+    // Should use markdown format with ## headers and **bold**
+    expect(output).toContain("## Tool");
+    expect(output).toContain("**Read**");
+    expect(output).toContain("Input:");
+    expect(output).toContain("Result:");
   });
 
   it("formats tool messages correctly in json output", async () => {

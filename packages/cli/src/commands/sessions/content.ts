@@ -50,20 +50,41 @@ function filterMessages(
 // ─── Content formatting ───────────────────────────────────────
 
 function formatAsText(messages: CanonicalMessage[]): string {
-  return messages.map((m) => formatMessageText(m)).join("\n\n");
+  return messages.map((m) => formatToolMessagePlain(m)).join("\n\n");
 }
 
 function formatAsMarkdown(messages: CanonicalMessage[]): string {
   return messages
     .map((m) => {
       const roleHeader = formatRoleHeader(m.role);
-      return `${roleHeader}\n${formatMessageText(m)}`;
+      return `${roleHeader}\n${formatToolMessageMarkdown(m)}`;
     })
     .join("\n\n");
 }
 
-function formatMessageText(message: CanonicalMessage): string {
-  // Tool messages: expand toolName/toolInput/toolResult into readable format
+/** Plain text formatting for tool messages (no markdown decorations) */
+function formatToolMessagePlain(message: CanonicalMessage): string {
+  if (message.role === "tool") {
+    const parts: string[] = [];
+    if (message.toolName) {
+      parts.push(`[${message.toolName}]`);
+    }
+    if (message.toolInput) {
+      parts.push(`Input: ${message.toolInput}`);
+    }
+    if (message.toolResult) {
+      parts.push(`Result: ${message.toolResult}`);
+    }
+    if (parts.length === 0 && message.content) {
+      return message.content;
+    }
+    return parts.join("\n");
+  }
+  return message.content;
+}
+
+/** Markdown formatting for tool messages */
+function formatToolMessageMarkdown(message: CanonicalMessage): string {
   if (message.role === "tool") {
     const parts: string[] = [];
     if (message.toolName) {
@@ -75,7 +96,6 @@ function formatMessageText(message: CanonicalMessage): string {
     if (message.toolResult) {
       parts.push(`Result: ${message.toolResult}`);
     }
-    // Fall back to content if no tool fields populated
     if (parts.length === 0 && message.content) {
       return message.content;
     }
@@ -111,9 +131,10 @@ export async function runSessionsContent(
   deps: {
     client: ApiClient;
     formatter: OutputFormatter;
+    stdout?: NodeJS.WritableStream;
   }
 ): Promise<void> {
-  const { client, formatter } = deps;
+  const { client, formatter, stdout = process.stdout } = deps;
 
   const response = await client.get<SessionContentResponse>(
     `/sessions/${args.id}/content`
@@ -158,10 +179,10 @@ export async function runSessionsContent(
       formatter.json({ messages: filteredMessages });
       break;
     case "text":
-      process.stdout.write(formatAsText(filteredMessages) + "\n");
+      stdout.write(formatAsText(filteredMessages) + "\n");
       break;
     case "markdown":
-      process.stdout.write(formatAsMarkdown(filteredMessages) + "\n");
+      stdout.write(formatAsMarkdown(filteredMessages) + "\n");
       break;
     default:
       formatter.json({ messages: filteredMessages });
