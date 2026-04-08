@@ -1,14 +1,16 @@
 import type { TableColumn } from "../../output/formatter.js";
 
-// ─── API Response Types ───────────────────────────────────────
+// ─── API Response Types (snake_case from Worker) ──────────────
 
-export interface ProjectItem {
-  projectKey: string;
-  sessionCount: number;
-  totalMessages: number;
-  totalInputTokens: number;
-  totalOutputTokens: number;
-  lastActivityAt: string;
+export interface ProjectItemRaw {
+  project_key: string;
+  project_name: string | null;
+  project_refs: string | null;
+  session_count: number;
+  total_messages: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  last_activity: string;
 }
 
 export interface ProjectsOverview {
@@ -26,8 +28,30 @@ export interface SourceDistribution {
 
 export interface ProjectsResponse {
   overview: ProjectsOverview;
-  projects: ProjectItem[];
+  projects: ProjectItemRaw[];
   sourceDistribution: Record<string, SourceDistribution[]>;
+}
+
+// ─── Normalized type for display ──────────────────────────────
+
+export interface ProjectItem {
+  projectKey: string;
+  sessionCount: number;
+  totalMessages: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  lastActivity: string;
+}
+
+export function normalizeProject(raw: ProjectItemRaw): ProjectItem {
+  return {
+    projectKey: raw.project_key,
+    sessionCount: raw.session_count,
+    totalMessages: raw.total_messages,
+    totalInputTokens: raw.total_input_tokens,
+    totalOutputTokens: raw.total_output_tokens,
+    lastActivity: raw.last_activity,
+  };
 }
 
 // ─── Table column definitions ─────────────────────────────────
@@ -73,5 +97,5 @@ export const projectListColumns: TableColumn<ProjectItem>[] = [
   { key: (row) => formatNumber(row.totalMessages), header: "Msgs", width: 8, align: "right" },
   { key: (row) => formatNumber(row.totalInputTokens), header: "In Tokens", width: 10, align: "right" },
   { key: (row) => formatNumber(row.totalOutputTokens), header: "Out Tokens", width: 10, align: "right" },
-  { key: (row) => formatRelativeTime(row.lastActivityAt), header: "Last Active", width: 12 },
+  { key: (row) => formatRelativeTime(row.lastActivity), header: "Last Active", width: 12 },
 ];

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { runProjectsList } from "./list.js";
 import type { ApiClient, ApiResponse } from "../../api/client.js";
 import { OutputFormatter } from "../../output/formatter.js";
-import type { ProjectsResponse } from "./types.js";
+import type { ProjectsResponse, ProjectItemRaw } from "./types.js";
 
 function createMockClient(
   response: ProjectsResponse,
@@ -42,6 +42,7 @@ function createMockFormatter(format: string) {
 }
 
 describe("projects list", () => {
+  // API response uses snake_case fields
   const sampleResponse: ProjectsResponse = {
     overview: {
       totalProjects: 5,
@@ -52,22 +53,26 @@ describe("projects list", () => {
     },
     projects: [
       {
-        projectKey: "pika",
-        sessionCount: 50,
-        totalMessages: 2500,
-        totalInputTokens: 250000,
-        totalOutputTokens: 125000,
-        lastActivityAt: "2026-04-08T10:00:00Z",
+        project_key: "pika",
+        project_name: "Pika",
+        project_refs: "/Users/nocoo/workspace/personal/pika",
+        session_count: 50,
+        total_messages: 2500,
+        total_input_tokens: 250000,
+        total_output_tokens: 125000,
+        last_activity: "2026-04-08T10:00:00Z",
       },
       {
-        projectKey: "other-project",
-        sessionCount: 50,
-        totalMessages: 2500,
-        totalInputTokens: 250000,
-        totalOutputTokens: 125000,
-        lastActivityAt: "2026-04-07T10:00:00Z",
+        project_key: "other-project",
+        project_name: "Other",
+        project_refs: "/Users/nocoo/workspace/other",
+        session_count: 50,
+        total_messages: 2500,
+        total_input_tokens: 250000,
+        total_output_tokens: 125000,
+        last_activity: "2026-04-07T10:00:00Z",
       },
-    ],
+    ] as ProjectItemRaw[],
     sourceDistribution: {},
   };
 

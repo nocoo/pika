@@ -7,7 +7,7 @@ import {
   ApiError,
   type OutputFormat,
 } from "../../output/formatter.js";
-import { projectListColumns, type ProjectsResponse } from "./types.js";
+import { projectListColumns, normalizeProject, type ProjectsResponse } from "./types.js";
 
 // ─── Core logic ───────────────────────────────────────────────
 
@@ -33,9 +33,12 @@ export async function runProjectsList(
 
   const data = response.data!;
 
+  // Normalize snake_case to camelCase for display
+  const projects = data.projects.map(normalizeProject);
+
   // Output full envelope in json mode, projects table in table mode
   formatter.response(
-    { items: data.projects, raw: data },
+    { items: projects, raw: data },
     { columns: projectListColumns, minimalKey: "projectKey" }
   );
 
