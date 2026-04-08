@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { runSessionsList } from "./list.js";
 import { runSessionsGet } from "./get.js";
 import { runSessionsContent } from "./content.js";
+import { runSessionsTrash } from "./trash.js";
+import { runSessionsStar } from "./star.js";
 import type { ApiClient, ApiResponse } from "../../api/client.js";
 import { OutputFormatter } from "../../output/formatter.js";
 import type {
@@ -16,17 +18,27 @@ function createMockClient<T>(
   responses: Record<string, T>,
   error?: { status: number; error: string }
 ): ApiClient {
+  const mockGet = vi.fn(async (path: string): Promise<ApiResponse<T>> => {
+    if (error) {
+      return { ok: false, status: error.status, error: error.error };
+    }
+    const key = Object.keys(responses).find((k) => path.startsWith(k));
+    if (key) {
+      return { ok: true, status: 200, data: responses[key] };
+    }
+    return { ok: false, status: 404, error: "Not found" };
+  });
+
+  const mockPatch = vi.fn(async (): Promise<ApiResponse<T>> => {
+    if (error) {
+      return { ok: false, status: error.status, error: error.error };
+    }
+    return { ok: true, status: 200, data: {} as T };
+  });
+
   return {
-    get: vi.fn(async (path: string): Promise<ApiResponse<T>> => {
-      if (error) {
-        return { ok: false, status: error.status, error: error.error };
-      }
-      const key = Object.keys(responses).find((k) => path.startsWith(k));
-      if (key) {
-        return { ok: true, status: 200, data: responses[key] };
-      }
-      return { ok: false, status: 404, error: "Not found" };
-    }),
+    get: mockGet,
+    patch: mockPatch,
   } as unknown as ApiClient;
 }
 
@@ -328,5 +340,92 @@ describe("sessions content", () => {
 
     const parsed = JSON.parse(stdout.join(""));
     expect(parsed.messages).toHaveLength(2);
+  });
+});
+
+// ─── sessions trash tests ─────────────────────────────────────
+
+describe("sessions trash", () => {
+  it("moves session to trash", async () => {
+    const client = createMockClient({});
+    const { formatter, stderr } = createMockFormatter("table");
+
+    await runSessionsTrash(
+      { id: "sess_123", restore: false },
+      { client, formatter }
+    );
+
+    expect(client.patch).toHaveBeenCalledWith("/sessions/sess_123/trash", {
+      deleted: true,
+    });
+    expect(stderr.join("")).toContain("moved to trash");
+  });
+
+  it("restores session from trash", async () => {
+    const client = createMockClient({});
+    const { formatter, stderr } = createMockFormatter("table");
+
+    await runSessionsTrash(
+      { id: "sess_123", restore: true },
+      { client, formatter }
+    );
+
+    expect(client.patch).toHaveBeenCalledWith("/sessions/sess_123/trash", {
+      deleted: false,
+    });
+    expect(stderr.join("")).toContain("restored");
+  });
+
+  it("throws ApiError on failure", async () => {
+    const client = createMockClient({}, { status: 404, error: "Not found" });
+    const { formatter } = createMockFormatter("table");
+
+    await expect(
+      runSessionsTrash({ id: "invalid", restore: false }, { client, formatter })
+    ).rejects.toThrow("Not found");
+  });
+});
+
+// ─── sessions star tests ──────────────────────────────────────
+
+describe("sessions star", () => {
+  it("stars session", async () => {
+    const client = createMockClient({});
+    const { formatter, stderr } = createMockFormatter("table");
+
+    await runSessionsStar(
+      { id: "sess_123", unstar: false },
+      { client, formatter }
+    );
+
+    expect(client.patch).toHaveBeenCalledWith("/sessions/sess_123/star", {
+      starred: true,
+    });
+    expect(stderr.join("")).toContain("starred");
+    expect(stderr.join("")).not.toContain("unstarred");
+  });
+
+  it("unstars session", async () => {
+    const client = createMockClient({});
+    const { formatter, stderr } = createMockFormatter("table");
+
+    await runSessionsStar(
+      { id: "sess_123", unstar: true },
+      { client, formatter }
+    );
+
+    expect(client.patch).toHaveBeenCalledWith("/sessions/sess_123/star", {
+      starred: false,
+    });
+    expect(stderr.join("")).toContain("unstarred");
+  });
+
+  it("throws ApiError on failure", async () => {
+    const client = createMockClient({}, { status: 404, error: "Not found" });
+    const { formatter } = createMockFormatter("table");
+
+    await expect(
+      runSessionsStar({ id: "invalid", unstar: false }, { client, formatter })
+    ).rejects.toThrow("Not found");
   });
 });
