@@ -50,16 +50,38 @@ function filterMessages(
 // ─── Content formatting ───────────────────────────────────────
 
 function formatAsText(messages: CanonicalMessage[]): string {
-  return messages.map((m) => m.content).join("\n\n");
+  return messages.map((m) => formatMessageText(m)).join("\n\n");
 }
 
 function formatAsMarkdown(messages: CanonicalMessage[]): string {
   return messages
     .map((m) => {
       const roleHeader = formatRoleHeader(m.role);
-      return `${roleHeader}\n${m.content}`;
+      return `${roleHeader}\n${formatMessageText(m)}`;
     })
     .join("\n\n");
+}
+
+function formatMessageText(message: CanonicalMessage): string {
+  // Tool messages: expand toolName/toolInput/toolResult into readable format
+  if (message.role === "tool") {
+    const parts: string[] = [];
+    if (message.toolName) {
+      parts.push(`**${message.toolName}**`);
+    }
+    if (message.toolInput) {
+      parts.push(`Input: ${message.toolInput}`);
+    }
+    if (message.toolResult) {
+      parts.push(`Result: ${message.toolResult}`);
+    }
+    // Fall back to content if no tool fields populated
+    if (parts.length === 0 && message.content) {
+      return message.content;
+    }
+    return parts.join("\n");
+  }
+  return message.content;
 }
 
 function formatRoleHeader(role: CanonicalMessage["role"]): string {
@@ -104,7 +126,23 @@ export async function runSessionsContent(
     );
   }
 
-  const data = response.data!;
+  // Handle 204 No Content — session exists but has no canonical content yet
+  if (response.status === 204 || !response.data) {
+    switch (args.format) {
+      case "json":
+        formatter.json({ messages: [] });
+        break;
+      case "text":
+      case "markdown":
+        formatter.info("Session has no content");
+        break;
+      default:
+        formatter.json({ messages: [] });
+    }
+    return;
+  }
+
+  const data = response.data;
 
   // Apply filters
   const filteredMessages = filterMessages(data.messages, {
