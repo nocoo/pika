@@ -342,12 +342,14 @@ import {
   resolveFormat,
   parsePaginationArgs,
   buildPaginationParams,
+  withErrorHandling,
   OutputFormatter,
 } from "@nocoo/cli-base";
 import type { ApiClient } from "@nocoo/cli-base";
 import { sessionListColumns } from "../../output/formatters.js";
 import { createPikaClient, PIKA_PAGINATION } from "../../api/client.js";
 import type { SessionListResponse } from "./types.js";
+import type { ParsedPaginationArgs } from "@nocoo/cli-base";
 
 /** Result type for testability — no side effects in core logic */
 interface ListResult {
@@ -357,10 +359,7 @@ interface ListResult {
 
 /** Core logic — returns result, no process.exitCode mutation */
 export async function runSessionsList(
-  args: {
-    limit: number;
-    cursor?: string;
-    page?: number;
+  args: ParsedPaginationArgs & {
     project?: string;
     source?: string;
   },
@@ -371,12 +370,8 @@ export async function runSessionsList(
 ): Promise<ListResult> {
   const { client, formatter } = deps;
 
-  // Build params from pre-validated pagination args
-  const params: Record<string, string> = {
-    limit: String(args.limit),
-  };
-  if (args.cursor) params.cursor = args.cursor;
-  if (args.page) params.page = String(args.page);
+  // Build pagination params using shared helper
+  const params = buildPaginationParams(args);
   if (args.project) params.projectKey = args.project;
   if (args.source) params.source = args.source;
 
@@ -444,32 +439,28 @@ export default defineCommand({
     },
   },
   async run({ args }) {
-    const client = createPikaClient();
     const formatter = new OutputFormatter({
       format: resolveFormat(args.format),
     });
 
-    // Use shared pagination parser with Pika-specific defaults
-    const pagination = parsePaginationArgs(
-      { limit: args.limit, page: args.page, cursor: args.cursor },
-      PIKA_PAGINATION  // { defaultLimit: 50, maxLimit: 100 }
-    );
+    await withErrorHandling(async () => {
+      const client = createPikaClient();
 
-    const result = await runSessionsList(
-      {
-        limit: pagination.limit,
-        cursor: pagination.cursor,
-        page: pagination.page,
-        project: args.project,
-        source: args.source,
-      },
-      { client, formatter }
-    );
+      // Parse and validate pagination args (throws if page + cursor both set)
+      const pagination = parsePaginationArgs(
+        { limit: args.limit, page: args.page, cursor: args.cursor },
+        PIKA_PAGINATION  // { defaultLimit: 50, maxLimit: 100 }
+      );
 
-    // Exit code set in wrapper, not in core logic
-    if (!result.ok) {
-      process.exitCode = 1;
-    }
+      const result = await runSessionsList(
+        { ...pagination, project: args.project, source: args.source },
+        { client, formatter }
+      );
+
+      if (!result.ok) {
+        process.exitCode = 1;
+      }
+    }, formatter);
   },
 });
 
@@ -504,7 +495,7 @@ describe("sessions list", () => {
     const mockFormatter = createMockFormatter("json");
 
     const result = await runSessionsList(
-      { limit: 20 },
+      { limit: 20, mode: "cursor" },
       { client: mockClient, formatter: mockFormatter }
     );
 
@@ -528,7 +519,7 @@ describe("sessions list", () => {
     const mockFormatter = createMockFormatter("table");
 
     await runSessionsList(
-      { limit: 50, page: 1 },
+      { limit: 50, page: 1, mode: "page" },
       { client: mockClient, formatter: mockFormatter }
     );
 
@@ -548,7 +539,7 @@ describe("sessions list", () => {
     const mockFormatter = createMockFormatter("table");
 
     await runSessionsList(
-      { limit: 50 },
+      { limit: 50, mode: "cursor" },
       { client: mockClient, formatter: mockFormatter }
     );
 
@@ -561,7 +552,7 @@ describe("sessions list", () => {
     const mockFormatter = createMockFormatter("json");
 
     const result = await runSessionsList(
-      { limit: 20 },
+      { limit: 20, mode: "cursor" },
       { client: mockClient, formatter: mockFormatter }
     );
 
