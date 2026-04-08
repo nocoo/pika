@@ -15,3 +15,5 @@
 | 09 | [Quality Upgrade: 6D Framework](./09-quality-upgrade-6d.md) | Six-dimension quality framework upgrade — G1/G2 gates, D1 isolation, L2 API E2E |
 | 10 | [Stream Pipeline Memory](./10-stream-pipeline-memory.md) | Sync pipeline memory optimization — stream-based batching to reduce 14 GB RSS to ~1-2 GB |
 | 11 | [Unified Worker API](./11-unified-worker-api.md) | Consolidate all D1/R2 operations through Worker — eliminate D1 HTTP API, add API key auth |
+| 12 | [CLI Base Abstraction](./12-cli-base-abstraction.md) | @nocoo/cli-base enhancements — ApiClient, OutputFormatter, pagination helpers |
+| 13 | [Pika CLI CRUD](./13-pika-cli-crud.md) | CLI read/update/delete operations — sessions, projects, search, tags commands |
