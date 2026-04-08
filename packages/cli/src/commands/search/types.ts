@@ -1,13 +1,19 @@
 import type { TableColumn } from "../../output/formatter.js";
 
-// ─── API Response Types ───────────────────────────────────────
+// ─── API Response Types (from Worker) ─────────────────────────
 
 export interface SearchResultRow {
   session_id: string;
-  title: string | null;
+  message_id: string;
+  ordinal: number;
+  chunk_index: number;
+  content_snippet: string;
+  tool_snippet: string | null;
+  session_key: string;
   source: string;
-  snippet: string;
-  last_message_at: string;
+  project_name: string | null;
+  title: string | null;
+  started_at: string;
 }
 
 export interface SearchResponse {
@@ -49,6 +55,6 @@ function formatRelativeTime(isoDate: string): string {
 export const searchResultColumns: TableColumn<SearchResultRow>[] = [
   { key: "session_id", header: "Session", width: 14 },
   { key: (row) => truncate(row.title, 25), header: "Title", width: 25 },
-  { key: (row) => truncate(row.snippet, 40), header: "Snippet", width: 40 },
-  { key: (row) => formatRelativeTime(row.last_message_at), header: "Date", width: 10 },
+  { key: (row) => truncate(row.content_snippet, 40), header: "Snippet", width: 40 },
+  { key: (row) => formatRelativeTime(row.started_at), header: "Date", width: 10 },
 ];
