@@ -109,7 +109,7 @@ Multi-format output with strict stdout/stderr separation.
 ```typescript
 // output.ts
 
-export type OutputFormat = "json" | "table" | "minimal";
+export type OutputFormat = "json" | "table" | "minimal" | "auto";
 
 export interface OutputOptions {
   /** Output format */
@@ -132,8 +132,19 @@ export class OutputFormatter {
 
   // ─── Data Output (stdout) ───────────────────────────────────
 
-  /** Output a list of items to stdout */
-  list<T>(items: T[], options: {
+  /**
+   * Output a full API response envelope to stdout.
+   * 
+   * - json: Pretty-printed full envelope (preserves cursor, hasMore, totalCount, etc.)
+   * - table: Renders items as table, metadata to stderr
+   * - minimal: Extracts minimalKey from each item, one per line
+   */
+  response<T>(envelope: {
+    /** Items to display in table/minimal mode */
+    items: T[];
+    /** Full response object for json mode (includes pagination metadata) */
+    raw: unknown;
+  }, options: {
     /** Columns for table format */
     columns: TableColumn<T>[];
     /** Key to extract for minimal format */
@@ -163,12 +174,17 @@ export class OutputFormatter {
 
 /**
  * Determine output format based on TTY and explicit flag.
- * Default: "table" if stdout is TTY, "json" otherwise.
+ * 
+ * Resolution order:
+ * 1. If explicit is "json", "table", or "minimal" → use it
+ * 2. If explicit is "auto" or undefined:
+ *    - TTY stdout → "table"
+ *    - Non-TTY stdout → "json"
  */
 export function resolveFormat(
   explicit: string | undefined,
   isTTY?: boolean
-): OutputFormat;
+): Exclude<OutputFormat, "auto">;
 ```
 
 **Format behaviors:**
@@ -198,12 +214,16 @@ import type { ArgsDef } from "citty";
  */
 export type PaginationMode = "cursor" | "page" | "none";
 
-/** Standard pagination args for citty commands */
+/** 
+ * Standard pagination args for citty commands.
+ * 
+ * NOTE: These are base defaults. CLI implementations should override
+ * defaults to match their API contracts (e.g., Pika uses limit=50).
+ */
 export const paginationArgs: ArgsDef = {
   limit: {
     type: "string",
-    default: "20",
-    description: "Maximum number of items to return (max: 100)",
+    description: "Maximum number of items to return",
   },
   page: {
     type: "string",
@@ -219,7 +239,7 @@ export const paginationArgs: ArgsDef = {
 export const formatArg: ArgsDef = {
   format: {
     type: "string",
-    description: "Output format: json, table, minimal",
+    description: "Output format: json, table, minimal, auto (default: auto)",
   },
 };
 
@@ -372,7 +392,7 @@ test("delete sends request body when provided", async () => {
 });
 
 // output.test.ts
-test("json format outputs only to stdout", () => {
+test("json format outputs full envelope to stdout", () => {
   const stdout: string[] = [];
   const stderr: string[] = [];
 
@@ -382,18 +402,29 @@ test("json format outputs only to stdout", () => {
     stderr: { write: (s: string) => { stderr.push(s); return true; } } as any,
   });
 
-  formatter.list(
-    [{ id: "a", name: "Alice" }],
+  const apiResponse = {
+    sessions: [{ id: "a", name: "Alice" }],
+    cursor: "next_abc",
+    hasMore: true,
+    totalCount: 100,
+  };
+
+  formatter.response(
+    { items: apiResponse.sessions, raw: apiResponse },
     { columns: [], minimalKey: "id" }
   );
   formatter.success("Done!");
 
-  // Data goes to stdout
-  expect(stdout.join("")).toContain('"id":"a"');
+  // Full envelope goes to stdout (preserves pagination metadata)
+  const output = stdout.join("");
+  expect(output).toContain('"id":"a"');
+  expect(output).toContain('"cursor":"next_abc"');
+  expect(output).toContain('"hasMore":true');
+  expect(output).toContain('"totalCount":100');
   // Messages go to stderr
   expect(stderr.join("")).toContain("Done!");
   // stdout has NO messages
-  expect(stdout.join("")).not.toContain("Done!");
+  expect(output).not.toContain("Done!");
 });
 
 test("minimal format outputs IDs only", () => {
@@ -404,11 +435,18 @@ test("minimal format outputs IDs only", () => {
     stderr: { write: () => true } as any,
   });
 
-  formatter.list(
-    [{ id: "a", name: "Alice" }, { id: "b", name: "Bob" }],
+  const apiResponse = {
+    sessions: [{ id: "a", name: "Alice" }, { id: "b", name: "Bob" }],
+    cursor: "next_abc",
+    hasMore: true,
+  };
+
+  formatter.response(
+    { items: apiResponse.sessions, raw: apiResponse },
     { columns: [], minimalKey: "id" }
   );
 
+  // Only IDs, no envelope metadata
   expect(stdout.join("")).toBe("a\nb\n");
 });
 ```

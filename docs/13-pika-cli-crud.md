@@ -8,10 +8,10 @@ This document describes how Pika CLI will leverage the enhanced `@nocoo/cli-base
 
 ## Goals
 
-1. **AI-Friendly Interface** — Output formats optimized for AI agent consumption
+1. **AI-Friendly Interface** — Output formats optimized for AI agent consumption (full response envelopes in json mode)
 2. **Progressive Disclosure** — Minimize token usage with layered detail levels
 3. **Consistent Patterns** — All resources follow the same command structure
-4. **Independent Testability** — Each command handler is a pure function with injected dependencies
+4. **Independent Testability** — Each command handler returns a result object; exit codes set by wrapper
 
 ## Command Structure
 
@@ -122,7 +122,7 @@ Options:
   --from <date>       Sessions after this date (ISO 8601)
   --to <date>         Sessions before this date
   --sort <field>      Sort by: last_message_at, started_at, total_messages, duration_seconds
-  --format <fmt>      Output: auto, json, table, minimal
+  --format <fmt>      Output: json, table, minimal, auto (default: auto)
 ```
 
 **API**: `GET /sessions`
@@ -146,7 +146,7 @@ Options:
 pika sessions get <id> [options]
 
 Options:
-  --format <fmt>      Output: auto, json
+  --format <fmt>      Output: json, table, auto (default: auto)
 ```
 
 **API**: `GET /sessions/:id`
@@ -195,7 +195,7 @@ pika sessions star <id> [--unstar]
 pika projects list [options]
 
 Options:
-  --format <fmt>      Output: auto, json, table, minimal
+  --format <fmt>      Output: json, table, minimal, auto (default: auto)
 ```
 
 **API**: `GET /projects`
@@ -227,7 +227,7 @@ Options:
   --source <name>   Filter by source
   --from <date>     Sessions after this date
   --to <date>       Sessions before this date
-  --format <fmt>    Output: auto, json, table
+  --format <fmt>    Output: json, table, auto (default: auto)
 ```
 
 **API**: `GET /search?q=<query>`
@@ -256,7 +256,7 @@ Options:
 pika tags list [options]
 
 Options:
-  --format <fmt>    Output: auto, json, table, minimal
+  --format <fmt>    Output: json, table, minimal, auto (default: auto)
 ```
 
 **API**: `GET /tags`
@@ -332,18 +332,23 @@ packages/cli/src/
 
 ### Command Implementation Pattern
 
-Each command follows a consistent pattern for testability:
+Each command follows a consistent pattern for testability. The core logic returns a result object; exit codes are set by the wrapper.
 
 ```typescript
 // commands/sessions/list.ts
 
-import { defineCommand } from "@nocoo/cli-base";
-import { paginationArgs, formatArg, parsePaginationArgs } from "@nocoo/cli-base";
+import { defineCommand, resolveFormat } from "@nocoo/cli-base";
 import type { ApiClient, OutputFormatter } from "@nocoo/cli-base";
-import { sessionListColumns } from "../../output/formatters.js";
+import { sessionListColumns, pikaPaginationArgs, pikaFormatArg } from "../../output/formatters.js";
 import type { SessionListResponse } from "./types.js";
 
-/** Core logic — pure function, injectable dependencies */
+/** Result type for testability — no side effects in core logic */
+interface ListResult {
+  ok: boolean;
+  error?: string;
+}
+
+/** Core logic — returns result, no process.exitCode mutation */
 export async function runSessionsList(
   args: {
     limit: number;
@@ -351,13 +356,12 @@ export async function runSessionsList(
     page?: number;
     project?: string;
     source?: string;
-    format: string;
   },
   deps: {
     client: ApiClient;
     formatter: OutputFormatter;
   }
-): Promise<void> {
+): Promise<ListResult> {
   const { client, formatter } = deps;
 
   const params: Record<string, string> = {
@@ -372,31 +376,60 @@ export async function runSessionsList(
 
   if (!response.ok) {
     formatter.error(response.error ?? `API error: ${response.status}`);
-    process.exitCode = 1;
-    return;
+    return { ok: false, error: response.error };
   }
 
-  formatter.list(response.data!.sessions, {
-    columns: sessionListColumns,
-    minimalKey: "id",
-  });
+  const data = response.data!;
 
-  if (response.data!.hasMore) {
-    formatter.info(
-      `More results available. Use --cursor ${response.data!.cursor} to continue.`
-    );
+  // Output full envelope in json mode, items only in table/minimal
+  formatter.response(
+    { items: data.sessions, raw: data },
+    { columns: sessionListColumns, minimalKey: "id" }
+  );
+
+  // Pagination hints to stderr (only in table mode)
+  if (data.hasMore) {
+    if (data.page != null) {
+      // Page mode: suggest next page
+      formatter.info(`Page ${data.page} of ${Math.ceil(data.totalCount! / data.pageSize!)}. Use --page ${data.page + 1} to continue.`);
+    } else if (data.cursor) {
+      // Cursor mode: suggest cursor
+      formatter.info(`More results available. Use --cursor ${data.cursor} to continue.`);
+    }
   }
+
+  return { ok: true };
 }
 
-/** Command definition — wires dependencies */
+/** Pika-specific pagination args (override base defaults) */
+export const pikaPaginationArgs = {
+  limit: {
+    type: "string",
+    default: "50",
+    description: "Maximum number of items to return (max: 100)",
+  },
+  page: {
+    type: "string",
+    description: "Page number (starts at 1). Uses offset pagination.",
+  },
+  cursor: {
+    type: "string",
+    description: "Cursor for keyset pagination (from previous response)",
+  },
+} as const;
+
+/** Command definition — wires dependencies and handles exit code */
 export default defineCommand({
   meta: {
     name: "list",
     description: "List sessions with optional filters",
   },
   args: {
-    ...paginationArgs,
-    ...formatArg,
+    ...pikaPaginationArgs,
+    format: {
+      type: "string",
+      description: "Output format: json, table, minimal, auto (default: auto)",
+    },
     project: {
       type: "string",
       description: "Filter by project key",
@@ -407,20 +440,26 @@ export default defineCommand({
     },
   },
   async run({ args }) {
-    const client = createPikaClient();  // from api/client.ts
+    const client = createPikaClient();
     const formatter = new OutputFormatter({
       format: resolveFormat(args.format),
     });
 
-    await runSessionsList(
+    const result = await runSessionsList(
       {
-        ...parsePaginationArgs(args),
+        limit: args.limit ? parseInt(args.limit, 10) : 50,
+        cursor: args.cursor,
+        page: args.page ? parseInt(args.page, 10) : undefined,
         project: args.project,
         source: args.source,
-        format: args.format ?? "auto",
       },
       { client, formatter }
     );
+
+    // Exit code set in wrapper, not in core logic
+    if (!result.ok) {
+      process.exitCode = 1;
+    }
   },
 });
 ```
@@ -430,63 +469,89 @@ export default defineCommand({
 ```typescript
 // commands/sessions/list.test.ts
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { runSessionsList } from "./list.js";
 import { createMockClient, createMockFormatter } from "../../test-utils.js";
 
 describe("sessions list", () => {
-  it("returns paginated sessions", async () => {
+  it("returns paginated sessions with full envelope in json mode", async () => {
+    const apiResponse = {
+      sessions: [
+        { id: "sess_1", title: "Test 1", source: "claude-code" },
+        { id: "sess_2", title: "Test 2", source: "codex" },
+      ],
+      cursor: "next_cursor",
+      hasMore: true,
+    };
+    const mockClient = createMockClient({ "/sessions": apiResponse });
+    const mockFormatter = createMockFormatter("json");
+
+    const result = await runSessionsList(
+      { limit: 20 },
+      { client: mockClient, formatter: mockFormatter }
+    );
+
+    expect(result.ok).toBe(true);
+    // Verify response() was called with full envelope
+    expect(mockFormatter.responseCalls[0].raw).toEqual(apiResponse);
+    expect(mockFormatter.responseCalls[0].items).toHaveLength(2);
+  });
+
+  it("suggests --page for page mode pagination", async () => {
     const mockClient = createMockClient({
       "/sessions": {
-        sessions: [
-          { id: "sess_1", title: "Test 1", source: "claude-code" },
-          { id: "sess_2", title: "Test 2", source: "codex" },
-        ],
-        cursor: "next_cursor",
-        hasMore: false,
+        sessions: [{ id: "sess_1" }],
+        cursor: null,
+        hasMore: true,
+        totalCount: 100,
+        page: 1,
+        pageSize: 50,
       },
     });
-    const mockFormatter = createMockFormatter();
+    const mockFormatter = createMockFormatter("table");
 
     await runSessionsList(
-      { limit: 20, format: "json" },
+      { limit: 50, page: 1 },
       { client: mockClient, formatter: mockFormatter }
     );
 
-    expect(mockFormatter.listCalls).toHaveLength(1);
-    expect(mockFormatter.listCalls[0].items).toHaveLength(2);
+    // Should suggest --page 2, not --cursor
+    expect(mockFormatter.infoCalls[0]).toContain("--page 2");
+    expect(mockFormatter.infoCalls[0]).not.toContain("--cursor");
   });
 
-  it("passes filters to API", async () => {
+  it("suggests --cursor for cursor mode pagination", async () => {
     const mockClient = createMockClient({
-      "/sessions": { sessions: [], cursor: null, hasMore: false },
+      "/sessions": {
+        sessions: [{ id: "sess_1" }],
+        cursor: "abc123",
+        hasMore: true,
+      },
     });
-    const mockFormatter = createMockFormatter();
+    const mockFormatter = createMockFormatter("table");
 
     await runSessionsList(
-      { limit: 10, cursor: "abc", project: "pika", source: "claude-code", format: "json" },
+      { limit: 50 },
       { client: mockClient, formatter: mockFormatter }
     );
 
-    expect(mockClient.getCalls[0].params).toEqual({
-      limit: "10",
-      cursor: "abc",
-      projectKey: "pika",
-      source: "claude-code",
-    });
+    // Should suggest --cursor, not --page
+    expect(mockFormatter.infoCalls[0]).toContain("--cursor abc123");
   });
 
-  it("handles API errors gracefully", async () => {
+  it("returns error result without mutating process.exitCode", async () => {
     const mockClient = createMockClient({}, { status: 500, error: "Internal error" });
-    const mockFormatter = createMockFormatter();
+    const mockFormatter = createMockFormatter("json");
 
-    await runSessionsList(
-      { limit: 20, format: "json" },
+    const result = await runSessionsList(
+      { limit: 20 },
       { client: mockClient, formatter: mockFormatter }
     );
 
+    // Core logic returns error, does not set exitCode
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("Internal error");
     expect(mockFormatter.errorCalls).toContain("Internal error");
-    expect(process.exitCode).toBe(1);
   });
 });
 ```
