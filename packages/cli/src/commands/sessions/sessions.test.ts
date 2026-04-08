@@ -199,7 +199,7 @@ describe("sessions get", () => {
   };
 
   it("outputs session in json format", async () => {
-    const client = createMockClient({ "/sessions/sess_123": sampleSession });
+    const client = createMockClient({ "/sessions/sess_123": { session: sampleSession } });
     const { formatter, stdout } = createMockFormatter("json");
 
     await runSessionsGet(

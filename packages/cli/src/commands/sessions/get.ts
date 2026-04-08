@@ -9,6 +9,12 @@ import {
 } from "../../output/formatter.js";
 import { sessionDetailColumns, type SessionRow } from "./types.js";
 
+// ─── API Response type ────────────────────────────────────────
+
+interface SessionGetResponse {
+  session: SessionRow;
+}
+
 // ─── Core logic ───────────────────────────────────────────────
 
 export async function runSessionsGet(
@@ -23,7 +29,7 @@ export async function runSessionsGet(
 ): Promise<void> {
   const { client, formatter } = deps;
 
-  const response = await client.get<SessionRow>(`/sessions/${args.id}`);
+  const response = await client.get<SessionGetResponse>(`/sessions/${args.id}`);
 
   if (!response.ok) {
     throw new ApiError(
@@ -32,12 +38,12 @@ export async function runSessionsGet(
     );
   }
 
-  const data = response.data!;
+  const session = response.data!.session;
 
   if (args.format === "json") {
-    formatter.json(data);
+    formatter.json(session);
   } else {
-    formatter.table([data], sessionDetailColumns);
+    formatter.table([session], sessionDetailColumns);
   }
 }
 
