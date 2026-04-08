@@ -344,6 +344,7 @@ import {
   buildPaginationParams,
   withErrorHandling,
   OutputFormatter,
+  type OutputFormat,
 } from "@nocoo/cli-base";
 import type { ApiClient } from "@nocoo/cli-base";
 import { sessionListColumns } from "../../output/formatters.js";
@@ -351,23 +352,29 @@ import { createPikaClient, PIKA_PAGINATION } from "../../api/client.js";
 import type { SessionListResponse } from "./types.js";
 import type { ParsedPaginationArgs } from "@nocoo/cli-base";
 
-/** Result type for testability — no side effects in core logic */
-interface ListResult {
-  ok: boolean;
-  error?: string;
+/** Custom error for API failures — caught by withErrorHandling */
+class ApiError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+    this.name = "ApiError";
+  }
 }
 
-/** Core logic — returns result, no process.exitCode mutation */
+/**
+ * Core logic — throws on error, caught by withErrorHandling.
+ * Returns void on success; all output goes through formatter.
+ */
 export async function runSessionsList(
   args: ParsedPaginationArgs & {
     project?: string;
     source?: string;
+    format: OutputFormat;
   },
   deps: {
     client: ApiClient;
     formatter: OutputFormatter;
   }
-): Promise<ListResult> {
+): Promise<void> {
   const { client, formatter } = deps;
 
   // Build pagination params using shared helper
@@ -378,8 +385,7 @@ export async function runSessionsList(
   const response = await client.get<SessionListResponse>("/sessions", params);
 
   if (!response.ok) {
-    formatter.error(response.error ?? `API error: ${response.status}`);
-    return { ok: false, error: response.error };
+    throw new ApiError(response.error ?? `API error: ${response.status}`, response.status);
   }
 
   const data = response.data!;
@@ -390,8 +396,8 @@ export async function runSessionsList(
     { columns: sessionListColumns, minimalKey: "id" }
   );
 
-  // Pagination hints to stderr (only in table mode)
-  if (data.hasMore) {
+  // Pagination hints to stderr in table mode only (not json/minimal)
+  if (args.format === "table" && data.hasMore) {
     if (data.page != null) {
       // Page mode: suggest next page
       formatter.info(`Page ${data.page} of ${Math.ceil(data.totalCount! / data.pageSize!)}. Use --page ${data.page + 1} to continue.`);
@@ -400,8 +406,6 @@ export async function runSessionsList(
       formatter.info(`More results available. Use --cursor ${data.cursor} to continue.`);
     }
   }
-
-  return { ok: true };
 }
 
 /** Command definition — wires dependencies and handles exit code */
@@ -439,9 +443,8 @@ export default defineCommand({
     },
   },
   async run({ args }) {
-    const formatter = new OutputFormatter({
-      format: resolveFormat(args.format),
-    });
+    const format = resolveFormat(args.format);
+    const formatter = new OutputFormatter({ format });
 
     await withErrorHandling(async () => {
       const client = createPikaClient();
@@ -452,14 +455,11 @@ export default defineCommand({
         PIKA_PAGINATION  // { defaultLimit: 50, maxLimit: 100 }
       );
 
-      const result = await runSessionsList(
-        { ...pagination, project: args.project, source: args.source },
+      // Core logic throws on error — caught by withErrorHandling
+      await runSessionsList(
+        { ...pagination, project: args.project, source: args.source, format },
         { client, formatter }
       );
-
-      if (!result.ok) {
-        process.exitCode = 1;
-      }
     }, formatter);
   },
 });
@@ -482,7 +482,7 @@ import { runSessionsList } from "./list.js";
 import { createMockClient, createMockFormatter } from "../../test-utils.js";
 
 describe("sessions list", () => {
-  it("returns paginated sessions with full envelope in json mode", async () => {
+  it("outputs paginated sessions with full envelope in json mode", async () => {
     const apiResponse = {
       sessions: [
         { id: "sess_1", title: "Test 1", source: "claude-code" },
@@ -494,18 +494,19 @@ describe("sessions list", () => {
     const mockClient = createMockClient({ "/sessions": apiResponse });
     const mockFormatter = createMockFormatter("json");
 
-    const result = await runSessionsList(
-      { limit: 20, mode: "cursor" },
+    await runSessionsList(
+      { limit: 20, mode: "cursor", format: "json" },
       { client: mockClient, formatter: mockFormatter }
     );
 
-    expect(result.ok).toBe(true);
     // Verify response() was called with full envelope
     expect(mockFormatter.responseCalls[0].raw).toEqual(apiResponse);
     expect(mockFormatter.responseCalls[0].items).toHaveLength(2);
+    // No pagination hints in json mode
+    expect(mockFormatter.infoCalls).toHaveLength(0);
   });
 
-  it("suggests --page for page mode pagination", async () => {
+  it("suggests --page for page mode pagination in table mode", async () => {
     const mockClient = createMockClient({
       "/sessions": {
         sessions: [{ id: "sess_1" }],
@@ -519,7 +520,7 @@ describe("sessions list", () => {
     const mockFormatter = createMockFormatter("table");
 
     await runSessionsList(
-      { limit: 50, page: 1, mode: "page" },
+      { limit: 50, page: 1, mode: "page", format: "table" },
       { client: mockClient, formatter: mockFormatter }
     );
 
@@ -528,7 +529,7 @@ describe("sessions list", () => {
     expect(mockFormatter.infoCalls[0]).not.toContain("--cursor");
   });
 
-  it("suggests --cursor for cursor mode pagination", async () => {
+  it("suggests --cursor for cursor mode pagination in table mode", async () => {
     const mockClient = createMockClient({
       "/sessions": {
         sessions: [{ id: "sess_1" }],
@@ -539,7 +540,7 @@ describe("sessions list", () => {
     const mockFormatter = createMockFormatter("table");
 
     await runSessionsList(
-      { limit: 50, mode: "cursor" },
+      { limit: 50, mode: "cursor", format: "table" },
       { client: mockClient, formatter: mockFormatter }
     );
 
@@ -547,19 +548,16 @@ describe("sessions list", () => {
     expect(mockFormatter.infoCalls[0]).toContain("--cursor abc123");
   });
 
-  it("returns error result without mutating process.exitCode", async () => {
+  it("throws ApiError on non-ok response", async () => {
     const mockClient = createMockClient({}, { status: 500, error: "Internal error" });
     const mockFormatter = createMockFormatter("json");
 
-    const result = await runSessionsList(
-      { limit: 20, mode: "cursor" },
-      { client: mockClient, formatter: mockFormatter }
-    );
-
-    // Core logic returns error, does not set exitCode
-    expect(result.ok).toBe(false);
-    expect(result.error).toBe("Internal error");
-    expect(mockFormatter.errorCalls).toContain("Internal error");
+    await expect(
+      runSessionsList(
+        { limit: 20, mode: "cursor", format: "json" },
+        { client: mockClient, formatter: mockFormatter }
+      )
+    ).rejects.toThrow("Internal error");
   });
 });
 ```
