@@ -30,6 +30,9 @@ export async function runSessionsList(
     from?: string;
     to?: string;
     sort?: string;
+    model?: string;
+    minMessages?: number;
+    maxMessages?: number;
     format: OutputFormat;
   },
   deps: {
@@ -57,6 +60,11 @@ export async function runSessionsList(
   if (args.from) params.from = args.from;
   if (args.to) params.to = args.to;
   if (args.sort) params.sort = args.sort;
+  if (args.model) params.model = args.model;
+  if (args.minMessages !== undefined)
+    params.minMessages = String(args.minMessages);
+  if (args.maxMessages !== undefined)
+    params.maxMessages = String(args.maxMessages);
 
   const response = await client.get<SessionListResponse>("/sessions", params);
 
@@ -144,6 +152,18 @@ export default defineCommand({
       description:
         "Sort by: last_message_at, started_at, total_messages, duration_seconds",
     },
+    model: {
+      type: "string",
+      description: "Filter by model (e.g., claude-sonnet-4-20250514)",
+    },
+    "min-messages": {
+      type: "string",
+      description: "Minimum total messages",
+    },
+    "max-messages": {
+      type: "string",
+      description: "Maximum total messages",
+    },
     dev: {
       type: "boolean",
       default: false,
@@ -172,6 +192,13 @@ export default defineCommand({
           from: args.from,
           to: args.to,
           sort: args.sort,
+          model: args.model,
+          minMessages: args["min-messages"]
+            ? parseInt(args["min-messages"], 10)
+            : undefined,
+          maxMessages: args["max-messages"]
+            ? parseInt(args["max-messages"], 10)
+            : undefined,
           format,
         },
         { client, formatter },
