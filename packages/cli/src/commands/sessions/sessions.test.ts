@@ -275,6 +275,72 @@ describe("sessions list", () => {
     );
   });
 
+  it("passes duration filters to client", async () => {
+    const response: SessionListResponse = {
+      sessions: [],
+      cursor: null,
+      hasMore: false,
+    };
+    const client = createMockClient({ "/sessions": response });
+    const { formatter } = createMockFormatter("json");
+
+    await runSessionsList(
+      {
+        limit: 50,
+        mode: "cursor",
+        format: "json",
+        minDuration: 300,
+        maxDuration: 7200,
+      },
+      { client, formatter },
+    );
+
+    expect(client.get).toHaveBeenCalledWith(
+      "/sessions",
+      expect.objectContaining({
+        minDuration: "300",
+        maxDuration: "7200",
+      }),
+    );
+  });
+
+  it("passes token filters to client", async () => {
+    const response: SessionListResponse = {
+      sessions: [],
+      cursor: null,
+      hasMore: false,
+    };
+    const client = createMockClient({ "/sessions": response });
+    const { formatter } = createMockFormatter("json");
+
+    await runSessionsList(
+      {
+        limit: 50,
+        mode: "cursor",
+        format: "json",
+        minInputTokens: 1000,
+        maxInputTokens: 50000,
+        minOutputTokens: 500,
+        maxOutputTokens: 10000,
+        minTotalTokens: 5000,
+        maxTotalTokens: 100000,
+      },
+      { client, formatter },
+    );
+
+    expect(client.get).toHaveBeenCalledWith(
+      "/sessions",
+      expect.objectContaining({
+        minInputTokens: "1000",
+        maxInputTokens: "50000",
+        minOutputTokens: "500",
+        maxOutputTokens: "10000",
+        minTotalTokens: "5000",
+        maxTotalTokens: "100000",
+      }),
+    );
+  });
+
   it("normalizes source aliases", async () => {
     const response: SessionListResponse = {
       sessions: [],

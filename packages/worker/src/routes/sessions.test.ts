@@ -144,6 +144,70 @@ describe("handleListSessions", () => {
     const sql = db.prepare.mock.calls[0][0];
     expect(sql).toContain("s.source = ?");
   });
+
+  it("applies duration filters", async () => {
+    const env = mockEnv({ results: [] });
+    const params = new URLSearchParams({
+      minDuration: "300",
+      maxDuration: "7200",
+    });
+
+    await handleListSessions("user-1", params, env);
+
+    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const sql = db.prepare.mock.calls[0][0];
+    expect(sql).toContain("s.duration_seconds >= ?");
+    expect(sql).toContain("s.duration_seconds <= ?");
+  });
+
+  it("applies input token filters", async () => {
+    const env = mockEnv({ results: [] });
+    const params = new URLSearchParams({
+      minInputTokens: "1000",
+      maxInputTokens: "50000",
+    });
+
+    await handleListSessions("user-1", params, env);
+
+    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const sql = db.prepare.mock.calls[0][0];
+    expect(sql).toContain("s.total_input_tokens >= ?");
+    expect(sql).toContain("s.total_input_tokens <= ?");
+  });
+
+  it("applies output token filters", async () => {
+    const env = mockEnv({ results: [] });
+    const params = new URLSearchParams({
+      minOutputTokens: "500",
+      maxOutputTokens: "10000",
+    });
+
+    await handleListSessions("user-1", params, env);
+
+    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const sql = db.prepare.mock.calls[0][0];
+    expect(sql).toContain("s.total_output_tokens >= ?");
+    expect(sql).toContain("s.total_output_tokens <= ?");
+  });
+
+  it("applies total token filters", async () => {
+    const env = mockEnv({ results: [] });
+    const params = new URLSearchParams({
+      minTotalTokens: "5000",
+      maxTotalTokens: "100000",
+    });
+
+    await handleListSessions("user-1", params, env);
+
+    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const sql = db.prepare.mock.calls[0][0];
+    expect(sql).toContain(
+      "(s.total_input_tokens + s.total_output_tokens) >= ?",
+    );
+    expect(sql).toContain(
+      "(s.total_input_tokens + s.total_output_tokens) <= ?",
+    );
+  });
 });
 
 // ── handleGetSession tests ─────────────────────────────────────
