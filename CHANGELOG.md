@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] - 2026-04-09
+
+### Features
+
+- **CLI CRUD commands** — Full session/project/tag/search management from command line:
+  - `pika sessions list/get/content` — List, view, and export session content
+  - `pika sessions trash/star` — Move to trash or star sessions
+  - `pika projects list` — List projects with activity stats
+  - `pika tags list/create/add/remove` — Manage session tags
+  - `pika search` — Full-text search across sessions
+- **Output formats** — JSON, table, minimal, text, and markdown output modes
+- **Pagination** — Cursor-based and offset pagination with `--limit`, `--page`, `--cursor`
+- **Source aliases** — Use `gemini`, `claude`, `copilot` as shortcuts for full source names
+
+### Fixes
+
+- **Source filter** — `--source=gemini` now correctly maps to `gemini-cli` (was silently returning all sessions)
+- **Content formatting** — Tool messages display correctly in text/markdown output
+- **API compatibility** — Handle 204 No Content, snake_case responses, envelope unwrapping
+
+### Chores
+
+- **Security** — Update vite 7.3.1 → 8.0.7 (CVE fixes)
+- **Code quality** — Biome lint auto-fixes, 95% test coverage threshold
+
 ## [0.6.3] - 2026-04-06
 
 ### Improvements
