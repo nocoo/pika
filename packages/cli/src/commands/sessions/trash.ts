@@ -6,7 +6,7 @@ import {
   withErrorHandling,
 } from "../../output/formatter.js";
 
-// ─── API Response type ────────────────────────────────────────
+// ─── API Response types ───────────────────────────────────────
 
 interface TrashResponse {
   deleted: boolean;
@@ -14,11 +14,15 @@ interface TrashResponse {
   affected: number;
 }
 
+interface BatchResponse {
+  affected: number;
+}
+
 // ─── Core logic ───────────────────────────────────────────────
 
 export async function runSessionsTrash(
   args: {
-    id: string;
+    ids: string[];
     restore: boolean;
   },
   deps: {
@@ -28,10 +32,48 @@ export async function runSessionsTrash(
 ): Promise<void> {
   const { client, formatter } = deps;
 
-  const response = await client.patch<TrashResponse>(
-    `/sessions/${args.id}/trash`,
-    { deleted: !args.restore },
-  );
+  if (args.ids.length === 0) {
+    throw new Error("At least one session ID is required");
+  }
+
+  // Single ID: use existing PATCH endpoint
+  if (args.ids.length === 1) {
+    const response = await client.patch<TrashResponse>(
+      `/sessions/${args.ids[0]}/trash`,
+      { deleted: !args.restore },
+    );
+
+    if (!response.ok) {
+      throw new ApiError(
+        response.error ?? `API error: ${response.status}`,
+        response.status,
+      );
+    }
+
+    const data = response.data!;
+
+    // Worker returns affected=0 when session not found or already in desired state
+    if (data.affected === 0) {
+      throw new ApiError(
+        `Session ${args.ids[0]} not found or already ${args.restore ? "restored" : "trashed"}`,
+        404,
+      );
+    }
+
+    if (args.restore) {
+      formatter.success(`Session ${args.ids[0]} restored`);
+    } else {
+      formatter.success(`Session ${args.ids[0]} moved to trash`);
+    }
+    return;
+  }
+
+  // Multiple IDs: use batch endpoint
+  const action = args.restore ? "restore" : "delete";
+  const response = await client.post<BatchResponse>("/sessions/batch", {
+    action,
+    ids: args.ids,
+  });
 
   if (!response.ok) {
     throw new ApiError(
@@ -42,19 +84,17 @@ export async function runSessionsTrash(
 
   const data = response.data!;
 
-  // Worker returns affected=0 when session not found or already in desired state
   if (data.affected === 0) {
-    const _action = args.restore ? "restore" : "trash";
     throw new ApiError(
-      `Session ${args.id} not found or already ${args.restore ? "restored" : "trashed"}`,
+      `No sessions were ${args.restore ? "restored" : "trashed"} (not found or already in desired state)`,
       404,
     );
   }
 
   if (args.restore) {
-    formatter.success(`Session ${args.id} restored`);
+    formatter.success(`${data.affected} session(s) restored`);
   } else {
-    formatter.success(`Session ${args.id} moved to trash`);
+    formatter.success(`${data.affected} session(s) moved to trash`);
   }
 }
 
@@ -63,17 +103,17 @@ export async function runSessionsTrash(
 export default defineCommand({
   meta: {
     name: "trash",
-    description: "Soft-delete or restore a session",
+    description: "Soft-delete or restore sessions",
   },
   args: {
-    id: {
+    ids: {
       type: "positional",
-      description: "Session ID",
+      description: "Session ID(s)",
       required: true,
     },
     restore: {
       type: "boolean",
-      description: "Restore a deleted session instead of deleting",
+      description: "Restore deleted sessions instead of deleting",
     },
     dev: {
       type: "boolean",
@@ -87,8 +127,11 @@ export default defineCommand({
     await withErrorHandling(async () => {
       const client = createPikaClient(args.dev);
 
+      // args.ids can be a string (single) or array (variadic)
+      const ids = Array.isArray(args.ids) ? args.ids : [args.ids];
+
       await runSessionsTrash(
-        { id: args.id, restore: args.restore ?? false },
+        { ids, restore: args.restore ?? false },
         { client, formatter },
       );
     }, formatter);

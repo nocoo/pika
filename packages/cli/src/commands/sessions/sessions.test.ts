@@ -24,6 +24,7 @@ function createMockClient<T>(
   responses: Record<string, T | MockResponse<T>>,
   error?: { status: number; error: string },
   patchResponse?: T,
+  postResponse?: T,
 ): ApiClient {
   const mockGet = vi.fn(async (path: string): Promise<ApiResponse<T>> => {
     if (error) {
@@ -55,9 +56,18 @@ function createMockClient<T>(
     return { ok: true, status: 200, data };
   });
 
+  const mockPost = vi.fn(async (): Promise<ApiResponse<T>> => {
+    if (error) {
+      return { ok: false, status: error.status, error: error.error };
+    }
+    const data = postResponse ?? ({ affected: 1 } as T);
+    return { ok: true, status: 200, data };
+  });
+
   return {
     get: mockGet,
     patch: mockPatch,
+    post: mockPost,
   } as unknown as ApiClient;
 }
 
@@ -914,7 +924,7 @@ describe("sessions edit", () => {
 // ─── sessions trash tests ─────────────────────────────────────
 
 describe("sessions trash", () => {
-  it("moves session to trash", async () => {
+  it("moves single session to trash", async () => {
     const client = createMockClient({}, undefined, {
       deleted: true,
       deleted_at: "2026-04-08T10:00:00Z",
@@ -923,7 +933,7 @@ describe("sessions trash", () => {
     const { formatter, stderr } = createMockFormatter("table");
 
     await runSessionsTrash(
-      { id: "sess_123", restore: false },
+      { ids: ["sess_123"], restore: false },
       { client, formatter },
     );
 
@@ -933,7 +943,7 @@ describe("sessions trash", () => {
     expect(stderr.join("")).toContain("moved to trash");
   });
 
-  it("restores session from trash", async () => {
+  it("restores single session from trash", async () => {
     const client = createMockClient({}, undefined, {
       deleted: false,
       deleted_at: null,
@@ -942,7 +952,7 @@ describe("sessions trash", () => {
     const { formatter, stderr } = createMockFormatter("table");
 
     await runSessionsTrash(
-      { id: "sess_123", restore: true },
+      { ids: ["sess_123"], restore: true },
       { client, formatter },
     );
 
@@ -952,7 +962,39 @@ describe("sessions trash", () => {
     expect(stderr.join("")).toContain("restored");
   });
 
-  it("throws ApiError when session not found (affected=0)", async () => {
+  it("batch trashes multiple sessions", async () => {
+    const client = createMockClient({}, undefined, undefined, { affected: 3 });
+    const { formatter, stderr } = createMockFormatter("table");
+
+    await runSessionsTrash(
+      { ids: ["sess_1", "sess_2", "sess_3"], restore: false },
+      { client, formatter },
+    );
+
+    expect(client.post).toHaveBeenCalledWith("/sessions/batch", {
+      action: "delete",
+      ids: ["sess_1", "sess_2", "sess_3"],
+    });
+    expect(stderr.join("")).toContain("3 session(s) moved to trash");
+  });
+
+  it("batch restores multiple sessions", async () => {
+    const client = createMockClient({}, undefined, undefined, { affected: 2 });
+    const { formatter, stderr } = createMockFormatter("table");
+
+    await runSessionsTrash(
+      { ids: ["sess_1", "sess_2"], restore: true },
+      { client, formatter },
+    );
+
+    expect(client.post).toHaveBeenCalledWith("/sessions/batch", {
+      action: "restore",
+      ids: ["sess_1", "sess_2"],
+    });
+    expect(stderr.join("")).toContain("2 session(s) restored");
+  });
+
+  it("throws ApiError when single session not found (affected=0)", async () => {
     const client = createMockClient({}, undefined, {
       deleted: true,
       deleted_at: null,
@@ -962,10 +1004,22 @@ describe("sessions trash", () => {
 
     await expect(
       runSessionsTrash(
-        { id: "invalid", restore: false },
+        { ids: ["invalid"], restore: false },
         { client, formatter },
       ),
     ).rejects.toThrow("not found or already trashed");
+  });
+
+  it("throws ApiError when batch affected=0", async () => {
+    const client = createMockClient({}, undefined, undefined, { affected: 0 });
+    const { formatter } = createMockFormatter("table");
+
+    await expect(
+      runSessionsTrash(
+        { ids: ["invalid1", "invalid2"], restore: false },
+        { client, formatter },
+      ),
+    ).rejects.toThrow("No sessions were trashed");
   });
 
   it("throws ApiError when trying to restore non-trashed session", async () => {
@@ -978,7 +1032,7 @@ describe("sessions trash", () => {
 
     await expect(
       runSessionsTrash(
-        { id: "sess_123", restore: true },
+        { ids: ["sess_123"], restore: true },
         { client, formatter },
       ),
     ).rejects.toThrow("not found or already restored");
@@ -990,10 +1044,19 @@ describe("sessions trash", () => {
 
     await expect(
       runSessionsTrash(
-        { id: "invalid", restore: false },
+        { ids: ["invalid"], restore: false },
         { client, formatter },
       ),
     ).rejects.toThrow("Server error");
+  });
+
+  it("throws error when no IDs provided", async () => {
+    const client = createMockClient({});
+    const { formatter } = createMockFormatter("table");
+
+    await expect(
+      runSessionsTrash({ ids: [], restore: false }, { client, formatter }),
+    ).rejects.toThrow("At least one session ID is required");
   });
 });
 
