@@ -215,6 +215,84 @@ describe("sessions list", () => {
     );
   });
 
+  it("normalizes source aliases", async () => {
+    const response: SessionListResponse = {
+      sessions: [],
+      cursor: null,
+      hasMore: false,
+    };
+    const client = createMockClient({ "/sessions": response });
+    const { formatter } = createMockFormatter("json");
+
+    // Test "gemini" alias → "gemini-cli"
+    await runSessionsList(
+      { limit: 50, mode: "cursor", format: "json", source: "gemini" },
+      { client, formatter }
+    );
+
+    expect(client.get).toHaveBeenCalledWith(
+      "/sessions",
+      expect.objectContaining({ source: "gemini-cli" })
+    );
+  });
+
+  it("normalizes claude alias to claude-code", async () => {
+    const response: SessionListResponse = {
+      sessions: [],
+      cursor: null,
+      hasMore: false,
+    };
+    const client = createMockClient({ "/sessions": response });
+    const { formatter } = createMockFormatter("json");
+
+    await runSessionsList(
+      { limit: 50, mode: "cursor", format: "json", source: "claude" },
+      { client, formatter }
+    );
+
+    expect(client.get).toHaveBeenCalledWith(
+      "/sessions",
+      expect.objectContaining({ source: "claude-code" })
+    );
+  });
+
+  it("normalizes copilot alias to vscode-copilot", async () => {
+    const response: SessionListResponse = {
+      sessions: [],
+      cursor: null,
+      hasMore: false,
+    };
+    const client = createMockClient({ "/sessions": response });
+    const { formatter } = createMockFormatter("json");
+
+    await runSessionsList(
+      { limit: 50, mode: "cursor", format: "json", source: "copilot" },
+      { client, formatter }
+    );
+
+    expect(client.get).toHaveBeenCalledWith(
+      "/sessions",
+      expect.objectContaining({ source: "vscode-copilot" })
+    );
+  });
+
+  it("throws error for invalid source", async () => {
+    const response: SessionListResponse = {
+      sessions: [],
+      cursor: null,
+      hasMore: false,
+    };
+    const client = createMockClient({ "/sessions": response });
+    const { formatter } = createMockFormatter("json");
+
+    await expect(
+      runSessionsList(
+        { limit: 50, mode: "cursor", format: "json", source: "invalid-source" },
+        { client, formatter }
+      )
+    ).rejects.toThrow('Invalid source: "invalid-source"');
+  });
+
   it("shows page-based pagination hint", async () => {
     const response: SessionListResponse = {
       sessions: [sampleSession],

@@ -10,6 +10,31 @@ export const SOURCES = [
 
 export type Source = (typeof SOURCES)[number];
 
+/**
+ * Alias mapping for source names.
+ * Allows users to use shorter/simpler names that map to canonical source names.
+ * Example: "gemini" → "gemini-cli"
+ */
+export const SOURCE_ALIASES: Record<string, Source> = {
+  gemini: "gemini-cli",
+  claude: "claude-code",
+  copilot: "vscode-copilot",
+};
+
+/**
+ * Normalize a source name by applying alias mapping.
+ * Returns the canonical source name if the input is a valid source or alias.
+ * Returns undefined if the input is not a valid source or alias.
+ */
+export function normalizeSource(input: string): Source | undefined {
+  // Direct match against canonical sources
+  if (SOURCES.includes(input as Source)) {
+    return input as Source;
+  }
+  // Check aliases
+  return SOURCE_ALIASES[input];
+}
+
 // ── Message roles ──────────────────────────────────────────────
 
 export const MESSAGE_ROLES = ["user", "assistant", "tool", "system"] as const;

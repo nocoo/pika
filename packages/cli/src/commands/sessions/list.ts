@@ -1,4 +1,5 @@
 import { defineCommand } from "@nocoo/cli-base";
+import { normalizeSource, SOURCES } from "@pika/core";
 import { createPikaClient, PIKA_PAGINATION, type ApiClient } from "../../api/client.js";
 import {
   OutputFormatter,
@@ -40,7 +41,16 @@ export async function runSessionsList(
   // Build pagination params using shared helper
   const params = buildPaginationParams(args);
   if (args.project) params.projectKey = args.project;
-  if (args.source) params.source = args.source;
+  if (args.source) {
+    const normalized = normalizeSource(args.source);
+    if (normalized) {
+      params.source = normalized;
+    } else {
+      throw new Error(
+        `Invalid source: "${args.source}". Valid sources: ${SOURCES.join(", ")}, or aliases: gemini, claude, copilot`
+      );
+    }
+  }
   if (args.starred) params.starred = "true";
   if (args.deleted) params.deleted = "true";
   if (args.from) params.from = args.from;
@@ -107,7 +117,7 @@ export default defineCommand({
     },
     source: {
       type: "string",
-      description: "Filter by source (claude-code, codex, gemini, opencode, vscode-copilot)",
+      description: "Filter by source (claude-code, codex, gemini-cli, opencode, vscode-copilot). Aliases: gemini, claude, copilot",
     },
     starred: {
       type: "boolean",

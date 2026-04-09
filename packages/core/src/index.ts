@@ -52,7 +52,9 @@ export type {
 } from "./types";
 export {
   MESSAGE_ROLES,
+  normalizeSource,
   RAW_FORMATS,
+  SOURCE_ALIASES,
   SOURCES,
 } from "./types";
 export {
