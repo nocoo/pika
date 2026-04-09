@@ -331,7 +331,7 @@ describe("handleGetSessionTags", () => {
 // ── handleAddSessionTag tests ──────────────────────────────────
 
 describe("handleAddSessionTag", () => {
-  it("adds a tag to a session", async () => {
+  it("adds a tag to a session by tagId", async () => {
     const db = mockD1({
       firstResult: { id: "sess-1" },
     });
@@ -357,16 +357,100 @@ describe("handleAddSessionTag", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.added).toBe(true);
+    expect(body.tagId).toBe("tag-1");
   });
 
-  it("returns 400 for missing tagId", async () => {
+  it("adds a tag to a session by tagName (existing tag)", async () => {
+    const existingTag = {
+      id: "found-tag-id",
+      user_id: "user-1",
+      name: "Bug",
+      color: null,
+      created_at: "2026-01-01T00:00:00Z",
+    };
+    const db = mockD1();
+    const prepare = db.prepare as ReturnType<typeof vi.fn>;
+    const bindMock = vi.fn().mockReturnThis();
+    const firstMock = vi
+      .fn()
+      .mockResolvedValueOnce({ id: "sess-1" }) // session lookup
+      .mockResolvedValueOnce(existingTag); // findTagByName
+    const runMock = vi.fn().mockResolvedValue({ meta: { changes: 1 } });
+
+    prepare.mockReturnValue({
+      bind: bindMock,
+      first: firstMock,
+      run: runMock,
+    });
+
+    const env = { DB: db, BUCKET: {} as R2Bucket, WORKER_SECRET: "test" };
+
+    const res = await handleAddSessionTag(
+      "user-1",
+      "sess-1",
+      { tagName: "bug" }, // lowercase, but matches "Bug"
+      env,
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.added).toBe(true);
+    expect(body.tagId).toBe("found-tag-id");
+  });
+
+  it("auto-creates tag when tagName not found", async () => {
+    const db = mockD1();
+    const prepare = db.prepare as ReturnType<typeof vi.fn>;
+    let capturedTagId: string | undefined;
+    prepare.mockImplementation(() => ({
+      bind: vi.fn((...args: unknown[]) => {
+        // Capture the generated tag ID from INSERT
+        if (
+          typeof args[0] === "string" &&
+          args[0].match(
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+          )
+        ) {
+          capturedTagId = args[0] as string;
+        }
+        return {
+          bind: vi.fn().mockReturnThis(),
+          first: vi
+            .fn()
+            .mockResolvedValueOnce({ id: "sess-1" }) // session lookup
+            .mockResolvedValueOnce(null), // findTagByName returns null
+          run: vi.fn().mockResolvedValue({ meta: { changes: 1 } }),
+        };
+      }),
+      first: vi
+        .fn()
+        .mockResolvedValueOnce({ id: "sess-1" }) // session lookup
+        .mockResolvedValueOnce(null), // findTagByName returns null
+      run: vi.fn().mockResolvedValue({ meta: { changes: 1 } }),
+    }));
+    const env = { DB: db, BUCKET: {} as R2Bucket, WORKER_SECRET: "test" };
+
+    const res = await handleAddSessionTag(
+      "user-1",
+      "sess-1",
+      { tagName: "new-tag" },
+      env,
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.added).toBe(true);
+    expect(body.tagId).toBeDefined();
+  });
+
+  it("returns 400 when neither tagId nor tagName provided", async () => {
     const env = mockEnv();
 
     const res = await handleAddSessionTag("user-1", "sess-1", {}, env);
 
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toContain("tagId is required");
+    expect(body.error).toContain("Either tagId or tagName is required");
   });
 
   it("returns 404 when session not found", async () => {
@@ -396,7 +480,7 @@ describe("handleAddSessionTag", () => {
 // ── handleRemoveSessionTag tests ───────────────────────────────
 
 describe("handleRemoveSessionTag", () => {
-  it("removes a tag from a session", async () => {
+  it("removes a tag from a session by tagId", async () => {
     const env = mockEnv({ runMeta: { changes: 1 } });
 
     const res = await handleRemoveSessionTag(
@@ -409,14 +493,49 @@ describe("handleRemoveSessionTag", () => {
     expect(res.status).toBe(204);
   });
 
-  it("returns 400 for missing tagId", async () => {
+  it("removes a tag from a session by tagName", async () => {
+    const existingTag = {
+      id: "found-tag-id",
+      user_id: "user-1",
+      name: "Bug",
+      color: null,
+      created_at: "2026-01-01T00:00:00Z",
+    };
+    const env = mockEnv({ firstResult: existingTag });
+
+    const res = await handleRemoveSessionTag(
+      "user-1",
+      "sess-1",
+      { tagName: "bug" }, // case-insensitive match
+      env,
+    );
+
+    expect(res.status).toBe(204);
+  });
+
+  it("returns 404 when tagName not found", async () => {
+    const env = mockEnv({ firstResult: null });
+
+    const res = await handleRemoveSessionTag(
+      "user-1",
+      "sess-1",
+      { tagName: "nonexistent" },
+      env,
+    );
+
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toContain("Tag not found");
+  });
+
+  it("returns 400 when neither tagId nor tagName provided", async () => {
     const env = mockEnv();
 
     const res = await handleRemoveSessionTag("user-1", "sess-1", {}, env);
 
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toContain("tagId is required");
+    expect(body.error).toContain("Either tagId or tagName is required");
   });
 
   it("returns 400 for invalid body", async () => {

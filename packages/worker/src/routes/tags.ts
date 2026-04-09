@@ -322,6 +322,8 @@ export async function handleGetSessionTags(
 
 /**
  * PUT /sessions/:id/tags — Add a tag to a session.
+ * Accepts either tagId (UUID) or tagName (case-insensitive lookup).
+ * Auto-creates the tag if tagName is provided and not found.
  */
 export async function handleAddSessionTag(
   userId: string,
@@ -333,9 +335,15 @@ export async function handleAddSessionTag(
     return Response.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const tagId = (body as Record<string, unknown>).tagId;
-  if (typeof tagId !== "string" || !tagId) {
-    return Response.json({ error: "tagId is required" }, { status: 400 });
+  const obj = body as Record<string, unknown>;
+  const tagId = obj.tagId;
+  const tagName = obj.tagName;
+
+  if (!tagId && !tagName) {
+    return Response.json(
+      { error: "Either tagId or tagName is required" },
+      { status: 400 },
+    );
   }
 
   // Verify session ownership
@@ -348,29 +356,58 @@ export async function handleAddSessionTag(
     return Response.json({ error: "Session not found" }, { status: 404 });
   }
 
-  // Verify tag ownership
-  const tagSql = "SELECT id FROM tags WHERE id = ? AND user_id = ?";
-  const tag = await env.DB.prepare(tagSql).bind(tagId, userId).first();
+  let resolvedTagId: string;
 
-  if (!tag) {
-    return Response.json({ error: "Tag not found" }, { status: 404 });
+  if (typeof tagId === "string" && tagId) {
+    // Direct tagId lookup
+    const tagSql = "SELECT id FROM tags WHERE id = ? AND user_id = ?";
+    const tag = await env.DB.prepare(tagSql).bind(tagId, userId).first();
+
+    if (!tag) {
+      return Response.json({ error: "Tag not found" }, { status: 404 });
+    }
+    resolvedTagId = tagId;
+  } else if (typeof tagName === "string" && tagName.trim()) {
+    // Case-insensitive name lookup, auto-create if not found
+    const trimmedName = tagName.trim();
+    const existing = await findTagByName(userId, trimmedName, env);
+
+    if (existing) {
+      resolvedTagId = existing.id;
+    } else {
+      // Auto-create the tag
+      const newId = crypto.randomUUID();
+      await env.DB.prepare(
+        "INSERT INTO tags (id, user_id, name, color) VALUES (?, ?, ?, ?)",
+      )
+        .bind(newId, userId, trimmedName, null)
+        .run();
+      resolvedTagId = newId;
+    }
+  } else {
+    return Response.json(
+      { error: "Invalid tagId or tagName" },
+      { status: 400 },
+    );
   }
 
   // Add association (idempotent)
   await env.DB.prepare(
     "INSERT OR IGNORE INTO session_tags (session_id, tag_id) VALUES (?, ?)",
   )
-    .bind(sessionId, tagId)
+    .bind(sessionId, resolvedTagId)
     .run();
 
-  return Response.json({ added: true });
+  return Response.json({ added: true, tagId: resolvedTagId });
 }
 
 /**
  * DELETE /sessions/:id/tags — Remove a tag from a session.
+ * Accepts either tagId (UUID) or tagName (case-insensitive lookup).
+ * Returns 404 if tagName not found.
  */
 export async function handleRemoveSessionTag(
-  _userId: string,
+  userId: string,
   sessionId: string,
   body: unknown,
   env: Env,
@@ -379,15 +416,39 @@ export async function handleRemoveSessionTag(
     return Response.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const tagId = (body as Record<string, unknown>).tagId;
-  if (typeof tagId !== "string" || !tagId) {
-    return Response.json({ error: "tagId is required" }, { status: 400 });
+  const obj = body as Record<string, unknown>;
+  const tagId = obj.tagId;
+  const tagName = obj.tagName;
+
+  if (!tagId && !tagName) {
+    return Response.json(
+      { error: "Either tagId or tagName is required" },
+      { status: 400 },
+    );
+  }
+
+  let resolvedTagId: string;
+
+  if (typeof tagId === "string" && tagId) {
+    resolvedTagId = tagId;
+  } else if (typeof tagName === "string" && tagName.trim()) {
+    // Case-insensitive name lookup
+    const existing = await findTagByName(userId, tagName.trim(), env);
+    if (!existing) {
+      return Response.json({ error: "Tag not found" }, { status: 404 });
+    }
+    resolvedTagId = existing.id;
+  } else {
+    return Response.json(
+      { error: "Invalid tagId or tagName" },
+      { status: 400 },
+    );
   }
 
   await env.DB.prepare(
     "DELETE FROM session_tags WHERE session_id = ? AND tag_id = ?",
   )
-    .bind(sessionId, tagId)
+    .bind(sessionId, resolvedTagId)
     .run();
 
   return new Response(null, { status: 204 });
