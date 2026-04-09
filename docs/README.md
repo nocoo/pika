@@ -17,3 +17,4 @@
 | 11 | [Unified Worker API](./11-unified-worker-api.md) | Consolidate all D1/R2 operations through Worker — eliminate D1 HTTP API, add API key auth |
 | 12 | [CLI Base Abstraction](./12-cli-base-abstraction.md) | @nocoo/cli-base enhancements — ApiClient, OutputFormatter, pagination helpers |
 | 13 | [Pika CLI CRUD](./13-pika-cli-crud.md) | CLI read/update/delete operations — sessions, projects, search, tags commands |
+| 14 | [CLI Advanced CRUD & Filtering](./14-cli-advanced-crud.md) | Trash management, advanced filters (tokens/duration), session editing |

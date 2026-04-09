@@ -144,9 +144,17 @@ describe("handleCreateTag", () => {
     expect(body.errors[0].field).toBe("color");
   });
 
-  it("returns 409 for duplicate tag name", async () => {
+  it("returns 409 for duplicate tag name (case-insensitive)", async () => {
+    // findTagByName returns an existing tag with different casing
+    const existingTag = {
+      id: "existing-id",
+      user_id: "user-1",
+      name: "Existing",
+      color: null,
+      created_at: "2026-01-01T00:00:00Z",
+    };
     const env = mockEnv({
-      throwError: new Error("UNIQUE constraint failed"),
+      firstResult: existingTag, // findTagByName returns this
     });
 
     const res = await handleCreateTag("user-1", { name: "existing" }, env);
@@ -154,6 +162,7 @@ describe("handleCreateTag", () => {
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.error).toContain("already exists");
+    expect(body.error).toContain("case-insensitive");
   });
 
   it("returns 400 for invalid request body", async () => {
@@ -225,6 +234,32 @@ describe("handleUpdateTag", () => {
     );
 
     expect(res.status).toBe(404);
+  });
+
+  it("returns 409 when rename conflicts with existing tag (case-insensitive)", async () => {
+    // findTagByName returns a different tag with the same name (different casing)
+    const conflictingTag = {
+      id: "other-tag-id",
+      user_id: "user-1",
+      name: "Bug",
+      color: null,
+      created_at: "2026-01-01T00:00:00Z",
+    };
+    const env = mockEnv({
+      firstResult: conflictingTag,
+    });
+
+    const res = await handleUpdateTag(
+      "user-1",
+      "tag-1", // Different from conflictingTag.id
+      { name: "bug" },
+      env,
+    );
+
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toContain("already exists");
+    expect(body.error).toContain("case-insensitive");
   });
 
   it("returns 400 for invalid body", async () => {

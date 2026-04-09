@@ -144,6 +144,22 @@ function validateUpdateTag(input: unknown): {
   return { valid: true, errors: [], data };
 }
 
+// ── Helpers ────────────────────────────────────────────────────
+
+/**
+ * Look up a tag by name (case-insensitive).
+ * Returns the tag row if found, null otherwise.
+ */
+async function findTagByName(
+  userId: string,
+  name: string,
+  env: Env,
+): Promise<TagRow | null> {
+  const sql = `SELECT id, user_id, name, color, created_at FROM tags
+    WHERE user_id = ? AND LOWER(name) = LOWER(?)`;
+  return env.DB.prepare(sql).bind(userId, name).first<TagRow>();
+}
+
 // ── Handlers ───────────────────────────────────────────────────
 
 /**
@@ -162,6 +178,7 @@ export async function handleListTags(
 
 /**
  * POST /tags — Create a new tag.
+ * Uses case-insensitive duplicate check while preserving original case.
  */
 export async function handleCreateTag(
   userId: string,
@@ -173,31 +190,31 @@ export async function handleCreateTag(
     return Response.json({ errors: validation.errors }, { status: 400 });
   }
 
-  const id = crypto.randomUUID();
   const { name, color } = validation.data!;
 
-  try {
-    await env.DB.prepare(
-      "INSERT INTO tags (id, user_id, name, color) VALUES (?, ?, ?, ?)",
-    )
-      .bind(id, userId, name, color)
-      .run();
-  } catch (err) {
-    // Check for unique constraint violation
-    if (err instanceof Error && err.message.includes("UNIQUE constraint")) {
-      return Response.json(
-        { error: `Tag "${name}" already exists` },
-        { status: 409 },
-      );
-    }
-    throw err;
+  // Check for case-insensitive duplicate
+  const existing = await findTagByName(userId, name, env);
+  if (existing) {
+    return Response.json(
+      { error: `Tag "${existing.name}" already exists (case-insensitive match)` },
+      { status: 409 },
+    );
   }
+
+  const id = crypto.randomUUID();
+
+  await env.DB.prepare(
+    "INSERT INTO tags (id, user_id, name, color) VALUES (?, ?, ?, ?)",
+  )
+    .bind(id, userId, name, color)
+    .run();
 
   return Response.json({ id, user_id: userId, name, color }, { status: 201 });
 }
 
 /**
  * PATCH /tags/:id — Update a tag.
+ * Checks for case-insensitive name conflicts when renaming.
  */
 export async function handleUpdateTag(
   userId: string,
@@ -211,6 +228,18 @@ export async function handleUpdateTag(
   }
 
   const { name, color } = validation.data!;
+
+  // If renaming, check for case-insensitive conflict
+  if (name !== undefined) {
+    const existing = await findTagByName(userId, name, env);
+    if (existing && existing.id !== tagId) {
+      return Response.json(
+        { error: `Tag "${existing.name}" already exists (case-insensitive match)` },
+        { status: 409 },
+      );
+    }
+  }
+
   const setClauses: string[] = [];
   const params: unknown[] = [];
 
