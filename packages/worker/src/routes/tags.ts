@@ -196,7 +196,9 @@ export async function handleCreateTag(
   const existing = await findTagByName(userId, name, env);
   if (existing) {
     return Response.json(
-      { error: `Tag "${existing.name}" already exists (case-insensitive match)` },
+      {
+        error: `Tag "${existing.name}" already exists (case-insensitive match)`,
+      },
       { status: 409 },
     );
   }
@@ -234,7 +236,9 @@ export async function handleUpdateTag(
     const existing = await findTagByName(userId, name, env);
     if (existing && existing.id !== tagId) {
       return Response.json(
-        { error: `Tag "${existing.name}" already exists (case-insensitive match)` },
+        {
+          error: `Tag "${existing.name}" already exists (case-insensitive match)`,
+        },
         { status: 409 },
       );
     }

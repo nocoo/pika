@@ -216,7 +216,16 @@ export default function SessionsPage() {
     if (msgParams.maxMessages) params.set("maxMessages", msgParams.maxMessages);
 
     return `/api/sessions?${params.toString()}`;
-  }, [source, model, starred, includeDeleted, sort, page, pageSize, messageRange]);
+  }, [
+    source,
+    model,
+    starred,
+    includeDeleted,
+    sort,
+    page,
+    pageSize,
+    messageRange,
+  ]);
 
   // Fetch sessions
   const fetchSessions = useCallback(async () => {
@@ -304,7 +313,17 @@ export default function SessionsPage() {
     router.replace(`/dashboard/sessions${query ? `?${query}` : ""}`, {
       scroll: false,
     });
-  }, [source, model, starred, includeDeleted, sort, messageRange, page, pageSize, router]);
+  }, [
+    source,
+    model,
+    starred,
+    includeDeleted,
+    sort,
+    messageRange,
+    page,
+    pageSize,
+    router,
+  ]);
 
   // Reset to page 1 when filters change
   const handleSourceChange = useCallback((s: Source | "") => {

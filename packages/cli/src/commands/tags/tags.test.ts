@@ -29,7 +29,11 @@ function createMockClient<T = TagsResponse>(
     if (error) {
       return { ok: false, status: error.status, error: error.error };
     }
-    return { ok: true, status: 200, data: { added: true, tagId: "tag_new" } as T };
+    return {
+      ok: true,
+      status: 200,
+      data: { added: true, tagId: "tag_new" } as T,
+    };
   });
 
   const mockDelete = vi.fn(async (): Promise<ApiResponse<T>> => {
@@ -196,7 +200,10 @@ describe("tags add", () => {
     const client = createMockClient();
     const { formatter, stderr } = createMockFormatter("table");
 
-    await runTagsAdd({ sessionId: "sess_123", tag: "bug-fix" }, { client, formatter });
+    await runTagsAdd(
+      { sessionId: "sess_123", tag: "bug-fix" },
+      { client, formatter },
+    );
 
     expect(client.put).toHaveBeenCalledWith("/sessions/sess_123/tags", {
       tagName: "bug-fix",
@@ -213,7 +220,10 @@ describe("tags add", () => {
     const { formatter } = createMockFormatter("table");
 
     await expect(
-      runTagsAdd({ sessionId: "invalid", tag: "bug-fix" }, { client, formatter }),
+      runTagsAdd(
+        { sessionId: "invalid", tag: "bug-fix" },
+        { client, formatter },
+      ),
     ).rejects.toThrow("Session not found");
   });
 });

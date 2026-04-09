@@ -35,9 +35,7 @@ export async function runTagsAdd(
   const { client, formatter } = deps;
 
   // Determine if it's a UUID or tag name
-  const body = isUUID(args.tag)
-    ? { tagId: args.tag }
-    : { tagName: args.tag };
+  const body = isUUID(args.tag) ? { tagId: args.tag } : { tagName: args.tag };
 
   const response = await client.put<AddSessionTagResponse>(
     `/sessions/${args.sessionId}/tags`,
