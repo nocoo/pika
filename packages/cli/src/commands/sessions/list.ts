@@ -5,6 +5,7 @@ import {
   createPikaClient,
   PIKA_PAGINATION,
 } from "../../api/client.js";
+import { parseDuration } from "../../output/duration.js";
 import {
   ApiError,
   type OutputFormat,
@@ -33,6 +34,14 @@ export async function runSessionsList(
     model?: string;
     minMessages?: number;
     maxMessages?: number;
+    minDuration?: number;
+    maxDuration?: number;
+    minInputTokens?: number;
+    maxInputTokens?: number;
+    minOutputTokens?: number;
+    maxOutputTokens?: number;
+    minTotalTokens?: number;
+    maxTotalTokens?: number;
     format: OutputFormat;
   },
   deps: {
@@ -65,6 +74,22 @@ export async function runSessionsList(
     params.minMessages = String(args.minMessages);
   if (args.maxMessages !== undefined)
     params.maxMessages = String(args.maxMessages);
+  if (args.minDuration !== undefined)
+    params.minDuration = String(args.minDuration);
+  if (args.maxDuration !== undefined)
+    params.maxDuration = String(args.maxDuration);
+  if (args.minInputTokens !== undefined)
+    params.minInputTokens = String(args.minInputTokens);
+  if (args.maxInputTokens !== undefined)
+    params.maxInputTokens = String(args.maxInputTokens);
+  if (args.minOutputTokens !== undefined)
+    params.minOutputTokens = String(args.minOutputTokens);
+  if (args.maxOutputTokens !== undefined)
+    params.maxOutputTokens = String(args.maxOutputTokens);
+  if (args.minTotalTokens !== undefined)
+    params.minTotalTokens = String(args.minTotalTokens);
+  if (args.maxTotalTokens !== undefined)
+    params.maxTotalTokens = String(args.maxTotalTokens);
 
   const response = await client.get<SessionListResponse>("/sessions", params);
 
@@ -164,6 +189,38 @@ export default defineCommand({
       type: "string",
       description: "Maximum total messages",
     },
+    "min-duration": {
+      type: "string",
+      description: "Minimum duration (e.g., 5m, 2h, 1d)",
+    },
+    "max-duration": {
+      type: "string",
+      description: "Maximum duration (e.g., 5m, 2h, 1d)",
+    },
+    "min-input-tokens": {
+      type: "string",
+      description: "Minimum input tokens",
+    },
+    "max-input-tokens": {
+      type: "string",
+      description: "Maximum input tokens",
+    },
+    "min-output-tokens": {
+      type: "string",
+      description: "Minimum output tokens",
+    },
+    "max-output-tokens": {
+      type: "string",
+      description: "Maximum output tokens",
+    },
+    "min-total-tokens": {
+      type: "string",
+      description: "Minimum total tokens (input + output)",
+    },
+    "max-total-tokens": {
+      type: "string",
+      description: "Maximum total tokens (input + output)",
+    },
     dev: {
       type: "boolean",
       default: false,
@@ -198,6 +255,30 @@ export default defineCommand({
             : undefined,
           maxMessages: args["max-messages"]
             ? parseInt(args["max-messages"], 10)
+            : undefined,
+          minDuration: args["min-duration"]
+            ? parseDuration(args["min-duration"])
+            : undefined,
+          maxDuration: args["max-duration"]
+            ? parseDuration(args["max-duration"])
+            : undefined,
+          minInputTokens: args["min-input-tokens"]
+            ? parseInt(args["min-input-tokens"], 10)
+            : undefined,
+          maxInputTokens: args["max-input-tokens"]
+            ? parseInt(args["max-input-tokens"], 10)
+            : undefined,
+          minOutputTokens: args["min-output-tokens"]
+            ? parseInt(args["min-output-tokens"], 10)
+            : undefined,
+          maxOutputTokens: args["max-output-tokens"]
+            ? parseInt(args["max-output-tokens"], 10)
+            : undefined,
+          minTotalTokens: args["min-total-tokens"]
+            ? parseInt(args["min-total-tokens"], 10)
+            : undefined,
+          maxTotalTokens: args["max-total-tokens"]
+            ? parseInt(args["max-total-tokens"], 10)
             : undefined,
           format,
         },
