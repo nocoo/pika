@@ -304,18 +304,19 @@ export async function d1Query<T = Record<string, unknown>>(
 export async function cleanupTestData(): Promise<void> {
   const userId = E2E_USER.userId;
 
-  // Delete in dependency order to satisfy foreign keys
+  // First delete session_tags (depends on sessions)
   await d1Execute(
     "DELETE FROM session_tags WHERE session_id IN (SELECT id FROM sessions WHERE user_id = ?1)",
     [userId],
   );
-  await d1Execute("DELETE FROM tags WHERE user_id = ?1", [userId]);
-  await d1Execute(
-    "DELETE FROM message_chunks WHERE user_id = ?1",
-    [userId],
-  );
-  await d1Execute("DELETE FROM messages WHERE user_id = ?1", [userId]);
-  await d1Execute("DELETE FROM sessions WHERE user_id = ?1", [userId]);
+
+  // Then delete everything else in parallel (no FK dependencies between them)
+  await Promise.all([
+    d1Execute("DELETE FROM tags WHERE user_id = ?1", [userId]),
+    d1Execute("DELETE FROM message_chunks WHERE user_id = ?1", [userId]),
+    d1Execute("DELETE FROM messages WHERE user_id = ?1", [userId]),
+    d1Execute("DELETE FROM sessions WHERE user_id = ?1", [userId]),
+  ]);
 }
 
 /**

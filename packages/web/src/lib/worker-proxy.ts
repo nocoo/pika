@@ -128,10 +128,17 @@ export function createWorkerGetRoute(
 
 /**
  * Create a POST route handler that proxies to Worker.
+ *
+ * @param workerPath - Worker path (e.g., "/sessions/batch")
+ * @param options - Optional configuration
+ * @param options.successStatus - HTTP status for successful response (default: 201)
  */
 export function createWorkerPostRoute(
   workerPath: string | ((url: URL) => string),
+  options?: { successStatus?: number },
 ) {
+  const successStatus = options?.successStatus ?? 201;
+
   return async (request: Request) => {
     const userId = await resolveUserForWorker(request);
     if (!userId) {
@@ -157,7 +164,7 @@ export function createWorkerPostRoute(
         return new NextResponse(null, { status: 204 });
       }
 
-      return NextResponse.json(result, { status: 201 });
+      return NextResponse.json(result, { status: successStatus });
     } catch (err) {
       return handleWorkerError(err);
     }

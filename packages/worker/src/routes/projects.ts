@@ -130,9 +130,14 @@ export async function handleProjectActivity(
   searchParams: URLSearchParams,
   env: Env,
 ): Promise<Response> {
-  const projectKey = searchParams.get("projectKey");
+  // Support both "projectKey" and "project" for compatibility
+  const projectKey =
+    searchParams.get("projectKey") ?? searchParams.get("project");
   if (!projectKey) {
-    return Response.json({ error: "projectKey is required" }, { status: 400 });
+    return Response.json(
+      { error: "projectKey or project is required" },
+      { status: 400 },
+    );
   }
 
   const daysRaw = searchParams.get("days");

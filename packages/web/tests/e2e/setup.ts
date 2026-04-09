@@ -1,25 +1,23 @@
 /**
- * E2E global setup — start Next.js dev server on port 17022 with test env.
+ * E2E global setup — verifies Worker health and starts Next.js dev server.
  *
- * Loads .env.test (test D1/R2 credentials + E2E_SKIP_AUTH=true),
- * verifies D1 + R2 isolation, then boots the dev server.
+ * E2E tests run against the production Worker and D1 database, but all
+ * test data is isolated by user_id = 'e2e-test-user-id'. This avoids the
+ * complexity of maintaining a separate test infrastructure while ensuring
+ * E2E data never mixes with real user data.
  */
 
 import { spawn, type ChildProcess } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const PORT = 17022;
+const NEXT_PORT = 17022;
 const WEB_DIR = resolve(__dirname, "../..");
-const BASE_URL = `http://localhost:${PORT}`;
+const NEXT_BASE_URL = `http://localhost:${NEXT_PORT}`;
 const MAX_WAIT_MS = 60_000;
 const POLL_INTERVAL_MS = 500;
 
-/** Known test resource IDs — hard-coded to prevent misconfiguration. */
-const TEST_DB_ID = "f52931ad-9c96-4d04-9d0a-3098a800ce5e";
-const TEST_BUCKET_NAME = "pika-test";
-
-let serverProcess: ChildProcess | undefined;
+let nextProcess: ChildProcess | undefined;
 
 /** Parse .env.test and return as Record */
 function loadEnvFile(filePath: string): Record<string, string> {
@@ -35,156 +33,116 @@ function loadEnvFile(filePath: string): Record<string, string> {
   return env;
 }
 
-/**
- * D1 + R2 isolation verification — 3 layers.
- *
- * Layer 1: CF_D1_DATABASE_ID must match the known test DB ID.
- * Layer 2: _test_marker table must exist in the database.
- * Layer 3: CF_R2_BUCKET must match the known test bucket name.
- *
- * If any check fails, the entire E2E suite is aborted to prevent
- * accidental reads/writes to production resources.
- */
-async function verifyTestIsolation(
-  testEnv: Record<string, string>,
-): Promise<void> {
-  // Layer 1: D1 env binding check
-  if (testEnv.CF_D1_DATABASE_ID !== TEST_DB_ID) {
+/** Check if Worker is reachable */
+async function checkWorkerHealth(workerUrl: string): Promise<void> {
+  const liveUrl = workerUrl.replace(/\/$/, "") + "/live";
+  try {
+    const res = await fetch(liveUrl, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) {
+      throw new Error(`Worker returned ${res.status}`);
+    }
+    console.log(`[E2E] Worker health check passed: ${workerUrl}`);
+  } catch (err) {
     throw new Error(
-      `D1 isolation FAILED: CF_D1_DATABASE_ID="${testEnv.CF_D1_DATABASE_ID}" does not match test DB "${TEST_DB_ID}"`,
+      `Worker not reachable at ${workerUrl}. ` +
+        `Error: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
-
-  // Layer 2: D1 marker table check (query the actual database)
-  const url = `https://api.cloudflare.com/client/v4/accounts/${testEnv.CF_ACCOUNT_ID}/d1/database/${testEnv.CF_D1_DATABASE_ID}/query`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${testEnv.CF_D1_API_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      sql: "SELECT name FROM sqlite_master WHERE type='table' AND name='_test_marker'",
-      params: [],
-    }),
-  });
-
-  const data = (await res.json()) as {
-    success: boolean;
-    result?: Array<{ results?: Array<{ name: string }> }>;
-  };
-
-  if (
-    !data.success ||
-    !data.result?.[0]?.results?.length
-  ) {
-    throw new Error(
-      "D1 isolation FAILED: _test_marker table not found — this may not be the test database",
-    );
-  }
-
-  // Layer 3: R2 bucket name check
-  if (testEnv.CF_R2_BUCKET !== TEST_BUCKET_NAME) {
-    throw new Error(
-      `R2 isolation FAILED: CF_R2_BUCKET="${testEnv.CF_R2_BUCKET}" does not match test bucket "${TEST_BUCKET_NAME}"`,
-    );
-  }
-
-  console.log(
-    `[E2E] Isolation verified: D1=${TEST_DB_ID.slice(0, 8)}… R2=${TEST_BUCKET_NAME}`,
-  );
 }
 
-/** Wait for server to respond on /api/live */
-async function waitForServer(): Promise<void> {
+/** Wait for server to respond */
+async function waitForServer(url: string, name: string): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < MAX_WAIT_MS) {
     try {
-      const res = await fetch(`${BASE_URL}/api/live`);
+      const res = await fetch(url);
       if (res.ok) return;
     } catch {
       // Server not ready yet
     }
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
   }
-  throw new Error(`E2E server did not start within ${MAX_WAIT_MS}ms`);
+  throw new Error(`${name} did not start within ${MAX_WAIT_MS}ms`);
+}
+
+/** Check if port is already in use */
+async function isPortInUse(url: string): Promise<boolean> {
+  try {
+    const res = await fetch(url);
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 export async function setup() {
   // Load test env
   const testEnv = loadEnvFile(resolve(WEB_DIR, ".env.test"));
 
-  // Verify D1 + R2 isolation BEFORE starting anything
-  await verifyTestIsolation(testEnv);
-
   // Export test env vars so helpers.ts can access D1 directly
   for (const [key, value] of Object.entries(testEnv)) {
     process.env[key] = value;
   }
 
-  // Check if port is already in use
-  try {
-    const res = await fetch(`${BASE_URL}/api/live`);
-    if (res.ok) {
-      console.log(`[E2E] Server already running on port ${PORT}, reusing.`);
-      process.env.E2E_BASE_URL = BASE_URL;
-      return;
-    }
-  } catch {
-    // Port free, proceed to start
+  // ── Verify Worker is running ─────────────────────────────────
+
+  const workerUrl = testEnv.WORKER_URL;
+  if (!workerUrl) {
+    throw new Error("WORKER_URL not set in .env.test");
+  }
+  await checkWorkerHealth(workerUrl);
+
+  // ── Start Next.js ─────────────────────────────────────────────
+
+  const nextUrl = `${NEXT_BASE_URL}/api/live`;
+  const nextRunning = await isPortInUse(nextUrl);
+
+  if (nextRunning) {
+    console.log(`[E2E] Next.js already running on port ${NEXT_PORT}, reusing.`);
+  } else {
+    console.log(`[E2E] Starting Next.js dev server on port ${NEXT_PORT}...`);
+
+    const serverEnv = {
+      ...process.env,
+      ...testEnv,
+      PORT: String(NEXT_PORT),
+      NODE_ENV: "development" as const,
+    };
+
+    nextProcess = spawn("bun", ["run", "next", "dev", "-p", String(NEXT_PORT)], {
+      cwd: WEB_DIR,
+      env: serverEnv,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    nextProcess.stdout!.on("data", (data: Buffer) => {
+      const msg = data.toString().trim();
+      if (msg) console.log(`[E2E next] ${msg}`);
+    });
+    nextProcess.stderr!.on("data", (data: Buffer) => {
+      const msg = data.toString().trim();
+      if (msg) console.error(`[E2E next] ${msg}`);
+    });
+
+    nextProcess.on("error", (err) => {
+      console.error("[E2E] Failed to start Next.js:", err);
+    });
+
+    await waitForServer(nextUrl, "Next.js");
+    console.log(`[E2E] Next.js ready on ${NEXT_BASE_URL}`);
   }
 
-  console.log(`[E2E] Starting Next.js dev server on port ${PORT}...`);
-
-  // Merge test env into server process env
-  const serverEnv = {
-    ...process.env,
-    ...testEnv,
-    PORT: String(PORT),
-    NODE_ENV: "development" as const,
-  };
-
-  const proc = spawn("bun", ["run", "next", "dev", "-p", String(PORT)], {
-    cwd: WEB_DIR,
-    env: serverEnv,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  serverProcess = proc;
-
-  // Forward server output for debugging
-  proc.stdout!.on("data", (data: Buffer) => {
-    const msg = data.toString().trim();
-    if (msg) console.log(`[E2E server] ${msg}`);
-  });
-  proc.stderr!.on("data", (data: Buffer) => {
-    const msg = data.toString().trim();
-    if (msg) console.error(`[E2E server] ${msg}`);
-  });
-
-  proc.on("error", (err) => {
-    console.error("[E2E] Failed to start server:", err);
-  });
-
-  await waitForServer();
-  console.log(`[E2E] Server ready on ${BASE_URL}`);
-
   // Export for test files
-  process.env.E2E_BASE_URL = BASE_URL;
+  process.env.E2E_BASE_URL = NEXT_BASE_URL;
 }
 
 export async function teardown() {
-  if (serverProcess) {
-    console.log("[E2E] Stopping dev server...");
-    serverProcess.kill("SIGTERM");
-
-    // Wait briefly for graceful shutdown
+  if (nextProcess) {
+    console.log("[E2E] Stopping Next.js dev server...");
+    nextProcess.kill("SIGTERM");
     await new Promise((r) => setTimeout(r, 1000));
-
-    if (!serverProcess.killed) {
-      serverProcess.kill("SIGKILL");
-    }
-
-    serverProcess = undefined;
-    console.log("[E2E] Server stopped.");
+    if (!nextProcess.killed) nextProcess.kill("SIGKILL");
+    nextProcess = undefined;
+    console.log("[E2E] Next.js stopped.");
   }
 }

@@ -451,7 +451,7 @@ describe("handleAddSessionTag", () => {
   it("auto-creates tag when tagName not found", async () => {
     const db = mockD1();
     const prepare = db.prepare as ReturnType<typeof vi.fn>;
-    let capturedTagId: string | undefined;
+    let _capturedTagId: string | undefined;
     prepare.mockImplementation(() => ({
       bind: vi.fn((...args: unknown[]) => {
         // Capture the generated tag ID from INSERT
@@ -461,7 +461,7 @@ describe("handleAddSessionTag", () => {
             /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
           )
         ) {
-          capturedTagId = args[0] as string;
+          _capturedTagId = args[0] as string;
         }
         return {
           bind: vi.fn().mockReturnThis(),

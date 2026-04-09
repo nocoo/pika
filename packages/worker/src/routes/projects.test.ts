@@ -130,7 +130,7 @@ describe("handleProjectActivity", () => {
 
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toContain("projectKey is required");
+    expect(body.error).toContain("projectKey or project is required");
   });
 
   it("handles multiple project keys", async () => {

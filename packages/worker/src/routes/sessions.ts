@@ -531,13 +531,13 @@ export async function handleFilters(
   env: Env,
 ): Promise<Response> {
   const modelsSql = `SELECT DISTINCT s.model FROM sessions s WHERE s.user_id = ? AND s.model IS NOT NULL AND s.deleted_at IS NULL ORDER BY s.model`;
-  const projectsSql = `SELECT DISTINCT s.project_ref, s.project_name FROM sessions s WHERE s.user_id = ? AND s.project_ref IS NOT NULL AND s.deleted_at IS NULL ORDER BY s.project_name`;
+  const projectsSql = `SELECT DISTINCT s.project_ref AS ref, s.project_name AS name FROM sessions s WHERE s.user_id = ? AND s.project_ref IS NOT NULL AND s.deleted_at IS NULL ORDER BY s.project_name`;
 
   const [modelsResult, projectsResult] = await Promise.all([
     env.DB.prepare(modelsSql).bind(userId).all<{ model: string }>(),
     env.DB.prepare(projectsSql)
       .bind(userId)
-      .all<{ project_ref: string; project_name: string | null }>(),
+      .all<{ ref: string; name: string | null }>(),
   ]);
 
   return Response.json({

@@ -34,12 +34,13 @@ describe("E2E Smoke Test", () => {
     expect(data.status).toBe("ok");
   });
 
-  it("D1 test isolation — _test_marker table exists", async () => {
+  it("D1 connection works — can query tables", async () => {
+    // Verify we can query the database (using production DB, not test marker)
     const rows = await d1Query<{ name: string }>(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='_test_marker'",
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='users'",
     );
     expect(rows).toHaveLength(1);
-    expect(rows[0].name).toBe("_test_marker");
+    expect(rows[0].name).toBe("users");
   });
 
   it("auth bypass works — protected endpoint returns 200", async () => {

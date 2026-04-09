@@ -5,4 +5,6 @@
  */
 import { createWorkerPostRoute } from "@/lib/worker-proxy";
 
-export const POST = createWorkerPostRoute("/sessions/batch");
+export const POST = createWorkerPostRoute("/sessions/batch", {
+  successStatus: 200,
+});

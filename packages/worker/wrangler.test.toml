@@ -1,0 +1,17 @@
+name = "pika-test"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+[vars]
+ENVIRONMENT = "test"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pika-db-test"
+database_id = "f52931ad-9c96-4d04-9d0a-3098a800ce5e"
+preview_database_id = "f52931ad-9c96-4d04-9d0a-3098a800ce5e"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "pika-test"
+preview_bucket_name = "pika-test"
