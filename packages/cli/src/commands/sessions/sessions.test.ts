@@ -219,6 +219,62 @@ describe("sessions list", () => {
     );
   });
 
+  it("passes model filter to client", async () => {
+    const response: SessionListResponse = {
+      sessions: [],
+      cursor: null,
+      hasMore: false,
+    };
+    const client = createMockClient({ "/sessions": response });
+    const { formatter } = createMockFormatter("json");
+
+    await runSessionsList(
+      {
+        limit: 50,
+        mode: "cursor",
+        format: "json",
+        model: "claude-sonnet-4-20250514",
+      },
+      { client, formatter },
+    );
+
+    expect(client.get).toHaveBeenCalledWith(
+      "/sessions",
+      expect.objectContaining({
+        model: "claude-sonnet-4-20250514",
+      }),
+    );
+  });
+
+  it("passes minMessages and maxMessages filters to client", async () => {
+    const response: SessionListResponse = {
+      sessions: [],
+      cursor: null,
+      hasMore: false,
+    };
+    const client = createMockClient({ "/sessions": response });
+    const { formatter } = createMockFormatter("json");
+
+    await runSessionsList(
+      {
+        limit: 50,
+        mode: "cursor",
+        format: "json",
+        minMessages: 10,
+        maxMessages: 100,
+      },
+      { client, formatter },
+    );
+
+    expect(client.get).toHaveBeenCalledWith(
+      "/sessions",
+      expect.objectContaining({
+        minMessages: "10",
+        maxMessages: "100",
+      }),
+    );
+  });
+
   it("normalizes source aliases", async () => {
     const response: SessionListResponse = {
       sessions: [],
