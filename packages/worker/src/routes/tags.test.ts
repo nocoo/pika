@@ -80,9 +80,9 @@ describe("handleCreateTag", () => {
 
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.name).toBe("new-tag");
-    expect(body.color).toBeNull();
-    expect(body.id).toBeDefined();
+    expect(body.tag.name).toBe("new-tag");
+    expect(body.tag.color).toBeNull();
+    expect(body.tag.id).toBeDefined();
   });
 
   it("creates a tag with name and color", async () => {
@@ -96,8 +96,8 @@ describe("handleCreateTag", () => {
 
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.name).toBe("colored");
-    expect(body.color).toBe("#ff6b6b");
+    expect(body.tag.name).toBe("colored");
+    expect(body.tag.color).toBe("#ff6b6b");
   });
 
   it("returns 400 for missing name", async () => {
@@ -107,8 +107,8 @@ describe("handleCreateTag", () => {
 
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.errors).toBeDefined();
-    expect(body.errors[0].field).toBe("name");
+    expect(body.error).toBeDefined();
+    expect(body.error).toContain("name");
   });
 
   it("returns 400 for empty name", async () => {
@@ -127,7 +127,7 @@ describe("handleCreateTag", () => {
 
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.errors[0].message).toContain("50 characters");
+    expect(body.error).toContain("50 characters");
   });
 
   it("returns 400 for invalid color format", async () => {
@@ -141,7 +141,7 @@ describe("handleCreateTag", () => {
 
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.errors[0].field).toBe("color");
+    expect(body.error).toContain("color");
   });
 
   it("returns 409 for duplicate tag name (case-insensitive)", async () => {
@@ -178,7 +178,27 @@ describe("handleCreateTag", () => {
 
 describe("handleUpdateTag", () => {
   it("updates tag name", async () => {
-    const env = mockEnv({ runMeta: { changes: 1 } });
+    const updatedTag = {
+      id: "tag-1",
+      user_id: "user-1",
+      name: "updated",
+      color: null,
+      created_at: "2026-01-01T00:00:00Z",
+    };
+    const db = mockD1({ runMeta: { changes: 1 } });
+    const prepare = db.prepare as ReturnType<typeof vi.fn>;
+    let callCount = 0;
+    prepare.mockImplementation(() => ({
+      bind: vi.fn().mockReturnThis(),
+      first: vi.fn().mockImplementation(() => {
+        callCount++;
+        // First call: findTagByName returns null (no conflict)
+        // Second call: fetch updated tag
+        return Promise.resolve(callCount === 1 ? null : updatedTag);
+      }),
+      run: vi.fn().mockResolvedValue({ meta: { changes: 1 } }),
+    }));
+    const env = { DB: db, BUCKET: {} as R2Bucket, WORKER_SECRET: "test" };
 
     const res = await handleUpdateTag(
       "user-1",
@@ -189,11 +209,25 @@ describe("handleUpdateTag", () => {
 
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.updated).toBe(true);
+    expect(body.tag.name).toBe("updated");
   });
 
   it("updates tag color", async () => {
-    const env = mockEnv({ runMeta: { changes: 1 } });
+    const updatedTag = {
+      id: "tag-1",
+      user_id: "user-1",
+      name: "test",
+      color: "#0000ff",
+      created_at: "2026-01-01T00:00:00Z",
+    };
+    const db = mockD1({ runMeta: { changes: 1 } });
+    const prepare = db.prepare as ReturnType<typeof vi.fn>;
+    prepare.mockImplementation(() => ({
+      bind: vi.fn().mockReturnThis(),
+      first: vi.fn().mockResolvedValue(updatedTag), // fetch updated tag (no findTagByName for color-only update)
+      run: vi.fn().mockResolvedValue({ meta: { changes: 1 } }),
+    }));
+    const env = { DB: db, BUCKET: {} as R2Bucket, WORKER_SECRET: "test" };
 
     const res = await handleUpdateTag(
       "user-1",
@@ -203,10 +237,26 @@ describe("handleUpdateTag", () => {
     );
 
     expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.tag).toBeDefined();
   });
 
   it("clears tag color with null", async () => {
-    const env = mockEnv({ runMeta: { changes: 1 } });
+    const updatedTag = {
+      id: "tag-1",
+      user_id: "user-1",
+      name: "test",
+      color: null,
+      created_at: "2026-01-01T00:00:00Z",
+    };
+    const db = mockD1({ runMeta: { changes: 1 } });
+    const prepare = db.prepare as ReturnType<typeof vi.fn>;
+    prepare.mockImplementation(() => ({
+      bind: vi.fn().mockReturnThis(),
+      first: vi.fn().mockResolvedValue(updatedTag), // fetch updated tag
+      run: vi.fn().mockResolvedValue({ meta: { changes: 1 } }),
+    }));
+    const env = { DB: db, BUCKET: {} as R2Bucket, WORKER_SECRET: "test" };
 
     const res = await handleUpdateTag("user-1", "tag-1", { color: null }, env);
 
@@ -220,7 +270,7 @@ describe("handleUpdateTag", () => {
 
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.errors[0].message).toContain("At least one field");
+    expect(body.error).toContain("At least one field");
   });
 
   it("returns 404 when tag not found", async () => {

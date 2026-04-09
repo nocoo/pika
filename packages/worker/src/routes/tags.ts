@@ -24,54 +24,44 @@ export interface TagRow {
 const TAG_NAME_MAX = 50;
 const TAG_COLOR_REGEX = /^#[0-9a-fA-F]{6}$/;
 
-interface ValidationError {
-  field: string;
-  message: string;
-}
-
 function validateCreateTag(input: unknown): {
   valid: boolean;
-  errors: ValidationError[];
+  error?: string;
   data?: { name: string; color: string | null };
 } {
-  const errors: ValidationError[] = [];
   if (!input || typeof input !== "object") {
     return {
       valid: false,
-      errors: [{ field: "body", message: "Invalid request body" }],
+      error: "Invalid request body",
     };
   }
 
   const obj = input as Record<string, unknown>;
 
   if (typeof obj.name !== "string" || obj.name.trim().length === 0) {
-    errors.push({
-      field: "name",
-      message: "name is required and must be a non-empty string",
-    });
-  } else if (obj.name.trim().length > TAG_NAME_MAX) {
-    errors.push({
-      field: "name",
-      message: `name must be at most ${TAG_NAME_MAX} characters`,
-    });
+    return {
+      valid: false,
+      error: "name is required and must be a non-empty string",
+    };
+  }
+  if (obj.name.trim().length > TAG_NAME_MAX) {
+    return {
+      valid: false,
+      error: `name must be at most ${TAG_NAME_MAX} characters`,
+    };
   }
 
   if (obj.color !== undefined && obj.color !== null) {
     if (typeof obj.color !== "string" || !TAG_COLOR_REGEX.test(obj.color)) {
-      errors.push({
-        field: "color",
-        message: "color must be a hex color (e.g. #ff6b6b)",
-      });
+      return {
+        valid: false,
+        error: "color must be a hex color (e.g. #ff6b6b)",
+      };
     }
-  }
-
-  if (errors.length > 0) {
-    return { valid: false, errors };
   }
 
   return {
     valid: true,
-    errors: [],
     data: {
       name: (obj.name as string).trim(),
       color: obj.color != null ? (obj.color as string) : null,
@@ -81,14 +71,13 @@ function validateCreateTag(input: unknown): {
 
 function validateUpdateTag(input: unknown): {
   valid: boolean;
-  errors: ValidationError[];
+  error?: string;
   data?: { name?: string; color?: string | null };
 } {
-  const errors: ValidationError[] = [];
   if (!input || typeof input !== "object") {
     return {
       valid: false,
-      errors: [{ field: "body", message: "Invalid request body" }],
+      error: "Invalid request body",
     };
   }
 
@@ -99,18 +88,18 @@ function validateUpdateTag(input: unknown): {
   if (obj.name !== undefined) {
     hasField = true;
     if (typeof obj.name !== "string" || obj.name.trim().length === 0) {
-      errors.push({
-        field: "name",
-        message: "name must be a non-empty string",
-      });
-    } else if (obj.name.trim().length > TAG_NAME_MAX) {
-      errors.push({
-        field: "name",
-        message: `name must be at most ${TAG_NAME_MAX} characters`,
-      });
-    } else {
-      data.name = obj.name.trim();
+      return {
+        valid: false,
+        error: "name must be a non-empty string",
+      };
     }
+    if (obj.name.trim().length > TAG_NAME_MAX) {
+      return {
+        valid: false,
+        error: `name must be at most ${TAG_NAME_MAX} characters`,
+      };
+    }
+    data.name = obj.name.trim();
   }
 
   if (obj.color !== undefined) {
@@ -121,27 +110,23 @@ function validateUpdateTag(input: unknown): {
       typeof obj.color !== "string" ||
       !TAG_COLOR_REGEX.test(obj.color)
     ) {
-      errors.push({
-        field: "color",
-        message: "color must be a hex color (e.g. #ff6b6b) or null",
-      });
+      return {
+        valid: false,
+        error: "color must be a hex color (e.g. #ff6b6b) or null",
+      };
     } else {
       data.color = obj.color;
     }
   }
 
   if (!hasField) {
-    errors.push({
-      field: "body",
-      message: "At least one field (name or color) must be provided",
-    });
+    return {
+      valid: false,
+      error: "At least one field (name or color) must be provided",
+    };
   }
 
-  if (errors.length > 0) {
-    return { valid: false, errors };
-  }
-
-  return { valid: true, errors: [], data };
+  return { valid: true, data };
 }
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -187,7 +172,7 @@ export async function handleCreateTag(
 ): Promise<Response> {
   const validation = validateCreateTag(body);
   if (!validation.valid) {
-    return Response.json({ errors: validation.errors }, { status: 400 });
+    return Response.json({ error: validation.error }, { status: 400 });
   }
 
   const { name, color } = validation.data!;
@@ -211,7 +196,10 @@ export async function handleCreateTag(
     .bind(id, userId, name, color)
     .run();
 
-  return Response.json({ id, user_id: userId, name, color }, { status: 201 });
+  return Response.json(
+    { tag: { id, user_id: userId, name, color } },
+    { status: 201 },
+  );
 }
 
 /**
@@ -226,7 +214,7 @@ export async function handleUpdateTag(
 ): Promise<Response> {
   const validation = validateUpdateTag(body);
   if (!validation.valid) {
-    return Response.json({ errors: validation.errors }, { status: 400 });
+    return Response.json({ error: validation.error }, { status: 400 });
   }
 
   const { name, color } = validation.data!;
@@ -267,7 +255,14 @@ export async function handleUpdateTag(
     return Response.json({ error: "Tag not found" }, { status: 404 });
   }
 
-  return Response.json({ updated: true });
+  // Fetch updated tag
+  const updatedTag = await env.DB.prepare(
+    "SELECT id, user_id, name, color, created_at FROM tags WHERE id = ? AND user_id = ?",
+  )
+    .bind(tagId, userId)
+    .first<TagRow>();
+
+  return Response.json({ tag: updatedTag });
 }
 
 /**
