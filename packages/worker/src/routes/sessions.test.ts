@@ -13,6 +13,7 @@ import {
   handleListSessions,
   handleSetStar,
   handleTrashSession,
+  handleUpdateSession,
 } from "./sessions";
 
 // ── Mock helpers ───────────────────────────────────────────────
@@ -293,6 +294,105 @@ describe("handleGetSessionContent", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toBe("application/json");
+  });
+});
+
+// ── handleUpdateSession tests ──────────────────────────────────
+
+describe("handleUpdateSession", () => {
+  it("updates title", async () => {
+    const db = mockD1({ runMeta: { changes: 1 } });
+    const stmt = (db.prepare as ReturnType<typeof vi.fn>)();
+    stmt.first.mockResolvedValue({
+      id: "sess-123",
+      title: "New Title",
+      description: null,
+      updated_at: "2026-04-08T10:00:00Z",
+    });
+
+    const env = { DB: db, BUCKET: mockR2(), WORKER_SECRET: "test" };
+
+    const res = await handleUpdateSession(
+      "user-1",
+      "sess-123",
+      { title: "New Title" },
+      env,
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.title).toBe("New Title");
+  });
+
+  it("updates description", async () => {
+    const db = mockD1({ runMeta: { changes: 1 } });
+    const stmt = (db.prepare as ReturnType<typeof vi.fn>)();
+    stmt.first.mockResolvedValue({
+      id: "sess-123",
+      title: null,
+      description: "A description",
+      updated_at: "2026-04-08T10:00:00Z",
+    });
+
+    const env = { DB: db, BUCKET: mockR2(), WORKER_SECRET: "test" };
+
+    const res = await handleUpdateSession(
+      "user-1",
+      "sess-123",
+      { description: "A description" },
+      env,
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.description).toBe("A description");
+  });
+
+  it("clears title with null", async () => {
+    const db = mockD1({ runMeta: { changes: 1 } });
+    const stmt = (db.prepare as ReturnType<typeof vi.fn>)();
+    stmt.first.mockResolvedValue({
+      id: "sess-123",
+      title: null,
+      description: null,
+      updated_at: "2026-04-08T10:00:00Z",
+    });
+
+    const env = { DB: db, BUCKET: mockR2(), WORKER_SECRET: "test" };
+
+    const res = await handleUpdateSession(
+      "user-1",
+      "sess-123",
+      { title: null },
+      env,
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.title).toBeNull();
+  });
+
+  it("returns 400 when no valid fields", async () => {
+    const env = mockEnv();
+
+    const res = await handleUpdateSession("user-1", "sess-123", {}, env);
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("No valid fields");
+  });
+
+  it("returns 404 when session not found", async () => {
+    const env = mockEnv({ runMeta: { changes: 0 } });
+
+    const res = await handleUpdateSession(
+      "user-1",
+      "nonexistent",
+      { title: "New Title" },
+      env,
+    );
+
+    expect(res.status).toBe(404);
   });
 });
 

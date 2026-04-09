@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ApiClient, ApiResponse } from "../../api/client.js";
 import { OutputFormatter } from "../../output/formatter.js";
 import { runSessionsContent } from "./content.js";
+import { runSessionsEdit } from "./edit.js";
 import { runSessionsGet } from "./get.js";
 import { runSessionsList } from "./list.js";
 import { runSessionsStar } from "./star.js";
@@ -773,6 +774,140 @@ describe("sessions content", () => {
     expect(parsed.messages[0].toolName).toBe("Read");
     expect(parsed.messages[0].toolInput).toBe('{"path":"auth.ts"}');
     expect(parsed.messages[0].toolResult).toBe("export function login() {}");
+  });
+});
+
+// ─── sessions edit tests ──────────────────────────────────────
+
+describe("sessions edit", () => {
+  it("updates session title", async () => {
+    const client = createMockClient({}, undefined, {
+      id: "sess_123",
+      title: "New Title",
+      description: null,
+      updated_at: "2026-04-08T10:00:00Z",
+    });
+    const { formatter, stderr } = createMockFormatter("table");
+
+    await runSessionsEdit(
+      {
+        id: "sess_123",
+        title: "New Title",
+        clearTitle: false,
+        clearDescription: false,
+      },
+      { client, formatter },
+    );
+
+    expect(client.patch).toHaveBeenCalledWith("/sessions/sess_123", {
+      title: "New Title",
+    });
+    expect(stderr.join("")).toContain("updated");
+    expect(stderr.join("")).toContain("New Title");
+  });
+
+  it("updates session description", async () => {
+    const client = createMockClient({}, undefined, {
+      id: "sess_123",
+      title: null,
+      description: "A detailed description",
+      updated_at: "2026-04-08T10:00:00Z",
+    });
+    const { formatter, stderr } = createMockFormatter("table");
+
+    await runSessionsEdit(
+      {
+        id: "sess_123",
+        description: "A detailed description",
+        clearTitle: false,
+        clearDescription: false,
+      },
+      { client, formatter },
+    );
+
+    expect(client.patch).toHaveBeenCalledWith("/sessions/sess_123", {
+      description: "A detailed description",
+    });
+    expect(stderr.join("")).toContain("updated");
+  });
+
+  it("clears title with --clear-title", async () => {
+    const client = createMockClient({}, undefined, {
+      id: "sess_123",
+      title: null,
+      description: null,
+      updated_at: "2026-04-08T10:00:00Z",
+    });
+    const { formatter } = createMockFormatter("table");
+
+    await runSessionsEdit(
+      {
+        id: "sess_123",
+        clearTitle: true,
+        clearDescription: false,
+      },
+      { client, formatter },
+    );
+
+    expect(client.patch).toHaveBeenCalledWith("/sessions/sess_123", {
+      title: null,
+    });
+  });
+
+  it("clears description with --clear-description", async () => {
+    const client = createMockClient({}, undefined, {
+      id: "sess_123",
+      title: null,
+      description: null,
+      updated_at: "2026-04-08T10:00:00Z",
+    });
+    const { formatter } = createMockFormatter("table");
+
+    await runSessionsEdit(
+      {
+        id: "sess_123",
+        clearTitle: false,
+        clearDescription: true,
+      },
+      { client, formatter },
+    );
+
+    expect(client.patch).toHaveBeenCalledWith("/sessions/sess_123", {
+      description: null,
+    });
+  });
+
+  it("throws error when no changes specified", async () => {
+    const client = createMockClient({});
+    const { formatter } = createMockFormatter("table");
+
+    await expect(
+      runSessionsEdit(
+        {
+          id: "sess_123",
+          clearTitle: false,
+          clearDescription: false,
+        },
+        { client, formatter },
+      ),
+    ).rejects.toThrow("No changes specified");
+  });
+
+  it("throws ApiError on 404", async () => {
+    const client = createMockClient({}, { status: 404, error: "Not found" });
+    const { formatter } = createMockFormatter("table");
+
+    await expect(
+      runSessionsEdit(
+        {
+          id: "invalid",
+          title: "New Title",
+          clearTitle: false,
+          clearDescription: false,
+        },
+        { client, formatter },
+      ),
+    ).rejects.toThrow("Not found");
   });
 });
 
