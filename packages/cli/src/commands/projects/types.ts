@@ -88,14 +88,38 @@ function formatRelativeTime(isoDate: string): string {
 
 function truncate(s: string | null, maxLen: number): string {
   if (!s) return "";
-  return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
+  return s.length > maxLen ? `${s.slice(0, maxLen - 1)}…` : s;
 }
 
 export const projectListColumns: TableColumn<ProjectItem>[] = [
   { key: (row) => truncate(row.projectKey, 30), header: "Project", width: 30 },
-  { key: (row) => String(row.sessionCount), header: "Sessions", width: 8, align: "right" },
-  { key: (row) => formatNumber(row.totalMessages), header: "Msgs", width: 8, align: "right" },
-  { key: (row) => formatNumber(row.totalInputTokens), header: "In Tokens", width: 10, align: "right" },
-  { key: (row) => formatNumber(row.totalOutputTokens), header: "Out Tokens", width: 10, align: "right" },
-  { key: (row) => formatRelativeTime(row.lastActivity), header: "Last Active", width: 12 },
+  {
+    key: (row) => String(row.sessionCount),
+    header: "Sessions",
+    width: 8,
+    align: "right",
+  },
+  {
+    key: (row) => formatNumber(row.totalMessages),
+    header: "Msgs",
+    width: 8,
+    align: "right",
+  },
+  {
+    key: (row) => formatNumber(row.totalInputTokens),
+    header: "In Tokens",
+    width: 10,
+    align: "right",
+  },
+  {
+    key: (row) => formatNumber(row.totalOutputTokens),
+    header: "Out Tokens",
+    width: 10,
+    align: "right",
+  },
+  {
+    key: (row) => formatRelativeTime(row.lastActivity),
+    header: "Last Active",
+    width: 12,
+  },
 ];

@@ -1,15 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
-import { runTagsList } from "./list.js";
-import { runTagsCreate } from "./create.js";
-import { runTagsAdd } from "./add.js";
-import { runTagsRemove } from "./remove.js";
 import type { ApiClient, ApiResponse } from "../../api/client.js";
 import { OutputFormatter } from "../../output/formatter.js";
-import type { TagsResponse, TagCreateResponse } from "./types.js";
+import { runTagsAdd } from "./add.js";
+import { runTagsCreate } from "./create.js";
+import { runTagsList } from "./list.js";
+import { runTagsRemove } from "./remove.js";
+import type { TagCreateResponse, TagsResponse } from "./types.js";
 
 function createMockClient<T = TagsResponse>(
   response?: T,
-  error?: { status: number; error: string }
+  error?: { status: number; error: string },
 ): ApiClient {
   const mockGet = vi.fn(async (): Promise<ApiResponse<T>> => {
     if (error) {
@@ -117,7 +117,7 @@ describe("tags list", () => {
     const { formatter } = createMockFormatter("json");
 
     await expect(
-      runTagsList({ format: "json" }, { client, formatter })
+      runTagsList({ format: "json" }, { client, formatter }),
     ).rejects.toThrow("Server error");
   });
 });
@@ -152,7 +152,7 @@ describe("tags create", () => {
 
     await runTagsCreate(
       { name: "bug-fix", color: "#ff6b6b" },
-      { client, formatter }
+      { client, formatter },
     );
 
     expect(client.post).toHaveBeenCalledWith("/tags", {
@@ -169,7 +169,7 @@ describe("tags create", () => {
     const { formatter } = createMockFormatter("table");
 
     await expect(
-      runTagsCreate({ name: "duplicate" }, { client, formatter })
+      runTagsCreate({ name: "duplicate" }, { client, formatter }),
     ).rejects.toThrow("Tag already exists");
   });
 });
@@ -183,7 +183,7 @@ describe("tags add", () => {
 
     await runTagsAdd(
       { sessionId: "sess_123", tagId: "tag_456" },
-      { client, formatter }
+      { client, formatter },
     );
 
     expect(client.put).toHaveBeenCalledWith("/sessions/sess_123/tags", {
@@ -202,8 +202,8 @@ describe("tags add", () => {
     await expect(
       runTagsAdd(
         { sessionId: "invalid", tagId: "tag_456" },
-        { client, formatter }
-      )
+        { client, formatter },
+      ),
     ).rejects.toThrow("Session not found");
   });
 });
@@ -217,7 +217,7 @@ describe("tags remove", () => {
 
     await runTagsRemove(
       { sessionId: "sess_123", tagId: "tag_456" },
-      { client, formatter }
+      { client, formatter },
     );
 
     expect(client.delete).toHaveBeenCalledWith("/sessions/sess_123/tags", {
@@ -236,8 +236,8 @@ describe("tags remove", () => {
     await expect(
       runTagsRemove(
         { sessionId: "sess_123", tagId: "invalid" },
-        { client, formatter }
-      )
+        { client, formatter },
+      ),
     ).rejects.toThrow("Tag not found on session");
   });
 });

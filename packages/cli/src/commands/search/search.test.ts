@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { runSearch } from "./index.js";
 import type { ApiClient, ApiResponse } from "../../api/client.js";
 import { OutputFormatter } from "../../output/formatter.js";
+import { runSearch } from "./index.js";
 import type { SearchResponse } from "./types.js";
 
 function createMockClient(
   response: SearchResponse,
-  error?: { status: number; error: string }
+  error?: { status: number; error: string },
 ): ApiClient {
   return {
     get: vi.fn(async (): Promise<ApiResponse<SearchResponse>> => {
@@ -78,10 +78,7 @@ describe("search", () => {
     const client = createMockClient(sampleResponse);
     const { formatter, stdout } = createMockFormatter("json");
 
-    await runSearch(
-      { query: "OAuth", format: "json" },
-      { client, formatter }
-    );
+    await runSearch({ query: "OAuth", format: "json" }, { client, formatter });
 
     const output = stdout.join("");
     expect(output).toContain('"results"');
@@ -95,7 +92,7 @@ describe("search", () => {
 
     await runSearch(
       { query: "OAuth", format: "minimal" },
-      { client, formatter }
+      { client, formatter },
     );
 
     expect(stdout.join("")).toBe("sess_123\nsess_456\n");
@@ -105,10 +102,7 @@ describe("search", () => {
     const client = createMockClient(sampleResponse);
     const { formatter, stderr } = createMockFormatter("table");
 
-    await runSearch(
-      { query: "OAuth", format: "table" },
-      { client, formatter }
-    );
+    await runSearch({ query: "OAuth", format: "table" }, { client, formatter });
 
     expect(stderr.join("")).toContain("Found 2 results");
   });
@@ -126,7 +120,7 @@ describe("search", () => {
         to: "2026-04-08",
         format: "json",
       },
-      { client, formatter }
+      { client, formatter },
     );
 
     expect(client.get).toHaveBeenCalledWith(
@@ -137,7 +131,7 @@ describe("search", () => {
         source: "claude-code",
         from: "2026-04-01",
         to: "2026-04-08",
-      })
+      }),
     );
   });
 
@@ -149,7 +143,7 @@ describe("search", () => {
     const { formatter } = createMockFormatter("json");
 
     await expect(
-      runSearch({ query: "test", format: "json" }, { client, formatter })
+      runSearch({ query: "test", format: "json" }, { client, formatter }),
     ).rejects.toThrow("Server error");
   });
 
@@ -159,11 +153,11 @@ describe("search", () => {
       total: 0,
     };
     const client = createMockClient(emptyResponse);
-    const { formatter, stdout, stderr } = createMockFormatter("table");
+    const { formatter, stderr } = createMockFormatter("table");
 
     await runSearch(
       { query: "nonexistent", format: "table" },
-      { client, formatter }
+      { client, formatter },
     );
 
     expect(stderr.join("")).toContain("Found 0 results");
@@ -173,10 +167,7 @@ describe("search", () => {
     const client = createMockClient(sampleResponse);
     const { formatter } = createMockFormatter("json");
 
-    await runSearch(
-      { query: "OAuth", format: "json" },
-      { client, formatter }
-    );
+    await runSearch({ query: "OAuth", format: "json" }, { client, formatter });
 
     const callArgs = (client.get as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(callArgs[1]).not.toHaveProperty("source");

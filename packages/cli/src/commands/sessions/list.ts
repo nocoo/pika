@@ -1,22 +1,23 @@
 import { defineCommand } from "@nocoo/cli-base";
 import { normalizeSource, SOURCES } from "@pika/core";
-import { createPikaClient, PIKA_PAGINATION, type ApiClient } from "../../api/client.js";
 import {
+  type ApiClient,
+  createPikaClient,
+  PIKA_PAGINATION,
+} from "../../api/client.js";
+import {
+  ApiError,
+  type OutputFormat,
   OutputFormatter,
   resolveFormat,
   withErrorHandling,
-  ApiError,
-  type OutputFormat,
 } from "../../output/formatter.js";
 import {
-  parsePaginationArgs,
   buildPaginationParams,
   type ParsedPaginationArgs,
+  parsePaginationArgs,
 } from "../../output/pagination.js";
-import {
-  sessionListColumns,
-  type SessionListResponse,
-} from "./types.js";
+import { type SessionListResponse, sessionListColumns } from "./types.js";
 
 // ─── Core logic ───────────────────────────────────────────────
 
@@ -34,7 +35,7 @@ export async function runSessionsList(
   deps: {
     client: ApiClient;
     formatter: OutputFormatter;
-  }
+  },
 ): Promise<void> {
   const { client, formatter } = deps;
 
@@ -47,7 +48,7 @@ export async function runSessionsList(
       params.source = normalized;
     } else {
       throw new Error(
-        `Invalid source: "${args.source}". Valid sources: ${SOURCES.join(", ")}, or aliases: gemini, claude, copilot`
+        `Invalid source: "${args.source}". Valid sources: ${SOURCES.join(", ")}, or aliases: gemini, claude, copilot`,
       );
     }
   }
@@ -62,7 +63,7 @@ export async function runSessionsList(
   if (!response.ok) {
     throw new ApiError(
       response.error ?? `API error: ${response.status}`,
-      response.status
+      response.status,
     );
   }
 
@@ -71,17 +72,19 @@ export async function runSessionsList(
   // Output full envelope in json mode, items only in table/minimal
   formatter.response(
     { items: data.sessions, raw: data },
-    { columns: sessionListColumns, minimalKey: "id" }
+    { columns: sessionListColumns, minimalKey: "id" },
   );
 
   // Pagination hints to stderr in table mode only
   if (args.format === "table" && data.hasMore) {
     if (data.page != null) {
       formatter.info(
-        `Page ${data.page} of ${Math.ceil(data.totalCount! / data.pageSize!)}. Use --page ${data.page + 1} to continue.`
+        `Page ${data.page} of ${Math.ceil(data.totalCount! / data.pageSize!)}. Use --page ${data.page + 1} to continue.`,
       );
     } else if (data.cursor) {
-      formatter.info(`More results available. Use --cursor ${data.cursor} to continue.`);
+      formatter.info(
+        `More results available. Use --cursor ${data.cursor} to continue.`,
+      );
     }
   }
 }
@@ -117,7 +120,8 @@ export default defineCommand({
     },
     source: {
       type: "string",
-      description: "Filter by source (claude-code, codex, gemini-cli, opencode, vscode-copilot). Aliases: gemini, claude, copilot",
+      description:
+        "Filter by source (claude-code, codex, gemini-cli, opencode, vscode-copilot). Aliases: gemini, claude, copilot",
     },
     starred: {
       type: "boolean",
@@ -137,7 +141,8 @@ export default defineCommand({
     },
     sort: {
       type: "string",
-      description: "Sort by: last_message_at, started_at, total_messages, duration_seconds",
+      description:
+        "Sort by: last_message_at, started_at, total_messages, duration_seconds",
     },
     dev: {
       type: "boolean",
@@ -154,7 +159,7 @@ export default defineCommand({
 
       const pagination = parsePaginationArgs(
         { limit: args.limit, page: args.page, cursor: args.cursor },
-        PIKA_PAGINATION
+        PIKA_PAGINATION,
       );
 
       await runSessionsList(
@@ -169,7 +174,7 @@ export default defineCommand({
           sort: args.sort,
           format,
         },
-        { client, formatter }
+        { client, formatter },
       );
     }, formatter);
   },

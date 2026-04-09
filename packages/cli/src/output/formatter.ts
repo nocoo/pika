@@ -47,7 +47,7 @@ export class OutputFormatter {
    */
   response<T>(
     envelope: { items: T[]; raw: unknown },
-    options: ResponseOptions<T>
+    options: ResponseOptions<T>,
   ): void {
     switch (this.format) {
       case "json":
@@ -82,7 +82,7 @@ export class OutputFormatter {
 
   /** Output raw JSON to stdout */
   json(data: unknown): void {
-    this.stdout.write(JSON.stringify(data, null, 2) + "\n");
+    this.stdout.write(`${JSON.stringify(data, null, 2)}\n`);
   }
 
   /** Output key-value pairs for a single item */
@@ -107,7 +107,7 @@ export class OutputFormatter {
       if (col.width) return col.width;
       const headerLen = col.header.length;
       const maxValueLen = Math.max(
-        ...items.map((item) => this.getCellValue(item, col).length)
+        ...items.map((item) => this.getCellValue(item, col).length),
       );
       return Math.max(headerLen, maxValueLen);
     });
@@ -116,11 +116,11 @@ export class OutputFormatter {
     const headerRow = columns
       .map((col, i) => col.header.padEnd(widths[i]))
       .join("  ");
-    this.stdout.write(headerRow + "\n");
+    this.stdout.write(`${headerRow}\n`);
 
     // Separator
     const separator = widths.map((w) => "─".repeat(w)).join("──");
-    this.stdout.write(separator + "\n");
+    this.stdout.write(`${separator}\n`);
 
     // Rows
     for (const item of items) {
@@ -129,14 +129,14 @@ export class OutputFormatter {
           const value = this.getCellValue(item, col);
           const truncated =
             value.length > widths[i]
-              ? value.slice(0, widths[i] - 1) + "…"
+              ? `${value.slice(0, widths[i] - 1)}…`
               : value;
           return col.align === "right"
             ? truncated.padStart(widths[i])
             : truncated.padEnd(widths[i]);
         })
         .join("  ");
-      this.stdout.write(row + "\n");
+      this.stdout.write(`${row}\n`);
     }
   }
 
@@ -175,7 +175,7 @@ export class OutputFormatter {
  */
 export function resolveFormat(
   explicit: string | undefined,
-  isTTY = process.stdout.isTTY
+  isTTY = process.stdout.isTTY,
 ): Exclude<OutputFormat, "auto"> {
   if (explicit === "json" || explicit === "table" || explicit === "minimal") {
     return explicit;
@@ -192,7 +192,7 @@ export function resolveFormat(
 export class ApiError extends Error {
   constructor(
     message: string,
-    public status: number
+    public status: number,
   ) {
     super(message);
     this.name = "ApiError";
@@ -207,7 +207,7 @@ export class ApiError extends Error {
  */
 export async function withErrorHandling(
   handler: () => Promise<void>,
-  formatter: OutputFormatter
+  formatter: OutputFormatter,
 ): Promise<void> {
   try {
     await handler();

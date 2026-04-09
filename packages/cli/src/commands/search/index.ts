@@ -1,13 +1,17 @@
 import { defineCommand } from "@nocoo/cli-base";
-import { createPikaClient, PIKA_PAGINATION, type ApiClient } from "../../api/client.js";
 import {
+  type ApiClient,
+  createPikaClient,
+  PIKA_PAGINATION,
+} from "../../api/client.js";
+import {
+  ApiError,
+  type OutputFormat,
   OutputFormatter,
   resolveFormat,
   withErrorHandling,
-  ApiError,
-  type OutputFormat,
 } from "../../output/formatter.js";
-import { searchResultColumns, type SearchResponse } from "./types.js";
+import { type SearchResponse, searchResultColumns } from "./types.js";
 
 // ─── Core logic ───────────────────────────────────────────────
 
@@ -23,7 +27,7 @@ export async function runSearch(
   deps: {
     client: ApiClient;
     formatter: OutputFormatter;
-  }
+  },
 ): Promise<void> {
   const { client, formatter } = deps;
 
@@ -40,7 +44,7 @@ export async function runSearch(
   if (!response.ok) {
     throw new ApiError(
       response.error ?? `API error: ${response.status}`,
-      response.status
+      response.status,
     );
   }
 
@@ -48,7 +52,7 @@ export async function runSearch(
 
   formatter.response(
     { items: data.results, raw: data },
-    { columns: searchResultColumns, minimalKey: "session_id" }
+    { columns: searchResultColumns, minimalKey: "session_id" },
   );
 
   if (args.format === "table") {
@@ -107,13 +111,13 @@ export default defineCommand({
       await runSearch(
         {
           query: args.query,
-          limit: isNaN(limit!) ? undefined : limit,
+          limit: Number.isNaN(limit!) ? undefined : limit,
           source: args.source,
           from: args.from,
           to: args.to,
           format,
         },
-        { client, formatter }
+        { client, formatter },
       );
     }, formatter);
   },

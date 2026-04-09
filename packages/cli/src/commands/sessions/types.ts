@@ -81,15 +81,24 @@ function formatRelativeTime(isoDate: string): string {
 
 function truncate(s: string | null, maxLen: number): string {
   if (!s) return "";
-  return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
+  return s.length > maxLen ? `${s.slice(0, maxLen - 1)}…` : s;
 }
 
 export const sessionListColumns: TableColumn<SessionRow>[] = [
   { key: "id", header: "ID", width: 14 },
   { key: (row) => truncate(row.title, 30), header: "Title", width: 30 },
   { key: "source", header: "Source", width: 12 },
-  { key: (row) => String(row.total_messages), header: "Msgs", width: 5, align: "right" },
-  { key: (row) => formatRelativeTime(row.last_message_at), header: "Date", width: 10 },
+  {
+    key: (row) => String(row.total_messages),
+    header: "Msgs",
+    width: 5,
+    align: "right",
+  },
+  {
+    key: (row) => formatRelativeTime(row.last_message_at),
+    header: "Date",
+    width: 10,
+  },
 ];
 
 export const sessionDetailColumns: TableColumn<SessionRow>[] = [
@@ -97,17 +106,23 @@ export const sessionDetailColumns: TableColumn<SessionRow>[] = [
   { key: "session_key", header: "Session Key" },
   { key: (row) => row.title ?? "(untitled)", header: "Title" },
   { key: "source", header: "Source" },
-  { key: (row) => row.project_name ?? row.project_ref ?? "(none)", header: "Project" },
+  {
+    key: (row) => row.project_name ?? row.project_ref ?? "(none)",
+    header: "Project",
+  },
   { key: "started_at", header: "Started" },
   { key: "last_message_at", header: "Last Message" },
   { key: (row) => String(row.total_messages), header: "Messages" },
   { key: (row) => String(row.user_messages), header: "User Messages" },
-  { key: (row) => String(row.assistant_messages), header: "Assistant Messages" },
+  {
+    key: (row) => String(row.assistant_messages),
+    header: "Assistant Messages",
+  },
   { key: (row) => String(row.total_input_tokens), header: "Input Tokens" },
   { key: (row) => String(row.total_output_tokens), header: "Output Tokens" },
   { key: (row) => String(row.total_cached_tokens), header: "Cached Tokens" },
   { key: (row) => formatDuration(row.duration_seconds), header: "Duration" },
-  { key: (row) => row.is_starred ? "Yes" : "No", header: "Starred" },
+  { key: (row) => (row.is_starred ? "Yes" : "No"), header: "Starred" },
 ];
 
 function formatDuration(seconds: number): string {

@@ -1,9 +1,9 @@
 import { defineCommand } from "@nocoo/cli-base";
-import { createPikaClient, type ApiClient } from "../../api/client.js";
+import { type ApiClient, createPikaClient } from "../../api/client.js";
 import {
+  ApiError,
   OutputFormatter,
   withErrorHandling,
-  ApiError,
 } from "../../output/formatter.js";
 import type { TagCreateResponse } from "./types.js";
 
@@ -17,7 +17,7 @@ export async function runTagsCreate(
   deps: {
     client: ApiClient;
     formatter: OutputFormatter;
-  }
+  },
 ): Promise<void> {
   const { client, formatter } = deps;
 
@@ -31,7 +31,7 @@ export async function runTagsCreate(
   if (!response.ok) {
     throw new ApiError(
       response.error ?? `API error: ${response.status}`,
-      response.status
+      response.status,
     );
   }
 
@@ -70,7 +70,7 @@ export default defineCommand({
 
       await runTagsCreate(
         { name: args.name, color: args.color },
-        { client, formatter }
+        { client, formatter },
       );
     }, formatter);
   },

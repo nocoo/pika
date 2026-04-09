@@ -15,8 +15,10 @@ export const main = defineCommand({
     update: () => import("./commands/update.js").then((m) => m.default),
 
     // New CRUD commands
-    sessions: () => import("./commands/sessions/index.js").then((m) => m.default),
-    projects: () => import("./commands/projects/index.js").then((m) => m.default),
+    sessions: () =>
+      import("./commands/sessions/index.js").then((m) => m.default),
+    projects: () =>
+      import("./commands/projects/index.js").then((m) => m.default),
     search: () => import("./commands/search/index.js").then((m) => m.default),
     tags: () => import("./commands/tags/index.js").then((m) => m.default),
   },

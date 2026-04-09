@@ -12,7 +12,10 @@ import { useEffect, useState } from "react";
 import { ActivityHeatmap } from "@/components/dashboard/activity-heatmap";
 import { DashboardSegment } from "@/components/dashboard/dashboard-segment";
 import type { Period } from "@/components/dashboard/period-selector";
-import { PeriodSelector, periodLabel } from "@/components/dashboard/period-selector";
+import {
+  PeriodSelector,
+  periodLabel,
+} from "@/components/dashboard/period-selector";
 import { RecentSessions } from "@/components/dashboard/recent-sessions";
 import { SourceChart } from "@/components/dashboard/source-chart";
 import { StatCard, StatGrid } from "@/components/dashboard/stat-card";

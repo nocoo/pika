@@ -50,7 +50,7 @@ export class ApiClient {
 
   async get<T>(
     path: string,
-    params?: Record<string, string>
+    params?: Record<string, string>,
   ): Promise<ApiResponse<T>> {
     const url = this.buildUrl(path, params);
     return this.requestWithRetry<T>("GET", url);
@@ -95,7 +95,7 @@ export class ApiClient {
   private async requestWithRetry<T>(
     method: string,
     url: string,
-    body?: unknown
+    body?: unknown,
   ): Promise<ApiResponse<T>> {
     let lastError: ApiResponse<T> | undefined;
 
@@ -134,13 +134,13 @@ export class ApiClient {
   private async request<T>(
     method: string,
     url: string,
-    body?: unknown
+    body?: unknown,
   ): Promise<ApiResponse<T>> {
     const headers: Record<string, string> = {};
 
     const token = this.getToken();
     if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
+      headers.Authorization = `Bearer ${token}`;
     }
 
     if (body !== undefined) {

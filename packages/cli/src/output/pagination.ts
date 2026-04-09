@@ -40,7 +40,7 @@ export function parsePaginationArgs(
     page?: string;
     cursor?: string;
   },
-  options?: PaginationOptions
+  options?: PaginationOptions,
 ): ParsedPaginationArgs {
   const defaultLimit = options?.defaultLimit ?? PIKA_PAGINATION.defaultLimit;
   const maxLimit = options?.maxLimit ?? PIKA_PAGINATION.maxLimit;
@@ -54,7 +54,7 @@ export function parsePaginationArgs(
   let limit = defaultLimit;
   if (args.limit) {
     const parsed = parseInt(args.limit, 10);
-    if (!isNaN(parsed) && parsed > 0) {
+    if (!Number.isNaN(parsed) && parsed > 0) {
       limit = Math.min(parsed, maxLimit);
     }
   }
@@ -63,7 +63,7 @@ export function parsePaginationArgs(
   let page: number | undefined;
   if (args.page) {
     const parsed = parseInt(args.page, 10);
-    if (!isNaN(parsed) && parsed > 0) {
+    if (!Number.isNaN(parsed) && parsed > 0) {
       page = parsed;
     }
   }
@@ -88,7 +88,7 @@ export function parsePaginationArgs(
  * Build query params for API request from parsed pagination args.
  */
 export function buildPaginationParams(
-  parsed: ParsedPaginationArgs
+  parsed: ParsedPaginationArgs,
 ): Record<string, string> {
   const params: Record<string, string> = {
     limit: String(parsed.limit),

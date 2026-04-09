@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { runProjectsList } from "./list.js";
 import type { ApiClient, ApiResponse } from "../../api/client.js";
 import { OutputFormatter } from "../../output/formatter.js";
-import type { ProjectsResponse, ProjectItemRaw } from "./types.js";
+import { runProjectsList } from "./list.js";
+import type { ProjectItemRaw, ProjectsResponse } from "./types.js";
 
 function createMockClient(
   response: ProjectsResponse,
-  error?: { status: number; error: string }
+  error?: { status: number; error: string },
 ): ApiClient {
   return {
     get: vi.fn(async (): Promise<ApiResponse<ProjectsResponse>> => {
@@ -115,7 +115,7 @@ describe("projects list", () => {
     const { formatter } = createMockFormatter("json");
 
     await expect(
-      runProjectsList({ format: "json" }, { client, formatter })
+      runProjectsList({ format: "json" }, { client, formatter }),
     ).rejects.toThrow("Server error");
   });
 });

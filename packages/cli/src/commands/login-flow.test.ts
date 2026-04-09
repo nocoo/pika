@@ -84,7 +84,9 @@ describe("login flow", () => {
       .calls[0][0] as string;
     const url = new URL(callbackUrl);
     const cliCallback = url.searchParams.get("callback");
-    await fetch(`${cliCallback}?api_key=${newApiKey}&email=new@example.com&state=${TEST_NONCE}`);
+    await fetch(
+      `${cliCallback}?api_key=${newApiKey}&email=new@example.com&state=${TEST_NONCE}`,
+    );
 
     const result = await loginPromise;
     expect(result.success).toBe(true);
@@ -109,7 +111,9 @@ describe("login flow", () => {
     const cliCallback = url.searchParams.get("callback");
 
     // Hit callback without api_key (but with valid state)
-    const res = await fetch(`${cliCallback}?error=access_denied&state=${TEST_NONCE}`);
+    const res = await fetch(
+      `${cliCallback}?error=access_denied&state=${TEST_NONCE}`,
+    );
     expect(res.status).toBe(400);
 
     const result = await loginPromise;
@@ -153,7 +157,9 @@ describe("login flow", () => {
       .calls[0][0] as string;
     const url = new URL(callbackUrl);
     const cliCallback = url.searchParams.get("callback")!;
-    await fetch(`${cliCallback}?api_key=pk_${"f".repeat(32)}&email=t@t.com&state=${TEST_NONCE}`);
+    await fetch(
+      `${cliCallback}?api_key=pk_${"f".repeat(32)}&email=t@t.com&state=${TEST_NONCE}`,
+    );
     await loginPromise;
   });
 
@@ -178,7 +184,9 @@ describe("login flow", () => {
     expect(cliCallback).toMatch(/^http:\/\/localhost:\d+\/callback$/);
 
     // Complete the flow
-    await fetch(`${cliCallback}?api_key=pk_${"e".repeat(32)}&email=t@t.com&state=${TEST_NONCE}`);
+    await fetch(
+      `${cliCallback}?api_key=pk_${"e".repeat(32)}&email=t@t.com&state=${TEST_NONCE}`,
+    );
     await loginPromise;
   });
 

@@ -1,12 +1,12 @@
 import { defineCommand } from "@nocoo/cli-base";
-import { createPikaClient, type ApiClient } from "../../api/client.js";
+import { type ApiClient, createPikaClient } from "../../api/client.js";
 import {
-  OutputFormatter,
-  withErrorHandling,
   ApiError,
   type OutputFormat,
+  OutputFormatter,
+  withErrorHandling,
 } from "../../output/formatter.js";
-import type { SessionContentResponse, CanonicalMessage } from "./types.js";
+import type { CanonicalMessage, SessionContentResponse } from "./types.js";
 
 // ─── Content filtering ────────────────────────────────────────
 
@@ -21,7 +21,7 @@ interface FilterOptions {
 
 function filterMessages(
   messages: CanonicalMessage[],
-  options: FilterOptions
+  options: FilterOptions,
 ): CanonicalMessage[] {
   let result = messages;
 
@@ -132,18 +132,18 @@ export async function runSessionsContent(
     client: ApiClient;
     formatter: OutputFormatter;
     stdout?: NodeJS.WritableStream;
-  }
+  },
 ): Promise<void> {
   const { client, formatter, stdout = process.stdout } = deps;
 
   const response = await client.get<SessionContentResponse>(
-    `/sessions/${args.id}/content`
+    `/sessions/${args.id}/content`,
   );
 
   if (!response.ok) {
     throw new ApiError(
       response.error ?? `API error: ${response.status}`,
-      response.status
+      response.status,
     );
   }
 
@@ -179,10 +179,10 @@ export async function runSessionsContent(
       formatter.json({ messages: filteredMessages });
       break;
     case "text":
-      stdout.write(formatAsText(filteredMessages) + "\n");
+      stdout.write(`${formatAsText(filteredMessages)}\n`);
       break;
     case "markdown":
-      stdout.write(formatAsMarkdown(filteredMessages) + "\n");
+      stdout.write(`${formatAsMarkdown(filteredMessages)}\n`);
       break;
     default:
       formatter.json({ messages: filteredMessages });
@@ -250,11 +250,11 @@ export default defineCommand({
           id: args.id,
           role,
           noTools: args["no-tools"] ?? false,
-          limit: isNaN(limit!) ? undefined : limit,
-          offset: isNaN(offset!) ? undefined : offset,
+          limit: Number.isNaN(limit!) ? undefined : limit,
+          offset: Number.isNaN(offset!) ? undefined : offset,
           format,
         },
-        { client, formatter }
+        { client, formatter },
       );
     }, formatter);
   },

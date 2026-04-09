@@ -1,13 +1,13 @@
 import { defineCommand } from "@nocoo/cli-base";
-import { createPikaClient, type ApiClient } from "../../api/client.js";
+import { type ApiClient, createPikaClient } from "../../api/client.js";
 import {
+  ApiError,
+  type OutputFormat,
   OutputFormatter,
   resolveFormat,
   withErrorHandling,
-  ApiError,
-  type OutputFormat,
 } from "../../output/formatter.js";
-import { sessionDetailColumns, type SessionRow } from "./types.js";
+import { type SessionRow, sessionDetailColumns } from "./types.js";
 
 // ─── API Response type ────────────────────────────────────────
 
@@ -25,7 +25,7 @@ export async function runSessionsGet(
   deps: {
     client: ApiClient;
     formatter: OutputFormatter;
-  }
+  },
 ): Promise<void> {
   const { client, formatter } = deps;
 
@@ -34,7 +34,7 @@ export async function runSessionsGet(
   if (!response.ok) {
     throw new ApiError(
       response.error ?? `API error: ${response.status}`,
-      response.status
+      response.status,
     );
   }
 
@@ -77,10 +77,7 @@ export default defineCommand({
     await withErrorHandling(async () => {
       const client = createPikaClient(args.dev);
 
-      await runSessionsGet(
-        { id: args.id, format },
-        { client, formatter }
-      );
+      await runSessionsGet({ id: args.id, format }, { client, formatter });
     }, formatter);
   },
 });

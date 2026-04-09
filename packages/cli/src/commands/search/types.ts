@@ -25,7 +25,7 @@ export interface SearchResponse {
 
 function truncate(s: string | null, maxLen: number): string {
   if (!s) return "";
-  return s.length > maxLen ? s.slice(0, maxLen - 1) + "…" : s;
+  return s.length > maxLen ? `${s.slice(0, maxLen - 1)}…` : s;
 }
 
 function formatRelativeTime(isoDate: string): string {
@@ -55,6 +55,14 @@ function formatRelativeTime(isoDate: string): string {
 export const searchResultColumns: TableColumn<SearchResultRow>[] = [
   { key: "session_id", header: "Session", width: 14 },
   { key: (row) => truncate(row.title, 25), header: "Title", width: 25 },
-  { key: (row) => truncate(row.content_snippet, 40), header: "Snippet", width: 40 },
-  { key: (row) => formatRelativeTime(row.started_at), header: "Date", width: 10 },
+  {
+    key: (row) => truncate(row.content_snippet, 40),
+    header: "Snippet",
+    width: 40,
+  },
+  {
+    key: (row) => formatRelativeTime(row.started_at),
+    header: "Date",
+    width: 10,
+  },
 ];

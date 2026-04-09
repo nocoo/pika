@@ -1,9 +1,9 @@
 import { defineCommand } from "@nocoo/cli-base";
-import { createPikaClient, type ApiClient } from "../../api/client.js";
+import { type ApiClient, createPikaClient } from "../../api/client.js";
 import {
+  ApiError,
   OutputFormatter,
   withErrorHandling,
-  ApiError,
 } from "../../output/formatter.js";
 
 // ─── Core logic ───────────────────────────────────────────────
@@ -16,19 +16,19 @@ export async function runSessionsStar(
   deps: {
     client: ApiClient;
     formatter: OutputFormatter;
-  }
+  },
 ): Promise<void> {
   const { client, formatter } = deps;
 
   const response = await client.patch<{ starred: boolean }>(
     `/sessions/${args.id}/star`,
-    { starred: !args.unstar }
+    { starred: !args.unstar },
   );
 
   if (!response.ok) {
     throw new ApiError(
       response.error ?? `API error: ${response.status}`,
-      response.status
+      response.status,
     );
   }
 
@@ -70,7 +70,7 @@ export default defineCommand({
 
       await runSessionsStar(
         { id: args.id, unstar: args.unstar ?? false },
-        { client, formatter }
+        { client, formatter },
       );
     }, formatter);
   },

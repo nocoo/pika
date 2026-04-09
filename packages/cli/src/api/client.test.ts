@@ -1,5 +1,5 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { ApiClient, type ApiResponse } from "./client.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiClient } from "./client.js";
 
 describe("ApiClient", () => {
   const mockFetch = vi.fn();
@@ -50,7 +50,7 @@ describe("ApiClient", () => {
           headers: expect.objectContaining({
             Authorization: "Bearer test-token",
           }),
-        })
+        }),
       );
     });
 
@@ -79,7 +79,7 @@ describe("ApiClient", () => {
 
       expect(mockFetch).toHaveBeenCalledWith(
         "https://example.com/api/sessions",
-        expect.any(Object)
+        expect.any(Object),
       );
     });
 
@@ -91,7 +91,7 @@ describe("ApiClient", () => {
 
       expect(mockFetch).toHaveBeenCalledWith(
         "https://api.example.com/sessions?limit=50&source=claude-code",
-        expect.any(Object)
+        expect.any(Object),
       );
     });
 
@@ -103,7 +103,7 @@ describe("ApiClient", () => {
 
       expect(mockFetch).toHaveBeenCalledWith(
         "https://api.example.com/sessions?limit=50",
-        expect.any(Object)
+        expect.any(Object),
       );
     });
 
@@ -137,7 +137,7 @@ describe("ApiClient", () => {
             "Content-Type": "application/json",
           }),
           body: JSON.stringify({ name: "bug", color: "#ff0000" }),
-        })
+        }),
       );
     });
   });
@@ -154,7 +154,7 @@ describe("ApiClient", () => {
         expect.objectContaining({
           method: "PUT",
           body: JSON.stringify({ tagId: "tag-456" }),
-        })
+        }),
       );
     });
   });
@@ -171,7 +171,7 @@ describe("ApiClient", () => {
         expect.objectContaining({
           method: "PATCH",
           body: JSON.stringify({ starred: true }),
-        })
+        }),
       );
     });
   });
@@ -192,7 +192,7 @@ describe("ApiClient", () => {
         expect.objectContaining({
           method: "DELETE",
           body: JSON.stringify({ tagId: "tag-456" }),
-        })
+        }),
       );
     });
 
@@ -213,7 +213,7 @@ describe("ApiClient", () => {
   describe("error handling", () => {
     it("returns error on 4xx", async () => {
       mockFetch.mockResolvedValueOnce(
-        mockResponse({ error: "Not found" }, 404, false)
+        mockResponse({ error: "Not found" }, 404, false),
       );
 
       const client = createClient("token");
@@ -228,7 +228,7 @@ describe("ApiClient", () => {
 
     it("returns error on 5xx", async () => {
       mockFetch.mockResolvedValueOnce(
-        mockResponse({ message: "Internal error" }, 500, false)
+        mockResponse({ message: "Internal error" }, 500, false),
       );
 
       const client = createClient("token");
@@ -285,7 +285,7 @@ describe("ApiClient", () => {
 
       mockFetch
         .mockResolvedValueOnce(
-          mockResponse({ error: "Rate limited" }, 429, false)
+          mockResponse({ error: "Rate limited" }, 429, false),
         )
         .mockResolvedValueOnce(mockResponse({ data: "success" }));
 
@@ -304,7 +304,7 @@ describe("ApiClient", () => {
       });
 
       mockFetch.mockResolvedValueOnce(
-        mockResponse({ error: "Not found" }, 404, false)
+        mockResponse({ error: "Not found" }, 404, false),
       );
 
       const result = await client.get("/test");
@@ -323,7 +323,7 @@ describe("ApiClient", () => {
 
       mockFetch
         .mockResolvedValueOnce(
-          mockResponse({ error: "Server error" }, 502, false)
+          mockResponse({ error: "Server error" }, 502, false),
         )
         .mockResolvedValueOnce(mockResponse({ data: "success" }));
 
@@ -343,10 +343,10 @@ describe("ApiClient", () => {
 
       mockFetch
         .mockResolvedValueOnce(
-          mockResponse({ error: "Rate limited" }, 429, false)
+          mockResponse({ error: "Rate limited" }, 429, false),
         )
         .mockResolvedValueOnce(
-          mockResponse({ error: "Still rate limited" }, 429, false)
+          mockResponse({ error: "Still rate limited" }, 429, false),
         );
 
       const result = await client.get("/test");

@@ -1,24 +1,24 @@
 import { defineCommand } from "@nocoo/cli-base";
-import { createPikaClient, type ApiClient } from "../../api/client.js";
+import { type ApiClient, createPikaClient } from "../../api/client.js";
 import {
+  ApiError,
+  type OutputFormat,
   OutputFormatter,
   resolveFormat,
   withErrorHandling,
-  ApiError,
-  type OutputFormat,
 } from "../../output/formatter.js";
-import { tagListColumns, type TagsResponse } from "./types.js";
+import { type TagsResponse, tagListColumns } from "./types.js";
 
 // ─── Core logic ───────────────────────────────────────────────
 
 export async function runTagsList(
-  args: {
+  _args: {
     format: OutputFormat;
   },
   deps: {
     client: ApiClient;
     formatter: OutputFormatter;
-  }
+  },
 ): Promise<void> {
   const { client, formatter } = deps;
 
@@ -27,7 +27,7 @@ export async function runTagsList(
   if (!response.ok) {
     throw new ApiError(
       response.error ?? `API error: ${response.status}`,
-      response.status
+      response.status,
     );
   }
 
@@ -35,7 +35,7 @@ export async function runTagsList(
 
   formatter.response(
     { items: data.tags, raw: data },
-    { columns: tagListColumns, minimalKey: "id" }
+    { columns: tagListColumns, minimalKey: "id" },
   );
 }
 

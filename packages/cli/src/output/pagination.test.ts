@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  parsePaginationArgs,
   buildPaginationParams,
   extractPaginationInfo,
+  parsePaginationArgs,
 } from "./pagination.js";
 
 describe("parsePaginationArgs", () => {
@@ -61,7 +61,7 @@ describe("parsePaginationArgs", () => {
 
   it("throws when both page and cursor provided", () => {
     expect(() =>
-      parsePaginationArgs({ page: "1", cursor: "abc" })
+      parsePaginationArgs({ page: "1", cursor: "abc" }),
     ).toThrowError("Cannot use both --page and --cursor");
   });
 

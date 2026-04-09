@@ -1,15 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
-import { runSessionsList } from "./list.js";
-import { runSessionsGet } from "./get.js";
-import { runSessionsContent } from "./content.js";
-import { runSessionsTrash } from "./trash.js";
-import { runSessionsStar } from "./star.js";
 import type { ApiClient, ApiResponse } from "../../api/client.js";
 import { OutputFormatter } from "../../output/formatter.js";
+import { runSessionsContent } from "./content.js";
+import { runSessionsGet } from "./get.js";
+import { runSessionsList } from "./list.js";
+import { runSessionsStar } from "./star.js";
+import { runSessionsTrash } from "./trash.js";
 import type {
-  SessionRow,
-  SessionListResponse,
   SessionContentResponse,
+  SessionListResponse,
+  SessionRow,
 } from "./types.js";
 
 // ─── Test utilities ───────────────────────────────────────────
@@ -22,7 +22,7 @@ interface MockResponse<T> {
 function createMockClient<T>(
   responses: Record<string, T | MockResponse<T>>,
   error?: { status: number; error: string },
-  patchResponse?: T
+  patchResponse?: T,
 ): ApiClient {
   const mockGet = vi.fn(async (path: string): Promise<ApiResponse<T>> => {
     if (error) {
@@ -34,7 +34,11 @@ function createMockClient<T>(
       // Support explicit status/data for 204 etc
       if (response && typeof response === "object" && "status" in response) {
         const mockResp = response as MockResponse<T>;
-        return { ok: true, status: mockResp.status ?? 200, data: mockResp.data };
+        return {
+          ok: true,
+          status: mockResp.status ?? 200,
+          data: mockResp.data,
+        };
       }
       return { ok: true, status: 200, data: response as T };
     }
@@ -113,7 +117,7 @@ describe("sessions list", () => {
 
     await runSessionsList(
       { limit: 50, mode: "cursor", format: "json" },
-      { client, formatter }
+      { client, formatter },
     );
 
     const output = stdout.join("");
@@ -136,7 +140,7 @@ describe("sessions list", () => {
 
     await runSessionsList(
       { limit: 50, mode: "cursor", format: "minimal" },
-      { client, formatter }
+      { client, formatter },
     );
 
     expect(stdout.join("")).toBe("sess_1\nsess_2\n");
@@ -153,7 +157,7 @@ describe("sessions list", () => {
 
     await runSessionsList(
       { limit: 50, mode: "cursor", format: "table" },
-      { client, formatter }
+      { client, formatter },
     );
 
     expect(stderr.join("")).toContain("--cursor next_cursor");
@@ -170,7 +174,7 @@ describe("sessions list", () => {
 
     await runSessionsList(
       { limit: 50, mode: "cursor", format: "json" },
-      { client, formatter }
+      { client, formatter },
     );
 
     expect(stderr.join("")).not.toContain("--cursor");
@@ -198,7 +202,7 @@ describe("sessions list", () => {
         to: "2026-04-08",
         sort: "started_at",
       },
-      { client, formatter }
+      { client, formatter },
     );
 
     expect(client.get).toHaveBeenCalledWith(
@@ -211,7 +215,7 @@ describe("sessions list", () => {
         from: "2026-04-01",
         to: "2026-04-08",
         sort: "started_at",
-      })
+      }),
     );
   });
 
@@ -227,12 +231,12 @@ describe("sessions list", () => {
     // Test "gemini" alias → "gemini-cli"
     await runSessionsList(
       { limit: 50, mode: "cursor", format: "json", source: "gemini" },
-      { client, formatter }
+      { client, formatter },
     );
 
     expect(client.get).toHaveBeenCalledWith(
       "/sessions",
-      expect.objectContaining({ source: "gemini-cli" })
+      expect.objectContaining({ source: "gemini-cli" }),
     );
   });
 
@@ -247,12 +251,12 @@ describe("sessions list", () => {
 
     await runSessionsList(
       { limit: 50, mode: "cursor", format: "json", source: "claude" },
-      { client, formatter }
+      { client, formatter },
     );
 
     expect(client.get).toHaveBeenCalledWith(
       "/sessions",
-      expect.objectContaining({ source: "claude-code" })
+      expect.objectContaining({ source: "claude-code" }),
     );
   });
 
@@ -267,12 +271,12 @@ describe("sessions list", () => {
 
     await runSessionsList(
       { limit: 50, mode: "cursor", format: "json", source: "copilot" },
-      { client, formatter }
+      { client, formatter },
     );
 
     expect(client.get).toHaveBeenCalledWith(
       "/sessions",
-      expect.objectContaining({ source: "vscode-copilot" })
+      expect.objectContaining({ source: "vscode-copilot" }),
     );
   });
 
@@ -288,8 +292,8 @@ describe("sessions list", () => {
     await expect(
       runSessionsList(
         { limit: 50, mode: "cursor", format: "json", source: "invalid-source" },
-        { client, formatter }
-      )
+        { client, formatter },
+      ),
     ).rejects.toThrow('Invalid source: "invalid-source"');
   });
 
@@ -307,7 +311,7 @@ describe("sessions list", () => {
 
     await runSessionsList(
       { limit: 50, mode: "page", page: 2, format: "table" },
-      { client, formatter }
+      { client, formatter },
     );
 
     expect(stderr.join("")).toContain("Page 2 of 3");
@@ -321,8 +325,8 @@ describe("sessions list", () => {
     await expect(
       runSessionsList(
         { limit: 50, mode: "cursor", format: "json" },
-        { client, formatter }
-      )
+        { client, formatter },
+      ),
     ).rejects.toThrow("Server error");
   });
 });
@@ -351,12 +355,14 @@ describe("sessions get", () => {
   };
 
   it("outputs session in json format", async () => {
-    const client = createMockClient({ "/sessions/sess_123": { session: sampleSession } });
+    const client = createMockClient({
+      "/sessions/sess_123": { session: sampleSession },
+    });
     const { formatter, stdout } = createMockFormatter("json");
 
     await runSessionsGet(
       { id: "sess_123", format: "json" },
-      { client, formatter }
+      { client, formatter },
     );
 
     const output = stdout.join("");
@@ -369,7 +375,7 @@ describe("sessions get", () => {
     const { formatter } = createMockFormatter("json");
 
     await expect(
-      runSessionsGet({ id: "invalid", format: "json" }, { client, formatter })
+      runSessionsGet({ id: "invalid", format: "json" }, { client, formatter }),
     ).rejects.toThrow("Not found");
   });
 });
@@ -414,7 +420,7 @@ describe("sessions content", () => {
 
     await runSessionsContent(
       { id: "sess_123", role: "all", noTools: false, format: "json" },
-      { client, formatter }
+      { client, formatter },
     );
 
     const output = stdout.join("");
@@ -431,7 +437,7 @@ describe("sessions content", () => {
 
     await runSessionsContent(
       { id: "sess_123", role: "user", noTools: false, format: "json" },
-      { client, formatter }
+      { client, formatter },
     );
 
     const output = stdout.join("");
@@ -448,7 +454,7 @@ describe("sessions content", () => {
 
     await runSessionsContent(
       { id: "sess_123", role: "assistant", noTools: false, format: "json" },
-      { client, formatter }
+      { client, formatter },
     );
 
     const output = stdout.join("");
@@ -465,12 +471,14 @@ describe("sessions content", () => {
 
     await runSessionsContent(
       { id: "sess_123", role: "all", noTools: true, format: "json" },
-      { client, formatter }
+      { client, formatter },
     );
 
     const output = stdout.join("");
     const parsed = JSON.parse(output);
-    expect(parsed.messages.every((m: { role: string }) => m.role !== "tool")).toBe(true);
+    expect(
+      parsed.messages.every((m: { role: string }) => m.role !== "tool"),
+    ).toBe(true);
     expect(output).toContain("I'll analyze");
     expect(output).toContain("Found the bug");
   });
@@ -483,7 +491,7 @@ describe("sessions content", () => {
 
     await runSessionsContent(
       { id: "sess_123", role: "all", noTools: false, limit: 2, format: "json" },
-      { client, formatter }
+      { client, formatter },
     );
 
     const parsed = JSON.parse(stdout.join(""));
@@ -497,8 +505,14 @@ describe("sessions content", () => {
     const { formatter, stdout } = createMockFormatter("json");
 
     await runSessionsContent(
-      { id: "sess_123", role: "all", noTools: false, offset: 2, format: "json" },
-      { client, formatter }
+      {
+        id: "sess_123",
+        role: "all",
+        noTools: false,
+        offset: 2,
+        format: "json",
+      },
+      { client, formatter },
     );
 
     const parsed = JSON.parse(stdout.join(""));
@@ -513,7 +527,7 @@ describe("sessions content", () => {
 
     await runSessionsContent(
       { id: "sess_123", role: "all", noTools: false, format: "json" },
-      { client, formatter }
+      { client, formatter },
     );
 
     const parsed = JSON.parse(stdout.join(""));
@@ -528,7 +542,7 @@ describe("sessions content", () => {
 
     await runSessionsContent(
       { id: "sess_123", role: "all", noTools: false, format: "text" },
-      { client, formatter }
+      { client, formatter },
     );
 
     expect(stderr.join("")).toContain("no content");
@@ -561,7 +575,7 @@ describe("sessions content", () => {
 
     await runSessionsContent(
       { id: "sess_123", role: "all", noTools: false, format: "text" },
-      { client, formatter, stdout: mockStdout }
+      { client, formatter, stdout: mockStdout },
     );
 
     const output = textOutput.join("");
@@ -599,7 +613,7 @@ describe("sessions content", () => {
 
     await runSessionsContent(
       { id: "sess_123", role: "all", noTools: false, format: "markdown" },
-      { client, formatter, stdout: mockStdout }
+      { client, formatter, stdout: mockStdout },
     );
 
     const output = mdOutput.join("");
@@ -630,7 +644,7 @@ describe("sessions content", () => {
 
     await runSessionsContent(
       { id: "sess_123", role: "all", noTools: false, format: "json" },
-      { client, formatter }
+      { client, formatter },
     );
 
     const parsed = JSON.parse(stdout.join(""));
@@ -644,16 +658,16 @@ describe("sessions content", () => {
 
 describe("sessions trash", () => {
   it("moves session to trash", async () => {
-    const client = createMockClient(
-      {},
-      undefined,
-      { deleted: true, deleted_at: "2026-04-08T10:00:00Z", affected: 1 }
-    );
+    const client = createMockClient({}, undefined, {
+      deleted: true,
+      deleted_at: "2026-04-08T10:00:00Z",
+      affected: 1,
+    });
     const { formatter, stderr } = createMockFormatter("table");
 
     await runSessionsTrash(
       { id: "sess_123", restore: false },
-      { client, formatter }
+      { client, formatter },
     );
 
     expect(client.patch).toHaveBeenCalledWith("/sessions/sess_123/trash", {
@@ -663,16 +677,16 @@ describe("sessions trash", () => {
   });
 
   it("restores session from trash", async () => {
-    const client = createMockClient(
-      {},
-      undefined,
-      { deleted: false, deleted_at: null, affected: 1 }
-    );
+    const client = createMockClient({}, undefined, {
+      deleted: false,
+      deleted_at: null,
+      affected: 1,
+    });
     const { formatter, stderr } = createMockFormatter("table");
 
     await runSessionsTrash(
       { id: "sess_123", restore: true },
-      { client, formatter }
+      { client, formatter },
     );
 
     expect(client.patch).toHaveBeenCalledWith("/sessions/sess_123/trash", {
@@ -682,28 +696,34 @@ describe("sessions trash", () => {
   });
 
   it("throws ApiError when session not found (affected=0)", async () => {
-    const client = createMockClient(
-      {},
-      undefined,
-      { deleted: true, deleted_at: null, affected: 0 }
-    );
+    const client = createMockClient({}, undefined, {
+      deleted: true,
+      deleted_at: null,
+      affected: 0,
+    });
     const { formatter } = createMockFormatter("table");
 
     await expect(
-      runSessionsTrash({ id: "invalid", restore: false }, { client, formatter })
+      runSessionsTrash(
+        { id: "invalid", restore: false },
+        { client, formatter },
+      ),
     ).rejects.toThrow("not found or already trashed");
   });
 
   it("throws ApiError when trying to restore non-trashed session", async () => {
-    const client = createMockClient(
-      {},
-      undefined,
-      { deleted: false, deleted_at: null, affected: 0 }
-    );
+    const client = createMockClient({}, undefined, {
+      deleted: false,
+      deleted_at: null,
+      affected: 0,
+    });
     const { formatter } = createMockFormatter("table");
 
     await expect(
-      runSessionsTrash({ id: "sess_123", restore: true }, { client, formatter })
+      runSessionsTrash(
+        { id: "sess_123", restore: true },
+        { client, formatter },
+      ),
     ).rejects.toThrow("not found or already restored");
   });
 
@@ -712,7 +732,10 @@ describe("sessions trash", () => {
     const { formatter } = createMockFormatter("table");
 
     await expect(
-      runSessionsTrash({ id: "invalid", restore: false }, { client, formatter })
+      runSessionsTrash(
+        { id: "invalid", restore: false },
+        { client, formatter },
+      ),
     ).rejects.toThrow("Server error");
   });
 });
@@ -726,7 +749,7 @@ describe("sessions star", () => {
 
     await runSessionsStar(
       { id: "sess_123", unstar: false },
-      { client, formatter }
+      { client, formatter },
     );
 
     expect(client.patch).toHaveBeenCalledWith("/sessions/sess_123/star", {
@@ -742,7 +765,7 @@ describe("sessions star", () => {
 
     await runSessionsStar(
       { id: "sess_123", unstar: true },
-      { client, formatter }
+      { client, formatter },
     );
 
     expect(client.patch).toHaveBeenCalledWith("/sessions/sess_123/star", {
@@ -756,7 +779,7 @@ describe("sessions star", () => {
     const { formatter } = createMockFormatter("table");
 
     await expect(
-      runSessionsStar({ id: "invalid", unstar: false }, { client, formatter })
+      runSessionsStar({ id: "invalid", unstar: false }, { client, formatter }),
     ).rejects.toThrow("Not found");
   });
 });

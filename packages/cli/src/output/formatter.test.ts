@@ -1,9 +1,9 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
+  ApiError,
   OutputFormatter,
   resolveFormat,
   withErrorHandling,
-  ApiError,
 } from "./formatter.js";
 
 describe("OutputFormatter", () => {
@@ -42,7 +42,7 @@ describe("OutputFormatter", () => {
 
       formatter.response(
         { items: apiResponse.sessions, raw: apiResponse },
-        { columns: [], minimalKey: "id" }
+        { columns: [], minimalKey: "id" },
       );
 
       const output = stdout.join("");
@@ -60,7 +60,7 @@ describe("OutputFormatter", () => {
 
       formatter.response(
         { items, raw: { items } },
-        { columns: [], minimalKey: "id" }
+        { columns: [], minimalKey: "id" },
       );
 
       expect(stdout.join("")).toBe("sess_1\nsess_2\nsess_3\n");
@@ -85,7 +85,7 @@ describe("OutputFormatter", () => {
             { key: "score", header: "Score", align: "right" },
           ],
           minimalKey: "id",
-        }
+        },
       );
 
       const output = stdout.join("");
@@ -101,7 +101,7 @@ describe("OutputFormatter", () => {
 
       formatter.response(
         { items: [], raw: { items: [] } },
-        { columns: [], minimalKey: "id" }
+        { columns: [], minimalKey: "id" },
       );
 
       expect(stderr.join("")).toContain("No items found");
@@ -122,7 +122,7 @@ describe("OutputFormatter", () => {
             },
           ],
           minimalKey: "first",
-        }
+        },
       );
 
       expect(stdout.join("")).toContain("John Doe");
@@ -202,7 +202,7 @@ describe("OutputFormatter", () => {
             { key: "name", header: "Name", width: 10 },
           ],
           minimalKey: "id",
-        }
+        },
       );
 
       const output = stdout.join("");
@@ -222,7 +222,7 @@ describe("OutputFormatter", () => {
             { key: "name", header: "Name" },
           ],
           minimalKey: "id",
-        }
+        },
       );
 
       const output = stdout.join("");
@@ -238,7 +238,7 @@ describe("OutputFormatter", () => {
 
       formatter.response(
         { items: apiResponse.items, raw: apiResponse },
-        { columns: [], minimalKey: "id" }
+        { columns: [], minimalKey: "id" },
       );
 
       expect(stdout.join("")).toContain('"items"');

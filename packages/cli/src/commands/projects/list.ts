@@ -1,13 +1,17 @@
 import { defineCommand } from "@nocoo/cli-base";
-import { createPikaClient, type ApiClient } from "../../api/client.js";
+import { type ApiClient, createPikaClient } from "../../api/client.js";
 import {
+  ApiError,
+  type OutputFormat,
   OutputFormatter,
   resolveFormat,
   withErrorHandling,
-  ApiError,
-  type OutputFormat,
 } from "../../output/formatter.js";
-import { projectListColumns, normalizeProject, type ProjectsResponse } from "./types.js";
+import {
+  normalizeProject,
+  type ProjectsResponse,
+  projectListColumns,
+} from "./types.js";
 
 // ─── Core logic ───────────────────────────────────────────────
 
@@ -18,7 +22,7 @@ export async function runProjectsList(
   deps: {
     client: ApiClient;
     formatter: OutputFormatter;
-  }
+  },
 ): Promise<void> {
   const { client, formatter } = deps;
 
@@ -27,7 +31,7 @@ export async function runProjectsList(
   if (!response.ok) {
     throw new ApiError(
       response.error ?? `API error: ${response.status}`,
-      response.status
+      response.status,
     );
   }
 
@@ -39,14 +43,14 @@ export async function runProjectsList(
   // Output full envelope in json mode, projects table in table mode
   formatter.response(
     { items: projects, raw: data },
-    { columns: projectListColumns, minimalKey: "projectKey" }
+    { columns: projectListColumns, minimalKey: "projectKey" },
   );
 
   // Show overview stats in table mode
   if (args.format === "table") {
     const { overview } = data;
     formatter.info(
-      `Total: ${overview.totalProjects} projects, ${overview.totalSessions} sessions, ${overview.totalMessages} messages`
+      `Total: ${overview.totalProjects} projects, ${overview.totalSessions} sessions, ${overview.totalMessages} messages`,
     );
   }
 }

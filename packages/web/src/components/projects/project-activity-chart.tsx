@@ -12,10 +12,10 @@ import {
 } from "recharts";
 import { DashboardResponsiveContainer } from "@/components/dashboard/dashboard-responsive-container";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatDuration } from "@/lib/format";
 import { chart, chartAxis, chartMuted } from "@/lib/palette";
 import type { ProjectDailyActivity } from "@/lib/projects";
 import { cn, formatTokens } from "@/lib/utils";
-import { formatDuration } from "@/lib/format";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -189,7 +189,7 @@ export function ProjectActivityChart({
 
   const primaryMetric = METRICS.find((m) => m.key === primaryKey)!;
   const secondaryMetric = secondaryKey
-    ? METRICS.find((m) => m.key === secondaryKey) ?? null
+    ? (METRICS.find((m) => m.key === secondaryKey) ?? null)
     : null;
 
   // Fetch data
