@@ -40,6 +40,7 @@ export function parseDuration(input: string): number {
 
 /**
  * Parse a string to a non-negative integer.
+ * Strict validation: rejects floats, trailing characters, and non-numeric input.
  *
  * @param value String to parse
  * @param paramName Parameter name for error messages
@@ -47,13 +48,15 @@ export function parseDuration(input: string): number {
  * @throws Error if value is not a valid non-negative integer
  */
 export function parsePositiveInt(value: string, paramName: string): number {
-  const num = parseInt(value, 10);
-  if (Number.isNaN(num)) {
+  // Strict integer format: optional leading zeros, digits only
+  if (!/^\d+$/.test(value)) {
     throw new Error(
       `Invalid value for ${paramName}: "${value}" is not a valid integer`,
     );
   }
-  if (num < 0) {
+  const num = parseInt(value, 10);
+  // This check is technically redundant given the regex, but kept for safety
+  if (Number.isNaN(num) || num < 0) {
     throw new Error(
       `Invalid value for ${paramName}: must be a non-negative integer`,
     );

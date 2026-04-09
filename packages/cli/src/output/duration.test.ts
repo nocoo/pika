@@ -86,18 +86,27 @@ describe("parsePositiveInt", () => {
     );
   });
 
-  it("parses integers from strings with trailing non-digits (parseInt behavior)", () => {
-    // Note: parseInt("12.5") returns 12, which is acceptable for CLI integer params
-    expect(parsePositiveInt("12.5", "--test")).toBe(12);
-    expect(parsePositiveInt("100abc", "--test")).toBe(100);
+  it("throws on floats and strings with trailing characters", () => {
+    expect(() => parsePositiveInt("12.5", "--test")).toThrow(
+      'Invalid value for --test: "12.5" is not a valid integer',
+    );
+    expect(() => parsePositiveInt("100abc", "--test")).toThrow(
+      'Invalid value for --test: "100abc" is not a valid integer',
+    );
+    expect(() => parsePositiveInt("10 ", "--test")).toThrow(
+      'Invalid value for --test: "10 " is not a valid integer',
+    );
+    expect(() => parsePositiveInt(" 10", "--test")).toThrow(
+      'Invalid value for --test: " 10" is not a valid integer',
+    );
   });
 
   it("throws on negative integers", () => {
     expect(() => parsePositiveInt("-1", "--test")).toThrow(
-      "Invalid value for --test: must be a non-negative integer",
+      'Invalid value for --test: "-1" is not a valid integer',
     );
     expect(() => parsePositiveInt("-100", "--test")).toThrow(
-      "Invalid value for --test: must be a non-negative integer",
+      'Invalid value for --test: "-100" is not a valid integer',
     );
   });
 
