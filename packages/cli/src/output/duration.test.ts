@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDuration, parseDuration } from "./duration.js";
+import { formatDuration, parseDuration, parsePositiveInt } from "./duration.js";
 
 describe("parseDuration", () => {
   it("parses plain numbers as seconds", () => {
@@ -66,5 +66,44 @@ describe("formatDuration", () => {
     expect(formatDuration(172800)).toBe("2d");
     expect(formatDuration(90000)).toBe("1d 1h");
     expect(formatDuration(604800)).toBe("7d");
+  });
+});
+
+describe("parsePositiveInt", () => {
+  it("parses valid integers", () => {
+    expect(parsePositiveInt("0", "--test")).toBe(0);
+    expect(parsePositiveInt("1", "--test")).toBe(1);
+    expect(parsePositiveInt("100", "--test")).toBe(100);
+    expect(parsePositiveInt("999999", "--test")).toBe(999999);
+  });
+
+  it("throws on non-numeric strings", () => {
+    expect(() => parsePositiveInt("abc", "--test")).toThrow(
+      'Invalid value for --test: "abc" is not a valid integer',
+    );
+    expect(() => parsePositiveInt("", "--test")).toThrow(
+      'Invalid value for --test: "" is not a valid integer',
+    );
+  });
+
+  it("parses integers from strings with trailing non-digits (parseInt behavior)", () => {
+    // Note: parseInt("12.5") returns 12, which is acceptable for CLI integer params
+    expect(parsePositiveInt("12.5", "--test")).toBe(12);
+    expect(parsePositiveInt("100abc", "--test")).toBe(100);
+  });
+
+  it("throws on negative integers", () => {
+    expect(() => parsePositiveInt("-1", "--test")).toThrow(
+      "Invalid value for --test: must be a non-negative integer",
+    );
+    expect(() => parsePositiveInt("-100", "--test")).toThrow(
+      "Invalid value for --test: must be a non-negative integer",
+    );
+  });
+
+  it("includes param name in error message", () => {
+    expect(() => parsePositiveInt("xyz", "--min-messages")).toThrow(
+      "--min-messages",
+    );
   });
 });

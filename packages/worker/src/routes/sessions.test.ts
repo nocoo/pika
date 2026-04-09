@@ -394,6 +394,51 @@ describe("handleUpdateSession", () => {
 
     expect(res.status).toBe(404);
   });
+
+  it("returns 400 when title is not a string", async () => {
+    const env = mockEnv();
+
+    const res = await handleUpdateSession(
+      "user-1",
+      "sess-123",
+      { title: { foo: "bar" } },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("title must be a string or null");
+  });
+
+  it("returns 400 when description is not a string", async () => {
+    const env = mockEnv();
+
+    const res = await handleUpdateSession(
+      "user-1",
+      "sess-123",
+      { description: 123 },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("description must be a string or null");
+  });
+
+  it("returns 400 when title is a boolean", async () => {
+    const env = mockEnv();
+
+    const res = await handleUpdateSession(
+      "user-1",
+      "sess-123",
+      { title: true },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("title must be a string or null");
+  });
 });
 
 // ── handleFilters tests ────────────────────────────────────────

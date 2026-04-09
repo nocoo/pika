@@ -436,7 +436,7 @@ export async function handleGetSession(
   const sql = `SELECT s.id, s.session_key, s.source, s.started_at, s.last_message_at,
     s.duration_seconds, s.user_messages, s.assistant_messages, s.total_messages,
     s.total_input_tokens, s.total_output_tokens, s.total_cached_tokens,
-    s.project_ref, s.project_name, s.model, s.title, s.summary,
+    s.project_ref, s.project_name, s.model, s.title, s.summary, s.description,
     s.content_key, s.content_size, s.raw_key, s.raw_size,
     s.raw_hash, s.content_hash, s.is_starred, s.deleted_at,
     s.snapshot_at, s.ingested_at
@@ -624,13 +624,27 @@ export async function handleUpdateSession(
   const params: unknown[] = [];
 
   if ("title" in data) {
+    const title = data.title;
+    if (title !== null && typeof title !== "string") {
+      return Response.json(
+        { error: "title must be a string or null" },
+        { status: 400 },
+      );
+    }
     updates.push("title = ?");
-    params.push(data.title === null ? null : String(data.title));
+    params.push(title);
   }
 
   if ("description" in data) {
+    const description = data.description;
+    if (description !== null && typeof description !== "string") {
+      return Response.json(
+        { error: "description must be a string or null" },
+        { status: 400 },
+      );
+    }
     updates.push("description = ?");
-    params.push(data.description === null ? null : String(data.description));
+    params.push(description);
   }
 
   if (updates.length === 0) {

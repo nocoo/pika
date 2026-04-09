@@ -4,6 +4,8 @@ export interface SessionRow {
   id: string;
   session_key: string;
   title: string | null;
+  summary: string | null;
+  description: string | null;
   source: string;
   project_ref: string | null;
   project_name: string | null;
@@ -105,6 +107,7 @@ export const sessionDetailColumns: TableColumn<SessionRow>[] = [
   { key: "id", header: "ID" },
   { key: "session_key", header: "Session Key" },
   { key: (row) => row.title ?? "(untitled)", header: "Title" },
+  { key: (row) => row.description ?? "", header: "Description" },
   { key: "source", header: "Source" },
   {
     key: (row) => row.project_name ?? row.project_ref ?? "(none)",

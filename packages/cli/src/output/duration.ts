@@ -39,6 +39,29 @@ export function parseDuration(input: string): number {
 }
 
 /**
+ * Parse a string to a non-negative integer.
+ *
+ * @param value String to parse
+ * @param paramName Parameter name for error messages
+ * @returns Parsed integer
+ * @throws Error if value is not a valid non-negative integer
+ */
+export function parsePositiveInt(value: string, paramName: string): number {
+  const num = parseInt(value, 10);
+  if (Number.isNaN(num)) {
+    throw new Error(
+      `Invalid value for ${paramName}: "${value}" is not a valid integer`,
+    );
+  }
+  if (num < 0) {
+    throw new Error(
+      `Invalid value for ${paramName}: must be a non-negative integer`,
+    );
+  }
+  return num;
+}
+
+/**
  * Format seconds as human-readable duration.
  *
  * @param seconds Number of seconds

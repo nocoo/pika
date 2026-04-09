@@ -5,7 +5,7 @@ import {
   createPikaClient,
   PIKA_PAGINATION,
 } from "../../api/client.js";
-import { parseDuration } from "../../output/duration.js";
+import { parseDuration, parsePositiveInt } from "../../output/duration.js";
 import {
   ApiError,
   type OutputFormat,
@@ -251,10 +251,10 @@ export default defineCommand({
           sort: args.sort,
           model: args.model,
           minMessages: args["min-messages"]
-            ? parseInt(args["min-messages"], 10)
+            ? parsePositiveInt(args["min-messages"], "--min-messages")
             : undefined,
           maxMessages: args["max-messages"]
-            ? parseInt(args["max-messages"], 10)
+            ? parsePositiveInt(args["max-messages"], "--max-messages")
             : undefined,
           minDuration: args["min-duration"]
             ? parseDuration(args["min-duration"])
@@ -263,22 +263,22 @@ export default defineCommand({
             ? parseDuration(args["max-duration"])
             : undefined,
           minInputTokens: args["min-input-tokens"]
-            ? parseInt(args["min-input-tokens"], 10)
+            ? parsePositiveInt(args["min-input-tokens"], "--min-input-tokens")
             : undefined,
           maxInputTokens: args["max-input-tokens"]
-            ? parseInt(args["max-input-tokens"], 10)
+            ? parsePositiveInt(args["max-input-tokens"], "--max-input-tokens")
             : undefined,
           minOutputTokens: args["min-output-tokens"]
-            ? parseInt(args["min-output-tokens"], 10)
+            ? parsePositiveInt(args["min-output-tokens"], "--min-output-tokens")
             : undefined,
           maxOutputTokens: args["max-output-tokens"]
-            ? parseInt(args["max-output-tokens"], 10)
+            ? parsePositiveInt(args["max-output-tokens"], "--max-output-tokens")
             : undefined,
           minTotalTokens: args["min-total-tokens"]
-            ? parseInt(args["min-total-tokens"], 10)
+            ? parsePositiveInt(args["min-total-tokens"], "--min-total-tokens")
             : undefined,
           maxTotalTokens: args["max-total-tokens"]
-            ? parseInt(args["max-total-tokens"], 10)
+            ? parsePositiveInt(args["max-total-tokens"], "--max-total-tokens")
             : undefined,
           format,
         },

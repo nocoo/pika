@@ -26,6 +26,7 @@ export interface SessionDetailRow {
   model: string | null;
   title: string | null;
   summary: string | null;
+  description: string | null;
   content_key: string | null;
   content_size: number | null;
   raw_key: string | null;
@@ -49,7 +50,7 @@ const SESSION_DETAIL_SQL = `
 SELECT s.id, s.session_key, s.source, s.started_at, s.last_message_at,
   s.duration_seconds, s.user_messages, s.assistant_messages, s.total_messages,
   s.total_input_tokens, s.total_output_tokens, s.total_cached_tokens,
-  s.project_ref, s.project_name, s.model, s.title, s.summary,
+  s.project_ref, s.project_name, s.model, s.title, s.summary, s.description,
   s.content_key, s.content_size, s.raw_key, s.raw_size,
   s.raw_hash, s.content_hash, s.is_starred, s.deleted_at,
   s.snapshot_at, s.ingested_at
