@@ -130,6 +130,14 @@ interface WhereParams {
   starred?: boolean;
   minMessages?: number;
   maxMessages?: number;
+  minDuration?: number;
+  maxDuration?: number;
+  minInputTokens?: number;
+  maxInputTokens?: number;
+  minOutputTokens?: number;
+  maxOutputTokens?: number;
+  minTotalTokens?: number;
+  maxTotalTokens?: number;
   deleted?: boolean;
 }
 
@@ -193,6 +201,48 @@ function buildWhereClause(params: WhereParams): {
     queryParams.push(params.maxMessages);
   }
 
+  // Duration filters
+  if (params.minDuration != null) {
+    conditions.push("s.duration_seconds >= ?");
+    queryParams.push(params.minDuration);
+  }
+
+  if (params.maxDuration != null) {
+    conditions.push("s.duration_seconds <= ?");
+    queryParams.push(params.maxDuration);
+  }
+
+  // Token filters
+  if (params.minInputTokens != null) {
+    conditions.push("s.total_input_tokens >= ?");
+    queryParams.push(params.minInputTokens);
+  }
+
+  if (params.maxInputTokens != null) {
+    conditions.push("s.total_input_tokens <= ?");
+    queryParams.push(params.maxInputTokens);
+  }
+
+  if (params.minOutputTokens != null) {
+    conditions.push("s.total_output_tokens >= ?");
+    queryParams.push(params.minOutputTokens);
+  }
+
+  if (params.maxOutputTokens != null) {
+    conditions.push("s.total_output_tokens <= ?");
+    queryParams.push(params.maxOutputTokens);
+  }
+
+  if (params.minTotalTokens != null) {
+    conditions.push("(s.total_input_tokens + s.total_output_tokens) >= ?");
+    queryParams.push(params.minTotalTokens);
+  }
+
+  if (params.maxTotalTokens != null) {
+    conditions.push("(s.total_input_tokens + s.total_output_tokens) <= ?");
+    queryParams.push(params.maxTotalTokens);
+  }
+
   if (params.deleted === true) {
     conditions.push("s.deleted_at IS NOT NULL");
   } else {
@@ -227,17 +277,13 @@ function parseListParams(searchParams: URLSearchParams) {
   const page =
     Number.isNaN(parsedPage) || parsedPage < 1 ? undefined : parsedPage;
 
-  const minMessagesRaw = searchParams.get("minMessages");
-  const parsedMinMessages = minMessagesRaw ? parseInt(minMessagesRaw, 10) : NaN;
-  const minMessages = Number.isNaN(parsedMinMessages)
-    ? undefined
-    : parsedMinMessages;
-
-  const maxMessagesRaw = searchParams.get("maxMessages");
-  const parsedMaxMessages = maxMessagesRaw ? parseInt(maxMessagesRaw, 10) : NaN;
-  const maxMessages = Number.isNaN(parsedMaxMessages)
-    ? undefined
-    : parsedMaxMessages;
+  // Helper to parse integer params
+  const parseIntParam = (name: string): number | undefined => {
+    const raw = searchParams.get(name);
+    if (!raw) return undefined;
+    const parsed = parseInt(raw, 10);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  };
 
   return {
     source,
@@ -248,8 +294,16 @@ function parseListParams(searchParams: URLSearchParams) {
     to,
     starred: starredRaw === "true",
     deleted: deletedRaw === "true",
-    minMessages,
-    maxMessages,
+    minMessages: parseIntParam("minMessages"),
+    maxMessages: parseIntParam("maxMessages"),
+    minDuration: parseIntParam("minDuration"),
+    maxDuration: parseIntParam("maxDuration"),
+    minInputTokens: parseIntParam("minInputTokens"),
+    maxInputTokens: parseIntParam("maxInputTokens"),
+    minOutputTokens: parseIntParam("minOutputTokens"),
+    maxOutputTokens: parseIntParam("maxOutputTokens"),
+    minTotalTokens: parseIntParam("minTotalTokens"),
+    maxTotalTokens: parseIntParam("maxTotalTokens"),
     sort,
     cursor,
     page,
@@ -283,6 +337,14 @@ export async function handleListSessions(
     starred: params.starred,
     minMessages: params.minMessages,
     maxMessages: params.maxMessages,
+    minDuration: params.minDuration,
+    maxDuration: params.maxDuration,
+    minInputTokens: params.minInputTokens,
+    maxInputTokens: params.maxInputTokens,
+    minOutputTokens: params.minOutputTokens,
+    maxOutputTokens: params.maxOutputTokens,
+    minTotalTokens: params.minTotalTokens,
+    maxTotalTokens: params.maxTotalTokens,
     deleted: params.deleted,
   });
 
