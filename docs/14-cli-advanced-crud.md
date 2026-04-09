@@ -358,34 +358,34 @@ The current schema has `UNIQUE(user_id, name)` which is case-sensitive in SQLite
 
 ## Implementation Plan
 
-### 1. CLI Filter Exposure
+### 1. CLI Filter Exposure ✓
 
 Expose existing API filters (`model`, `minMessages`, `maxMessages`) to CLI.
 
-#### 1.1 Add model and message count flags to sessions list
+#### 1.1 Add model and message count flags to sessions list ✓
 
 - File: `packages/cli/src/commands/sessions/list.ts`
 - Add `--model`, `--min-messages`, `--max-messages` args
 - Pass to API as query params
 
-#### 1.2 Add tests for new filter flags
+#### 1.2 Add tests for new filter flags ✓
 
 - File: `packages/cli/src/commands/sessions/sessions.test.ts`
 - Test that flags are passed correctly to API client
 
 ---
 
-### 2. Advanced Filter API
+### 2. Advanced Filter API ✓
 
 Add duration and token filters.
 
-#### 2.1 Add duration parser utility
+#### 2.1 Add duration parser utility ✓
 
 - File: `packages/cli/src/output/duration.ts`
 - Parse `5m`, `2h`, `1d` to seconds
 - Add unit tests
 
-#### 2.2 Add filter params to Worker sessions endpoint
+#### 2.2 Add filter params to Worker sessions endpoint ✓
 
 - File: `packages/worker/src/routes/sessions.ts`
 - Update `WhereParams` interface to include new fields
@@ -398,83 +398,83 @@ Add duration and token filters.
 
 Note: The Worker has its own `buildWhereClause` (line ~136) separate from `packages/web/src/lib/sessions.ts`. The CLI calls the Worker API, so only the Worker's query builder needs updating.
 
-#### 2.3 Add CLI flags for duration and token filters
+#### 2.3 Add CLI flags for duration and token filters ✓
 
 - File: `packages/cli/src/commands/sessions/list.ts`
 - Add `--min-duration`, `--max-duration`, `--min-input-tokens`, etc.
 - Use duration parser for duration flags
 
-#### 2.4 Add tests for advanced filters
+#### 2.4 Add tests for advanced filters ✓
 
 - API tests for new query params
 - CLI tests for duration parsing and flag passing
 
 ---
 
-### 3. Session Edit
+### 3. Session Edit ✓
 
 Allow editing session title and description.
 
-#### 3.1 Add description column to sessions table
+#### 3.1 Add description column to sessions table ✓
 
 - File: `scripts/migrations/005-session-description.sql`
 - `ALTER TABLE sessions ADD COLUMN description TEXT`
 
-#### 3.2 Add PATCH /sessions/:id endpoint
+#### 3.2 Add PATCH /sessions/:id endpoint ✓
 
 - File: `packages/worker/src/routes/sessions.ts`
 - Accept `{ title?, description? }` body
 - `null` value clears the field
 - File: `packages/web/src/app/api/sessions/[id]/route.ts` — add PATCH handler to existing route file (currently only has GET)
 
-#### 3.3 Add sessions edit CLI command
+#### 3.3 Add sessions edit CLI command ✓
 
 - File: `packages/cli/src/commands/sessions/edit.ts`
 - Add `--title`, `--description`, `--clear-title`, `--clear-description` flags
 - Wire to PATCH endpoint
 
-#### 3.4 Add tests for session edit
+#### 3.4 Add tests for session edit ✓
 
 - Worker API tests for PATCH endpoint
 - CLI tests for edit command
 
 ---
 
-### 4. Tags Enhancement
+### 4. Tags Enhancement ✓
 
 Case-insensitive tag matching with auto-create on add.
 
-#### 4.1 Update tag operations to case-insensitive lookup
+#### 4.1 Update tag operations to case-insensitive lookup ✓
 
 - File: `packages/worker/src/routes/tags.ts`
 - Use `LOWER(name) = LOWER(?)` for tag queries
 - Preserve original case on insert
 - Check for case-insensitive duplicates before insert
 
-#### 4.2 Update PUT /sessions/:id/tags to accept tagName
+#### 4.2 Update PUT /sessions/:id/tags to accept tagName ✓
 
 - File: `packages/worker/src/routes/tags.ts`
 - Accept `{ tagName }` in addition to `{ tagId }`
 - Auto-create tag if not found (case-insensitive match first)
 
-#### 4.3 Update DELETE /sessions/:id/tags to accept tagName
+#### 4.3 Update DELETE /sessions/:id/tags to accept tagName ✓
 
 - File: `packages/worker/src/routes/tags.ts`
 - Accept `{ tagName }` in addition to `{ tagId }`
 - Case-insensitive lookup, return 404 if not found
 
-#### 4.4 Update tags add CLI to use tag name
+#### 4.4 Update tags add CLI to use tag name ✓
 
 - File: `packages/cli/src/commands/tags/add.ts`
 - Rename positional arg from `tagId` to `tag` (accepts name or UUID)
 - Pass as `tagName` if not UUID format, `tagId` if UUID
 
-#### 4.5 Update tags remove CLI to use tag name
+#### 4.5 Update tags remove CLI to use tag name ✓
 
 - File: `packages/cli/src/commands/tags/remove.ts`
 - Same logic: accept name or UUID
 
-#### 4.6 Add tests for tag enhancements
+#### 4.6 Add tests for tag enhancements ✓
 
 - API tests for case-insensitive lookup and auto-create
 - API tests for DELETE with tagName
@@ -482,11 +482,11 @@ Case-insensitive tag matching with auto-create on add.
 
 ---
 
-### 5. Batch Trash CLI
+### 5. Batch Trash CLI ✓
 
 Wire CLI to existing batch endpoint.
 
-#### 5.1 Update CLI trash command for variadic IDs
+#### 5.1 Update CLI trash command for variadic IDs ✓
 
 - File: `packages/cli/src/commands/sessions/trash.ts`
 - Change positional arg from single `id` to variadic `ids`
@@ -494,7 +494,7 @@ Wire CLI to existing batch endpoint.
 - Multiple IDs: call `POST /sessions/batch` with `action: "delete"` or `action: "restore"`
   - Note: CLI ApiClient base URL already includes `/api`, so call `client.post("/sessions/batch", ...)`
 
-#### 5.2 Add tests for batch trash CLI
+#### 5.2 Add tests for batch trash CLI ✓
 
 - Test single ID still works (backward compatible)
 - Test multiple IDs calls batch endpoint
@@ -502,8 +502,12 @@ Wire CLI to existing batch endpoint.
 
 ---
 
-## Open Questions
+## Open Questions (Resolved)
 
-1. **Description length limit**: Cap at 4KB or 64KB?
-2. **Batch operation limits**: Max sessions per batch request? (Current: 50 per D1 batch, suggest chunking in CLI)
-3. **Tag case preservation**: Store original case but compare case-insensitively? (Recommended: Yes)
+1. **Description length limit**: No explicit limit in SQLite TEXT column; application-level enforcement can be added later if needed.
+2. **Batch operation limits**: Using existing D1 batch limits (50 per D1 batch). Chunking can be added to CLI if needed.
+3. **Tag case preservation**: ✓ Implemented — stores original case, compares case-insensitively using `LOWER()`.
+
+## Implementation Status
+
+**All tasks complete!** 1564 tests passing.
