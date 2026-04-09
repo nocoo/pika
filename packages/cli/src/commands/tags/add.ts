@@ -6,12 +6,26 @@ import {
   withErrorHandling,
 } from "../../output/formatter.js";
 
+// ─── Helpers ──────────────────────────────────────────────────
+
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUUID(value: string): boolean {
+  return UUID_REGEX.test(value);
+}
+
 // ─── Core logic ───────────────────────────────────────────────
+
+interface AddSessionTagResponse {
+  added: boolean;
+  tagId: string;
+}
 
 export async function runTagsAdd(
   args: {
     sessionId: string;
-    tagId: string;
+    tag: string; // Can be tag name or UUID
   },
   deps: {
     client: ApiClient;
@@ -20,9 +34,15 @@ export async function runTagsAdd(
 ): Promise<void> {
   const { client, formatter } = deps;
 
-  const response = await client.put(`/sessions/${args.sessionId}/tags`, {
-    tagId: args.tagId,
-  });
+  // Determine if it's a UUID or tag name
+  const body = isUUID(args.tag)
+    ? { tagId: args.tag }
+    : { tagName: args.tag };
+
+  const response = await client.put<AddSessionTagResponse>(
+    `/sessions/${args.sessionId}/tags`,
+    body,
+  );
 
   if (!response.ok) {
     throw new ApiError(
@@ -31,7 +51,14 @@ export async function runTagsAdd(
     );
   }
 
-  formatter.success(`Tag ${args.tagId} added to session ${args.sessionId}`);
+  const data = response.data!;
+  if (isUUID(args.tag)) {
+    formatter.success(`Tag ${args.tag} added to session ${args.sessionId}`);
+  } else {
+    formatter.success(
+      `Tag "${args.tag}" added to session ${args.sessionId} (id: ${data.tagId})`,
+    );
+  }
 }
 
 // ─── Command definition ───────────────────────────────────────
@@ -47,9 +74,9 @@ export default defineCommand({
       description: "Session ID",
       required: true,
     },
-    tagId: {
+    tag: {
       type: "positional",
-      description: "Tag ID",
+      description: "Tag name or UUID",
       required: true,
     },
     dev: {
@@ -65,7 +92,7 @@ export default defineCommand({
       const client = createPikaClient(args.dev);
 
       await runTagsAdd(
-        { sessionId: args.sessionId, tagId: args.tagId },
+        { sessionId: args.sessionId, tag: args.tag },
         { client, formatter },
       );
     }, formatter);

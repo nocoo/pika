@@ -29,7 +29,7 @@ function createMockClient<T = TagsResponse>(
     if (error) {
       return { ok: false, status: error.status, error: error.error };
     }
-    return { ok: true, status: 200, data: {} as T };
+    return { ok: true, status: 200, data: { added: true, tagId: "tag_new" } as T };
   });
 
   const mockDelete = vi.fn(async (): Promise<ApiResponse<T>> => {
@@ -177,19 +177,32 @@ describe("tags create", () => {
 // ─── tags add tests ───────────────────────────────────────────
 
 describe("tags add", () => {
-  it("adds tag to session", async () => {
+  it("adds tag to session by UUID", async () => {
     const client = createMockClient();
     const { formatter, stderr } = createMockFormatter("table");
 
     await runTagsAdd(
-      { sessionId: "sess_123", tagId: "tag_456" },
+      { sessionId: "sess_123", tag: "a1b2c3d4-e5f6-7890-abcd-ef1234567890" },
       { client, formatter },
     );
 
     expect(client.put).toHaveBeenCalledWith("/sessions/sess_123/tags", {
-      tagId: "tag_456",
+      tagId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
     });
     expect(stderr.join("")).toContain("added");
+  });
+
+  it("adds tag to session by name", async () => {
+    const client = createMockClient();
+    const { formatter, stderr } = createMockFormatter("table");
+
+    await runTagsAdd({ sessionId: "sess_123", tag: "bug-fix" }, { client, formatter });
+
+    expect(client.put).toHaveBeenCalledWith("/sessions/sess_123/tags", {
+      tagName: "bug-fix",
+    });
+    expect(stderr.join("")).toContain("added");
+    expect(stderr.join("")).toContain("bug-fix");
   });
 
   it("throws ApiError on failure", async () => {
@@ -200,10 +213,7 @@ describe("tags add", () => {
     const { formatter } = createMockFormatter("table");
 
     await expect(
-      runTagsAdd(
-        { sessionId: "invalid", tagId: "tag_456" },
-        { client, formatter },
-      ),
+      runTagsAdd({ sessionId: "invalid", tag: "bug-fix" }, { client, formatter }),
     ).rejects.toThrow("Session not found");
   });
 });
@@ -211,19 +221,35 @@ describe("tags add", () => {
 // ─── tags remove tests ────────────────────────────────────────
 
 describe("tags remove", () => {
-  it("removes tag from session", async () => {
+  it("removes tag from session by UUID", async () => {
     const client = createMockClient();
     const { formatter, stderr } = createMockFormatter("table");
 
     await runTagsRemove(
-      { sessionId: "sess_123", tagId: "tag_456" },
+      { sessionId: "sess_123", tag: "a1b2c3d4-e5f6-7890-abcd-ef1234567890" },
       { client, formatter },
     );
 
     expect(client.delete).toHaveBeenCalledWith("/sessions/sess_123/tags", {
-      tagId: "tag_456",
+      tagId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
     });
     expect(stderr.join("")).toContain("removed");
+  });
+
+  it("removes tag from session by name", async () => {
+    const client = createMockClient();
+    const { formatter, stderr } = createMockFormatter("table");
+
+    await runTagsRemove(
+      { sessionId: "sess_123", tag: "bug-fix" },
+      { client, formatter },
+    );
+
+    expect(client.delete).toHaveBeenCalledWith("/sessions/sess_123/tags", {
+      tagName: "bug-fix",
+    });
+    expect(stderr.join("")).toContain("removed");
+    expect(stderr.join("")).toContain("bug-fix");
   });
 
   it("throws ApiError on failure", async () => {
@@ -235,7 +261,7 @@ describe("tags remove", () => {
 
     await expect(
       runTagsRemove(
-        { sessionId: "sess_123", tagId: "invalid" },
+        { sessionId: "sess_123", tag: "invalid" },
         { client, formatter },
       ),
     ).rejects.toThrow("Tag not found on session");
