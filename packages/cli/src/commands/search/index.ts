@@ -22,6 +22,7 @@ export async function runSearch(
     source?: string;
     from?: string;
     to?: string;
+    includeDeleted?: boolean;
     format: OutputFormat;
   },
   deps: {
@@ -38,6 +39,7 @@ export async function runSearch(
   if (args.source) params.source = args.source;
   if (args.from) params.from = args.from;
   if (args.to) params.to = args.to;
+  if (args.includeDeleted) params.includeDeleted = "true";
 
   const response = await client.get<SearchResponse>("/search", params);
 
@@ -89,6 +91,10 @@ export default defineCommand({
       type: "string",
       description: "Filter by last_message_at <= date (ISO 8601)",
     },
+    "include-deleted": {
+      type: "boolean",
+      description: "Include deleted sessions in search results",
+    },
     format: {
       type: "string",
       description: "Output format: json, table, minimal, auto (default: auto)",
@@ -115,6 +121,7 @@ export default defineCommand({
           source: args.source,
           from: args.from,
           to: args.to,
+          includeDeleted: args["include-deleted"],
           format,
         },
         { client, formatter },

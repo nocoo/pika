@@ -176,11 +176,13 @@ function SearchDialogContent({
           sort="last_message_at"
           model=""
           starred={false}
+          includeDeleted={false}
           messageRange=""
           onSourceChange={setSource}
           onSortChange={() => {}}
           onModelChange={() => {}}
           onStarredChange={() => {}}
+          onIncludeDeletedChange={() => {}}
           onMessageRangeChange={() => {}}
           hideSort
         />

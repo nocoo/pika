@@ -88,18 +88,20 @@ export async function handleSearch(
   const source = searchParams.get("source");
   const from = searchParams.get("from");
   const to = searchParams.get("to");
+  const includeDeleted = searchParams.get("includeDeleted") === "true";
   const limitRaw = searchParams.get("limit");
   const parsedLimit = limitRaw ? parseInt(limitRaw, 10) : NaN;
   const limit = Number.isNaN(parsedLimit)
     ? DEFAULT_LIMIT
     : Math.min(Math.max(parsedLimit, 1), MAX_LIMIT);
 
-  const conditions: string[] = [
-    "chunks_fts MATCH ?",
-    "mc.user_id = ?",
-    "s.deleted_at IS NULL",
-  ];
+  const conditions: string[] = ["chunks_fts MATCH ?", "mc.user_id = ?"];
   const queryParams: unknown[] = [q, userId];
+
+  // Default: exclude deleted sessions unless includeDeleted is true
+  if (!includeDeleted) {
+    conditions.push("s.deleted_at IS NULL");
+  }
 
   if (source && VALID_SOURCES.has(source)) {
     conditions.push("s.source = ?");

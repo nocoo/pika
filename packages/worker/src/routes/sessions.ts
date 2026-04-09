@@ -139,6 +139,7 @@ interface WhereParams {
   minTotalTokens?: number;
   maxTotalTokens?: number;
   deleted?: boolean;
+  includeDeleted?: boolean;
 }
 
 function buildWhereClause(params: WhereParams): {
@@ -243,10 +244,16 @@ function buildWhereClause(params: WhereParams): {
     queryParams.push(params.maxTotalTokens);
   }
 
-  if (params.deleted === true) {
-    conditions.push("s.deleted_at IS NOT NULL");
-  } else {
-    conditions.push("s.deleted_at IS NULL");
+  // Deleted filter:
+  // - includeDeleted=true → no filter (show all)
+  // - deleted=true → only deleted
+  // - default → only non-deleted
+  if (!params.includeDeleted) {
+    if (params.deleted === true) {
+      conditions.push("s.deleted_at IS NOT NULL");
+    } else {
+      conditions.push("s.deleted_at IS NULL");
+    }
   }
 
   return { conditions, queryParams };
@@ -263,6 +270,7 @@ function parseListParams(searchParams: URLSearchParams) {
   const to = searchParams.get("to");
   const starredRaw = searchParams.get("starred");
   const deletedRaw = searchParams.get("deleted");
+  const includeDeletedRaw = searchParams.get("includeDeleted");
   const sort = validateSort(searchParams.get("sort"));
   const cursor = searchParams.get("cursor") ?? undefined;
 
@@ -294,6 +302,7 @@ function parseListParams(searchParams: URLSearchParams) {
     to,
     starred: starredRaw === "true",
     deleted: deletedRaw === "true",
+    includeDeleted: includeDeletedRaw === "true",
     minMessages: parseIntParam("minMessages"),
     maxMessages: parseIntParam("maxMessages"),
     minDuration: parseIntParam("minDuration"),
@@ -346,6 +355,7 @@ export async function handleListSessions(
     minTotalTokens: params.minTotalTokens,
     maxTotalTokens: params.maxTotalTokens,
     deleted: params.deleted,
+    includeDeleted: params.includeDeleted,
   });
 
   // Cursor (keyset pagination) — only when no page is specified

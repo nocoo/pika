@@ -28,6 +28,7 @@ export async function runSessionsList(
     source?: string;
     starred?: boolean;
     deleted?: boolean;
+    includeDeleted?: boolean;
     from?: string;
     to?: string;
     sort?: string;
@@ -66,6 +67,7 @@ export async function runSessionsList(
   }
   if (args.starred) params.starred = "true";
   if (args.deleted) params.deleted = "true";
+  if (args.includeDeleted) params.includeDeleted = "true";
   if (args.from) params.from = args.from;
   if (args.to) params.to = args.to;
   if (args.sort) params.sort = args.sort;
@@ -164,6 +166,10 @@ export default defineCommand({
       type: "boolean",
       description: "Show only deleted sessions (trash)",
     },
+    "include-deleted": {
+      type: "boolean",
+      description: "Include deleted sessions in results (show all)",
+    },
     from: {
       type: "string",
       description: "Filter by last_message_at >= date (ISO 8601)",
@@ -246,6 +252,7 @@ export default defineCommand({
           source: args.source,
           starred: args.starred,
           deleted: args.deleted,
+          includeDeleted: args["include-deleted"],
           from: args.from,
           to: args.to,
           sort: args.sort,

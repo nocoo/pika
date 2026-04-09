@@ -77,6 +77,7 @@ export default function SessionsPage() {
   const initialStarred = searchParams.get("starred") === "true";
   const initialMessageRange = (searchParams.get("messageRange") ??
     "") as MessageRange;
+  const initialIncludeDeleted = searchParams.get("includeDeleted") === "true";
   const initialPage = Math.max(
     1,
     parseInt(searchParams.get("page") ?? "1", 10) || 1,
@@ -93,6 +94,7 @@ export default function SessionsPage() {
   const [starred, setStarred] = useState(initialStarred);
   const [messageRange, setMessageRange] =
     useState<MessageRange>(initialMessageRange);
+  const [includeDeleted, setIncludeDeleted] = useState(initialIncludeDeleted);
   const [page, setPage] = useState(initialPage);
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [sessions, setSessions] = useState<SessionCardData[]>([]);
@@ -189,13 +191,14 @@ export default function SessionsPage() {
     if (source) filter.source = source;
     if (model) filter.model = model;
     if (starred) filter.starred = true;
+    if (includeDeleted) filter.includeDeleted = true;
     const msgParams = messageRangeToParams(messageRange);
     if (msgParams.minMessages)
       filter.minMessages = parseInt(msgParams.minMessages, 10);
     if (msgParams.maxMessages)
       filter.maxMessages = parseInt(msgParams.maxMessages, 10);
     return filter;
-  }, [source, model, starred, messageRange]);
+  }, [source, model, starred, includeDeleted, messageRange]);
 
   // Build API URL from state
   const buildUrl = useCallback(() => {
@@ -203,6 +206,7 @@ export default function SessionsPage() {
     if (source) params.set("source", source);
     if (model) params.set("model", model);
     if (starred) params.set("starred", "true");
+    if (includeDeleted) params.set("includeDeleted", "true");
     params.set("sort", sort);
     params.set("page", String(page));
     params.set("limit", String(pageSize));
@@ -212,7 +216,7 @@ export default function SessionsPage() {
     if (msgParams.maxMessages) params.set("maxMessages", msgParams.maxMessages);
 
     return `/api/sessions?${params.toString()}`;
-  }, [source, model, starred, sort, page, pageSize, messageRange]);
+  }, [source, model, starred, includeDeleted, sort, page, pageSize, messageRange]);
 
   // Fetch sessions
   const fetchSessions = useCallback(async () => {
@@ -291,6 +295,7 @@ export default function SessionsPage() {
     if (source) params.set("source", source);
     if (model) params.set("model", model);
     if (starred) params.set("starred", "true");
+    if (includeDeleted) params.set("includeDeleted", "true");
     if (sort !== "last_message_at") params.set("sort", sort);
     if (messageRange) params.set("messageRange", messageRange);
     if (page > 1) params.set("page", String(page));
@@ -299,7 +304,7 @@ export default function SessionsPage() {
     router.replace(`/dashboard/sessions${query ? `?${query}` : ""}`, {
       scroll: false,
     });
-  }, [source, model, starred, sort, messageRange, page, pageSize, router]);
+  }, [source, model, starred, includeDeleted, sort, messageRange, page, pageSize, router]);
 
   // Reset to page 1 when filters change
   const handleSourceChange = useCallback((s: Source | "") => {
@@ -327,6 +332,11 @@ export default function SessionsPage() {
     setPage(1);
   }, []);
 
+  const handleIncludeDeletedChange = useCallback((d: boolean) => {
+    setIncludeDeleted(d);
+    setPage(1);
+  }, []);
+
   return (
     <div className="flex flex-col gap-4">
       {/* Header */}
@@ -344,11 +354,13 @@ export default function SessionsPage() {
           sort={sort}
           model={model}
           starred={starred}
+          includeDeleted={includeDeleted}
           messageRange={messageRange}
           onSourceChange={handleSourceChange}
           onSortChange={handleSortChange}
           onModelChange={handleModelChange}
           onStarredChange={handleStarredChange}
+          onIncludeDeletedChange={handleIncludeDeletedChange}
           onMessageRangeChange={handleMessageRangeChange}
         />
       </div>

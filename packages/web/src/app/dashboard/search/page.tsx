@@ -17,9 +17,11 @@ export default function SearchPage() {
 
   const initialQ = searchParams.get("q") ?? "";
   const initialSource = (searchParams.get("source") ?? "") as Source | "";
+  const initialIncludeDeleted = searchParams.get("includeDeleted") === "true";
 
   const [query, setQuery] = useState(initialQ);
   const [source, setSource] = useState<Source | "">(initialSource);
+  const [includeDeleted, setIncludeDeleted] = useState(initialIncludeDeleted);
   const [results, setResults] = useState<SearchResultData[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -36,7 +38,7 @@ export default function SearchPage() {
 
   // ── Search execution ────────────────────────────────────────
 
-  const executeSearch = useCallback(async (q: string, src: Source | "") => {
+  const executeSearch = useCallback(async (q: string, src: Source | "", inclDeleted: boolean) => {
     if (!q.trim()) {
       setResults([]);
       setTotal(0);
@@ -52,6 +54,7 @@ export default function SearchPage() {
       const params = new URLSearchParams();
       params.set("q", q.trim());
       if (src) params.set("source", src);
+      if (inclDeleted) params.set("includeDeleted", "true");
       params.set("limit", "50");
 
       const res = await fetch(`/api/search?${params.toString()}`);
@@ -71,24 +74,25 @@ export default function SearchPage() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     debounceRef.current = setTimeout(() => {
-      executeSearch(query, source);
+      executeSearch(query, source, includeDeleted);
     }, 300);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, source, executeSearch]);
+  }, [query, source, includeDeleted, executeSearch]);
 
   // Sync to URL
   useEffect(() => {
     const params = new URLSearchParams();
     if (query.trim()) params.set("q", query.trim());
     if (source) params.set("source", source);
+    if (includeDeleted) params.set("includeDeleted", "true");
     const qs = params.toString();
     router.replace(`/dashboard/search${qs ? `?${qs}` : ""}`, {
       scroll: false,
     });
-  }, [query, source, router]);
+  }, [query, source, includeDeleted, router]);
 
   // ── Render ──────────────────────────────────────────────────
 
@@ -135,11 +139,13 @@ export default function SearchPage() {
           sort="last_message_at"
           model=""
           starred={false}
+          includeDeleted={includeDeleted}
           messageRange=""
           onSourceChange={setSource}
           onSortChange={() => {}}
           onModelChange={() => {}}
           onStarredChange={() => {}}
+          onIncludeDeletedChange={setIncludeDeleted}
           onMessageRangeChange={() => {}}
           hideSort
         />

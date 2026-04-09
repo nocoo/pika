@@ -19,11 +19,13 @@ interface SessionFiltersProps {
   sort: SessionSort;
   model: string;
   starred: boolean;
+  includeDeleted: boolean;
   messageRange: MessageRange;
   onSourceChange: (source: Source | "") => void;
   onSortChange: (sort: SessionSort) => void;
   onModelChange: (model: string) => void;
   onStarredChange: (starred: boolean) => void;
+  onIncludeDeletedChange: (includeDeleted: boolean) => void;
   onMessageRangeChange: (range: MessageRange) => void;
   /** Hide the sort dropdown (e.g. on search page where sort is by relevance). */
   hideSort?: boolean;
@@ -63,11 +65,13 @@ export function SessionFilters({
   sort,
   model,
   starred,
+  includeDeleted,
   messageRange,
   onSourceChange,
   onSortChange,
   onModelChange,
   onStarredChange,
+  onIncludeDeletedChange,
   onMessageRangeChange,
   hideSort,
 }: SessionFiltersProps) {
@@ -122,6 +126,13 @@ export function SessionFilters({
       onMessageRangeChange(e.target.value as MessageRange);
     },
     [onMessageRangeChange],
+  );
+
+  const handleIncludeDeletedChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      onIncludeDeletedChange(e.target.checked);
+    },
+    [onIncludeDeletedChange],
   );
 
   return (
@@ -187,6 +198,16 @@ export function SessionFilters({
           className="rounded border-border"
         />
         Starred
+      </label>
+
+      <label className="flex items-center gap-1.5 text-sm text-muted-foreground cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={includeDeleted}
+          onChange={handleIncludeDeletedChange}
+          className="rounded border-border"
+        />
+        Include deleted
       </label>
     </div>
   );
