@@ -25,6 +25,7 @@
  * - GET  /tags — list tags
  *
  * Write Routes (new):
+ * - PATCH /sessions/:id — update session (title, description)
  * - PATCH /sessions/:id/star — set star status
  * - PATCH /sessions/:id/trash — soft delete/restore
  * - PUT   /sessions/:id/tags — add tag to session
@@ -62,6 +63,7 @@ import {
   handleListSessions,
   handleSetStar,
   handleTrashSession,
+  handleUpdateSession,
 } from "./routes/sessions.js";
 import { handleStats } from "./routes/stats.js";
 import {
@@ -1099,6 +1101,22 @@ export default {
           return Response.json({ error: "Invalid JSON body" }, { status: 400 });
         }
         return handleTrashSession(
+          userId,
+          extractSessionId(url.pathname),
+          body,
+          env,
+        );
+      }
+
+      // /sessions/:id — update session (title, description)
+      if (url.pathname.match(/^\/sessions\/[^/]+$/)) {
+        let body: unknown;
+        try {
+          body = await request.json();
+        } catch {
+          return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+        }
+        return handleUpdateSession(
           userId,
           extractSessionId(url.pathname),
           body,

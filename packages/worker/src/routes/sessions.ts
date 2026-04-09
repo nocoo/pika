@@ -605,6 +605,70 @@ export async function handleTrashSession(
 }
 
 /**
+ * PATCH /sessions/:id — Update session metadata (title, description).
+ */
+export async function handleUpdateSession(
+  userId: string,
+  sessionId: string,
+  body: unknown,
+  env: Env,
+): Promise<Response> {
+  if (!body || typeof body !== "object") {
+    return Response.json({ error: "Invalid request body" }, { status: 400 });
+  }
+
+  const data = body as Record<string, unknown>;
+
+  // Build SET clause dynamically
+  const updates: string[] = [];
+  const params: unknown[] = [];
+
+  if ("title" in data) {
+    updates.push("title = ?");
+    params.push(data.title === null ? null : String(data.title));
+  }
+
+  if ("description" in data) {
+    updates.push("description = ?");
+    params.push(data.description === null ? null : String(data.description));
+  }
+
+  if (updates.length === 0) {
+    return Response.json(
+      { error: "No valid fields to update (title, description)" },
+      { status: 400 },
+    );
+  }
+
+  updates.push("updated_at = datetime('now')");
+
+  const sql = `UPDATE sessions SET ${updates.join(", ")} WHERE id = ? AND user_id = ?`;
+  params.push(sessionId, userId);
+
+  const result = await env.DB.prepare(sql)
+    .bind(...params)
+    .run();
+
+  if (result.meta.changes === 0) {
+    return Response.json({ error: "Session not found" }, { status: 404 });
+  }
+
+  // Fetch updated session to return current values
+  const updatedRow = await env.DB.prepare(
+    "SELECT id, title, description, updated_at FROM sessions WHERE id = ? AND user_id = ?",
+  )
+    .bind(sessionId, userId)
+    .first<{
+      id: string;
+      title: string | null;
+      description: string | null;
+      updated_at: string;
+    }>();
+
+  return Response.json(updatedRow);
+}
+
+/**
  * POST /sessions/batch — Batch operations on sessions.
  */
 export async function handleBatchOperation(
