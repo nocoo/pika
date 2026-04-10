@@ -70,6 +70,7 @@ function SearchResultCardInner({ result }: { result: SearchResultData }) {
         <div
           className="text-xs text-muted-foreground leading-relaxed line-clamp-3 [&>mark]:bg-primary/20 [&>mark]:text-foreground [&>mark]:rounded-sm [&>mark]:px-0.5"
           dangerouslySetInnerHTML={{ __html: result.content_snippet }}
+          data-testid="search-snippet"
         />
       )}
 
@@ -120,6 +121,7 @@ export function SearchResultCard({
         role="option"
         aria-selected={selected}
         data-result-index={dataResultIndex}
+        data-testid="search-result"
       >
         <SearchResultCardInner result={result} />
       </button>
@@ -130,6 +132,7 @@ export function SearchResultCard({
     <Link
       href={`/dashboard/sessions/${result.session_id}#msg-${result.ordinal}`}
       className={cardClassName}
+      data-testid="search-result"
     >
       <SearchResultCardInner result={result} />
     </Link>
