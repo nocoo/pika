@@ -57,17 +57,22 @@ export function RecentSessions({ sessions, className }: RecentSessionsProps) {
           key={session.id}
           href={`/dashboard/sessions/${session.id}`}
           className="flex items-center gap-3 py-3 px-1 transition-colors hover:bg-accent/50 rounded-lg -mx-1"
+          data-testid="session-row"
         >
           {/* Source indicator */}
           <div
             className="h-2 w-2 rounded-full shrink-0"
             style={{ backgroundColor: agentColor(session.source).color }}
             title={sourceLabel(session.source)}
+            data-testid="session-source"
           />
 
           {/* Title + project */}
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">
+            <p
+              className="text-sm font-medium text-foreground truncate"
+              data-testid="session-title"
+            >
               {session.title ?? "Untitled session"}
             </p>
             <p className="text-xs text-muted-foreground truncate">

@@ -59,6 +59,7 @@ export function StatCard({
         isPrimary ? "p-5 md:p-6" : "p-4 md:p-5",
         className,
       )}
+      data-testid="stat-card"
     >
       {/* Top accent bar — custom color or gradient for primary */}
       {(accentColor || isPrimary) && (
@@ -87,6 +88,7 @@ export function StatCard({
               "font-semibold text-foreground font-display tracking-tight",
               isPrimary ? "text-3xl md:text-4xl" : "text-2xl md:text-3xl",
             )}
+            data-testid="stat-value"
           >
             {typeof value === "number" ? value.toLocaleString() : value}
           </p>
