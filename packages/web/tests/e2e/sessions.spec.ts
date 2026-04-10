@@ -9,6 +9,7 @@
  * - GET /api/sessions/[id]/tags (session tags)
  * - PUT /api/sessions/[id]/tags (add tag to session)
  * - DELETE /api/sessions/[id]/tags (remove tag from session)
+ * - GET /api/sessions/[id]/content (session content from R2)
  * - POST /api/sessions/batch (batch operations)
  * - GET /api/sessions/filters (filter options)
  */
@@ -490,6 +491,23 @@ describe("Sessions API", () => {
       expect(status).toBe(200);
       expect(data.affected).toBe(2);
     });
+  });
+
+  // ── GET /api/sessions/[id]/content ─────────────────────────────
+
+  describe("GET /api/sessions/[id]/content", () => {
+    it("returns 204 when no content exists", async () => {
+      const id = testId("no-content");
+      await seedSession({ id, session_key: `claude:${id}` });
+
+      const { status } = await get<Record<string, never>>(
+        `/api/sessions/${id}/content`,
+      );
+      expect(status).toBe(204);
+    });
+
+    // Note: Testing with actual content requires R2 integration.
+    // Full ingest flow tests cover the upload + retrieval path.
   });
 
   // ── GET /api/sessions/filters ──────────────────────────────
