@@ -2,6 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.2] - 2026-04-11
+
+### Features
+
+- **E2E test infrastructure** — Add Playwright config and initial BDD tests for L3 quality tier
+- **Test IDs** — Add data-testid attributes to dashboard, session, and search components for E2E targeting
+- **Session user helper** — Add E2E auth bypass helper for test environments
+
+### Fixes
+
+- **Tags API** — Standardize response format across endpoints
+- **E2E tests** — Migrate to production database, fix NODE_ENV type cast
+
+### Chores
+
+- **Documentation** — Add L2/L3 E2E implementation design document
+- **Dependencies** — Add Playwright, fix vitest coverage-v8 brace-expansion conflict
+
+## [0.8.1] - 2026-04-10
+
+### Improvements
+
+- **Query performance** — Exclude soft-deleted sessions by default for faster queries
+
+### Fixes
+
+- **CLI filters** — Strict integer validation for numeric filter params
+- **Bug fixes** — Address three bugs from code review
+
+## [0.8.0] - 2026-04-09
+
+### Features
+
+- **Session editing** — Edit session title and description via CLI (`pika sessions edit`) and API (`PATCH /sessions/:id`)
+- **Advanced filters** — Add `--model`, `--min-messages`, `--max-messages`, `--min-duration`, `--max-duration`, `--min-tokens`, `--max-tokens` filters to sessions list
+- **Batch trash** — Support batch trash operations from CLI
+- **Tag name support** — Use tag names (not just IDs) in add/remove operations with case-insensitive lookup
+- **Description column** — Add description field to sessions table
+
+### Chores
+
+- **Documentation** — Complete all doc 14 tasks
+
 ## [0.7.0] - 2026-04-09
 
 ### Features
