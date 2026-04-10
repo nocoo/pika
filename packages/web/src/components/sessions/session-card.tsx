@@ -83,6 +83,7 @@ export function SessionCard({ session, className }: SessionCardProps) {
         "flex flex-col gap-2 rounded-[var(--radius-card)] bg-card p-4 transition-colors hover:bg-accent/50",
         className,
       )}
+      data-testid="session-card"
     >
       {/* Top row: source badge + star + time */}
       <div className="flex items-center justify-between">

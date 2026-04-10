@@ -53,6 +53,7 @@ export const MessageBubble = memo(function MessageBubble({
       className={cn("flex flex-col animate-message-in", className)}
       style={{ animationDelay: `${animDelay}ms` }}
       id={`msg-${index}`}
+      data-testid="message"
     >
       {" "}
       {/* Timestamp separator — centered line with time label */}
@@ -81,7 +82,7 @@ export const MessageBubble = memo(function MessageBubble({
           className={cn("flex items-start gap-3", isUser && "flex-row-reverse")}
         >
           {/* Role avatar */}
-          <div className="mt-0.5 shrink-0">
+          <div className="mt-0.5 shrink-0" data-testid="message-role">
             <MessageAvatar
               role={role as "user" | "assistant" | "system"}
               source={source}
