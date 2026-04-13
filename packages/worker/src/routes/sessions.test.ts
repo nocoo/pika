@@ -85,7 +85,7 @@ describe("handleListSessions", () => {
     const res = await handleListSessions("user-1", params, env);
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.sessions).toBeDefined();
     expect(body.sessions.length).toBeLessThanOrEqual(2);
   });
@@ -98,7 +98,7 @@ describe("handleListSessions", () => {
     const res = await handleListSessions("user-1", params, env);
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.hasMore).toBeDefined();
   });
 
@@ -118,7 +118,7 @@ describe("handleListSessions", () => {
     const res = await handleListSessions("user-1", params, env);
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.totalCount).toBeDefined();
     expect(body.page).toBe(1);
   });
@@ -225,7 +225,7 @@ describe("handleGetSession", () => {
     const res = await handleGetSession("user-1", "sess-123", env);
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.session).toEqual(session);
   });
 
@@ -235,7 +235,7 @@ describe("handleGetSession", () => {
     const res = await handleGetSession("user-1", "nonexistent", env);
 
     expect(res.status).toBe(404);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("not found");
   });
 });
@@ -249,7 +249,7 @@ describe("handleGetSessionContent", () => {
     const res = await handleGetSessionContent("user-1", "nonexistent", env);
 
     expect(res.status).toBe(404);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("Session not found");
   });
 
@@ -272,7 +272,7 @@ describe("handleGetSessionContent", () => {
     const res = await handleGetSessionContent("user-1", "s1", env);
 
     expect(res.status).toBe(404);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("Content not found");
   });
 
@@ -320,7 +320,7 @@ describe("handleUpdateSession", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.title).toBe("New Title");
   });
 
@@ -344,7 +344,7 @@ describe("handleUpdateSession", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.description).toBe("A description");
   });
 
@@ -368,7 +368,7 @@ describe("handleUpdateSession", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.title).toBeNull();
   });
 
@@ -378,7 +378,7 @@ describe("handleUpdateSession", () => {
     const res = await handleUpdateSession("user-1", "sess-123", {}, env);
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("No valid fields");
   });
 
@@ -406,7 +406,7 @@ describe("handleUpdateSession", () => {
     );
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("title must be a string or null");
   });
 
@@ -421,7 +421,7 @@ describe("handleUpdateSession", () => {
     );
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("description must be a string or null");
   });
 
@@ -436,7 +436,7 @@ describe("handleUpdateSession", () => {
     );
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("title must be a string or null");
   });
 });
@@ -459,7 +459,7 @@ describe("handleFilters", () => {
     const res = await handleFilters("user-1", env);
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.models).toBeDefined();
     expect(body.projects).toBeDefined();
   });
@@ -474,7 +474,7 @@ describe("handleSetStar", () => {
     const res = await handleSetStar("user-1", "sess-1", { starred: true }, env);
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.starred).toBe(true);
   });
 
@@ -489,7 +489,7 @@ describe("handleSetStar", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.starred).toBe(false);
   });
 
@@ -504,7 +504,7 @@ describe("handleSetStar", () => {
     );
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("starred");
   });
 
@@ -536,7 +536,7 @@ describe("handleTrashSession", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.deleted).toBe(true);
     expect(body.affected).toBe(1);
   });
@@ -552,7 +552,7 @@ describe("handleTrashSession", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.deleted).toBe(false);
   });
 
@@ -562,7 +562,7 @@ describe("handleTrashSession", () => {
     const res = await handleTrashSession("user-1", "sess-1", {}, env);
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("deleted");
   });
 
@@ -577,7 +577,7 @@ describe("handleTrashSession", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.affected).toBe(0);
   });
 });
@@ -599,7 +599,7 @@ describe("handleBatchOperation", () => {
     const res = await handleBatchOperation("user-1", { ids: ["s1"] }, env);
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("Invalid action");
   });
 
@@ -613,7 +613,7 @@ describe("handleBatchOperation", () => {
     );
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("Invalid action");
   });
 
@@ -623,7 +623,7 @@ describe("handleBatchOperation", () => {
     const res = await handleBatchOperation("user-1", { action: "delete" }, env);
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("Provide either ids or filter");
   });
 
@@ -637,7 +637,7 @@ describe("handleBatchOperation", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.affected).toBe(2);
   });
 
@@ -687,7 +687,7 @@ describe("handleBatchOperation", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.affected).toBe(5);
   });
 
@@ -701,7 +701,7 @@ describe("handleBatchOperation", () => {
     );
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("not both");
   });
 });
@@ -727,7 +727,7 @@ describe("handleConfirmRaw", () => {
     );
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("sessionKey");
   });
 
@@ -741,7 +741,7 @@ describe("handleConfirmRaw", () => {
     );
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("rawHash");
   });
 
@@ -755,7 +755,7 @@ describe("handleConfirmRaw", () => {
     );
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("hex string");
   });
 
@@ -769,7 +769,7 @@ describe("handleConfirmRaw", () => {
     );
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("rawSize");
   });
 
@@ -783,7 +783,7 @@ describe("handleConfirmRaw", () => {
     );
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("rawSize");
   });
 
@@ -801,7 +801,7 @@ describe("handleConfirmRaw", () => {
     );
 
     expect(res.status).toBe(409);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("R2 object not found");
   });
 
@@ -819,7 +819,7 @@ describe("handleConfirmRaw", () => {
     );
 
     expect(res.status).toBe(404);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("Session not found");
   });
 
@@ -837,7 +837,7 @@ describe("handleConfirmRaw", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.confirmed).toBe(true);
 
     // Verify R2 head was called with correct key

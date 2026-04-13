@@ -71,7 +71,7 @@ describe("handleListProjects", () => {
     const res = await handleListProjects("user-1", params, env);
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.projects).toBeDefined();
     expect(body.overview).toBeDefined();
     expect(body.sourceDistribution).toBeDefined();
@@ -86,7 +86,7 @@ describe("handleListProjects", () => {
     const res = await handleListProjects("user-1", params, env);
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.projects).toEqual([]);
     expect(body.overview.totalProjects).toBe(0);
   });
@@ -118,7 +118,7 @@ describe("handleProjectActivity", () => {
     const res = await handleProjectActivity("user-1", params, env);
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.activity).toEqual(activity);
   });
 
@@ -129,7 +129,7 @@ describe("handleProjectActivity", () => {
     const res = await handleProjectActivity("user-1", params, env);
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("projectKey or project is required");
   });
 
@@ -149,7 +149,7 @@ describe("handleProjectActivity", () => {
     const res = await handleProjectActivity("user-1", params, env);
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.activity).toEqual(activity);
   });
 

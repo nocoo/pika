@@ -78,7 +78,7 @@ describe("handleStats", () => {
     const res = await handleStats("user-1", env);
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.overview).toBeDefined();
     expect(body.overview.totalSessions).toBe(100);
     expect(body.overview.totalMessages).toBe(500);
@@ -94,7 +94,7 @@ describe("handleStats", () => {
     const res = await handleStats("user-1", env);
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.overview.totalSessions).toBe(0);
     expect(body.overview.totalMessages).toBe(0);
     expect(body.overview.sessionsThisWeek).toBe(0);

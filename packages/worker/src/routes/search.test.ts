@@ -76,7 +76,7 @@ describe("handleSearch", () => {
     const res = await handleSearch("user-1", params, env);
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("Missing required parameter: q");
   });
 
@@ -111,7 +111,7 @@ describe("handleSearch", () => {
     const res = await handleSearch("user-1", params, env);
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.results).toHaveLength(1);
     expect(body.results[0].content_snippet).toBe("test <mark>match</mark>");
     expect(body.total).toBe(1);
@@ -139,7 +139,7 @@ describe("handleSearch", () => {
     const res = await handleSearch("user-1", params, env);
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.results[0].tool_snippet).toBe("<mark>tool</mark>");
   });
 
