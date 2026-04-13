@@ -382,7 +382,10 @@ export async function decompressBody(
   body: ReadableStream<Uint8Array>,
   maxBytes: number = MAX_DECOMPRESSED_CONTENT_BYTES,
 ): Promise<string> {
-  const ds = new DecompressionStream("gzip");
+  const ds = new DecompressionStream("gzip") as unknown as ReadableWritablePair<
+    Uint8Array,
+    Uint8Array
+  >;
   const decompressed = body.pipeThrough(ds);
   const reader = decompressed.getReader();
   const chunks: Uint8Array[] = [];

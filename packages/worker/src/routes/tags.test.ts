@@ -65,7 +65,7 @@ describe("handleListTags", () => {
     const res = await handleListTags("user-1", env);
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.tags).toEqual(tags);
   });
 });
@@ -79,7 +79,7 @@ describe("handleCreateTag", () => {
     const res = await handleCreateTag("user-1", { name: "new-tag" }, env);
 
     expect(res.status).toBe(201);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.tag.name).toBe("new-tag");
     expect(body.tag.color).toBeNull();
     expect(body.tag.id).toBeDefined();
@@ -95,7 +95,7 @@ describe("handleCreateTag", () => {
     );
 
     expect(res.status).toBe(201);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.tag.name).toBe("colored");
     expect(body.tag.color).toBe("#ff6b6b");
   });
@@ -106,7 +106,7 @@ describe("handleCreateTag", () => {
     const res = await handleCreateTag("user-1", { color: "#ff0000" }, env);
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toBeDefined();
     expect(body.error).toContain("name");
   });
@@ -126,7 +126,7 @@ describe("handleCreateTag", () => {
     const res = await handleCreateTag("user-1", { name: longName }, env);
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("50 characters");
   });
 
@@ -140,7 +140,7 @@ describe("handleCreateTag", () => {
     );
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("color");
   });
 
@@ -160,7 +160,7 @@ describe("handleCreateTag", () => {
     const res = await handleCreateTag("user-1", { name: "existing" }, env);
 
     expect(res.status).toBe(409);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("already exists");
     expect(body.error).toContain("case-insensitive");
   });
@@ -208,7 +208,7 @@ describe("handleUpdateTag", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.tag.name).toBe("updated");
   });
 
@@ -237,7 +237,7 @@ describe("handleUpdateTag", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.tag).toBeDefined();
   });
 
@@ -269,7 +269,7 @@ describe("handleUpdateTag", () => {
     const res = await handleUpdateTag("user-1", "tag-1", {}, env);
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("At least one field");
   });
 
@@ -307,7 +307,7 @@ describe("handleUpdateTag", () => {
     );
 
     expect(res.status).toBe(409);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("already exists");
     expect(body.error).toContain("case-insensitive");
   });
@@ -363,7 +363,7 @@ describe("handleGetSessionTags", () => {
     const res = await handleGetSessionTags("user-1", "sess-1", env);
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.tags).toBeDefined();
   });
 
@@ -373,7 +373,7 @@ describe("handleGetSessionTags", () => {
     const res = await handleGetSessionTags("user-1", "nonexistent", env);
 
     expect(res.status).toBe(404);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("Session not found");
   });
 });
@@ -405,7 +405,7 @@ describe("handleAddSessionTag", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.added).toBe(true);
     expect(body.tagId).toBe("tag-1");
   });
@@ -443,7 +443,7 @@ describe("handleAddSessionTag", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.added).toBe(true);
     expect(body.tagId).toBe("found-tag-id");
   });
@@ -488,7 +488,7 @@ describe("handleAddSessionTag", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.added).toBe(true);
     expect(body.tagId).toBeDefined();
   });
@@ -499,7 +499,7 @@ describe("handleAddSessionTag", () => {
     const res = await handleAddSessionTag("user-1", "sess-1", {}, env);
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("Either tagId or tagName is required");
   });
 
@@ -514,7 +514,7 @@ describe("handleAddSessionTag", () => {
     );
 
     expect(res.status).toBe(404);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("Session not found");
   });
 
@@ -574,7 +574,7 @@ describe("handleRemoveSessionTag", () => {
     );
 
     expect(res.status).toBe(404);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("Tag not found");
   });
 
@@ -584,7 +584,7 @@ describe("handleRemoveSessionTag", () => {
     const res = await handleRemoveSessionTag("user-1", "sess-1", {}, env);
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Record<string, any>;
     expect(body.error).toContain("Either tagId or tagName is required");
   });
 
