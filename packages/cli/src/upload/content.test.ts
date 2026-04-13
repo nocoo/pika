@@ -265,9 +265,13 @@ describe("uploadSessionContent", () => {
     const canonical = makeCanonical();
     const raw = makeRaw();
 
-    mockFetch.mockResolvedValueOnce(
-      errorResponse(409, "Version conflict: older revision"),
-    );
+    mockFetch
+      .mockResolvedValueOnce(
+        errorResponse(409, "Version conflict: older revision"),
+      )
+      .mockResolvedValueOnce(presignOk()) // raw presign (concurrent)
+      .mockResolvedValueOnce(okResponse(200)) // raw R2 PUT (concurrent)
+      .mockResolvedValueOnce(confirmOk()); // raw confirm (concurrent)
 
     const err = await uploadSessionContent(canonical, raw, opts()).catch(
       (e) => e,
@@ -346,7 +350,11 @@ describe("uploadSessionContent", () => {
     const canonical = makeCanonical();
     const raw = makeRaw();
 
-    mockFetch.mockResolvedValueOnce(errorResponse(400, "Bad request"));
+    mockFetch
+      .mockResolvedValueOnce(errorResponse(400, "Bad request"))
+      .mockResolvedValueOnce(presignOk()) // raw presign (concurrent)
+      .mockResolvedValueOnce(okResponse(200)) // raw R2 PUT (concurrent)
+      .mockResolvedValueOnce(confirmOk()); // raw confirm (concurrent)
 
     const err = await uploadSessionContent(canonical, raw, opts()).catch(
       (e) => e,
