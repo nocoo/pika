@@ -124,7 +124,7 @@ export function SessionCard({ session, className }: SessionCardProps) {
             <Badge
               key={tag.id}
               variant="outline"
-              className="text-[10px] px-1.5 py-0"
+              className="text-micro px-1.5 py-0"
               style={
                 tag.color
                   ? { borderColor: tag.color, color: tag.color }

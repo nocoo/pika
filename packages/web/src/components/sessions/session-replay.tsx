@@ -207,13 +207,13 @@ export function SessionReplay({
 
       {/* Keyboard hint */}
       {messages.length > 0 && (
-        <div className="flex items-center justify-end gap-3 text-[10px] text-muted-foreground">
+        <div className="flex items-center justify-end gap-3 text-micro text-muted-foreground">
           <span>
-            <kbd className="rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-[10px]">
+            <kbd className="rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-micro">
               j
             </kbd>
             {" / "}
-            <kbd className="rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-[10px]">
+            <kbd className="rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-micro">
               k
             </kbd>
             {" navigate messages"}
@@ -266,7 +266,7 @@ export function SessionReplay({
           {/* End marker — centered line with session summary */}
           <div className="flex items-center gap-3 py-6">
             <div className="h-px flex-1 bg-border" />
-            <span className="text-[10px] text-muted-foreground shrink-0">
+            <span className="text-micro text-muted-foreground shrink-0">
               End of session · {endSummary}
             </span>
             <div className="h-px flex-1 bg-border" />

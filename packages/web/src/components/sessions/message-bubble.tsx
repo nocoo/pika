@@ -60,7 +60,7 @@ export const MessageBubble = memo(function MessageBubble({
       {showTimestamp && timeLabel && (
         <div className="flex items-center gap-3 py-3">
           <div className="h-px flex-1 bg-border" />
-          <span className="text-[10px] text-muted-foreground shrink-0">
+          <span className="text-micro text-muted-foreground shrink-0">
             {timeLabel}
           </span>
           <div className="h-px flex-1 bg-border" />
@@ -121,7 +121,7 @@ export const MessageBubble = memo(function MessageBubble({
             {totalTokens > 0 && (
               <div
                 className={cn(
-                  "mt-1.5 flex items-center gap-2 text-[10px]",
+                  "mt-1.5 flex items-center gap-2 text-micro",
                   isUser
                     ? "text-primary-foreground/60"
                     : "text-muted-foreground",
@@ -140,7 +140,7 @@ export const MessageBubble = memo(function MessageBubble({
                   <Badge
                     variant="ghost"
                     className={cn(
-                      "h-auto px-1 py-0 text-[10px] font-normal",
+                      "h-auto px-1 py-0 text-micro font-normal",
                       isUser
                         ? "text-primary-foreground/60"
                         : "text-muted-foreground",

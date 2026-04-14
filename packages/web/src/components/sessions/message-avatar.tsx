@@ -164,7 +164,7 @@ function AssistantAvatar({
             <div>
               <p className="text-sm font-medium">{sourceLabel(source)}</p>
               {timestamp && (
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-micro text-muted-foreground">
                   {new Date(timestamp).toLocaleTimeString("en-US", {
                     hour: "numeric",
                     minute: "2-digit",
@@ -178,14 +178,14 @@ function AssistantAvatar({
           {/* Model badge */}
           {model && (
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-muted-foreground">Model</span>
+              <span className="text-micro text-muted-foreground">Model</span>
               <ModelBadge model={model} />
             </div>
           )}
 
           {/* Token usage */}
           {hasTokenInfo && (
-            <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-border pt-2 text-[10px] text-muted-foreground">
+            <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-border pt-2 text-micro text-muted-foreground">
               {inputTokens != null && inputTokens > 0 && (
                 <span>
                   <span className="font-medium text-foreground">

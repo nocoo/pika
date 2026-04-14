@@ -29,7 +29,7 @@ export function ScopeBadge({ scope, className }: ScopeBadgeProps) {
   return (
     <Badge
       variant="outline"
-      className={className ?? `text-[10px] px-1.5 py-0 ${config.className}`}
+      className={className ?? `text-micro px-1.5 py-0 ${config.className}`}
     >
       {config.label}
     </Badge>

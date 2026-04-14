@@ -119,7 +119,7 @@ function buildComponents(isUser: boolean): Components {
           <div className="relative my-2">
             <div
               className={cn(
-                "rounded-t-md px-3 py-1 text-[10px] font-mono",
+                "rounded-t-md px-3 py-1 text-micro font-mono",
                 isUser
                   ? "bg-primary-foreground/10 text-primary-foreground/70"
                   : "bg-muted text-muted-foreground",
