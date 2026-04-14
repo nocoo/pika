@@ -152,7 +152,7 @@ function buildComponents(isUser: boolean): Components {
       return (
         <code
           className={cn(
-            "rounded px-1 py-0.5 font-mono text-[13px]",
+            "rounded px-1 py-0.5 font-mono text-sm",
             isUser ? "bg-primary-foreground/15" : "bg-muted text-foreground",
           )}
           {...props}

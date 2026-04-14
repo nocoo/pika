@@ -80,7 +80,7 @@ function UserAvatar() {
             {user?.image && (
               <AvatarImage src={user.image} alt={user.name ?? "User"} />
             )}
-            <AvatarFallback className="bg-primary text-primary-foreground text-[11px] font-medium">
+            <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
               {initials}
             </AvatarFallback>
           </Avatar>
