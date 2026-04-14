@@ -28,6 +28,17 @@ const PRESET_COLORS = [
   "#ec4899", // pink
 ];
 
+const COLOR_NAMES: Record<string, string> = {
+  "#ef4444": "Red",
+  "#f97316": "Orange",
+  "#eab308": "Yellow",
+  "#22c55e": "Green",
+  "#06b6d4": "Cyan",
+  "#3b82f6": "Blue",
+  "#8b5cf6": "Purple",
+  "#ec4899": "Pink",
+};
+
 // ── Page ───────────────────────────────────────────────────────
 
 export default function TagsSettingsPage() {
@@ -206,7 +217,7 @@ export default function TagsSettingsPage() {
                   : "border-transparent"
               }`}
               style={{ backgroundColor: c }}
-              title={c}
+              aria-label={COLOR_NAMES[c]}
             />
           ))}
         </div>
@@ -297,7 +308,7 @@ export default function TagsSettingsPage() {
                             : "border-transparent"
                         }`}
                         style={{ backgroundColor: c }}
-                        title={c}
+                        aria-label={COLOR_NAMES[c]}
                       />
                     ))}
                   </div>
