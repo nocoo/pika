@@ -165,7 +165,7 @@ export function ToolCall({
               <div className="px-3 py-2">
                 <Badge
                   variant="secondary"
-                  className="mb-1.5 h-4 px-1.5 text-[9px] font-medium uppercase tracking-wider"
+                  className="mb-1.5 h-4 px-1.5 text-micro font-medium uppercase tracking-wider"
                 >
                   Input
                 </Badge>
@@ -181,7 +181,7 @@ export function ToolCall({
               >
                 <Badge
                   variant="secondary"
-                  className="mb-1.5 h-4 px-1.5 text-[9px] font-medium uppercase tracking-wider"
+                  className="mb-1.5 h-4 px-1.5 text-micro font-medium uppercase tracking-wider"
                 >
                   Output
                 </Badge>
