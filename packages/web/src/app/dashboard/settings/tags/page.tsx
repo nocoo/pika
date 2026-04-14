@@ -217,6 +217,7 @@ export default function TagsSettingsPage() {
                   : "border-transparent"
               }`}
               style={{ backgroundColor: c }}
+              title={COLOR_NAMES[c]}
               aria-label={COLOR_NAMES[c]}
             />
           ))}
