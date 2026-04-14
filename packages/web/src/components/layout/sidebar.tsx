@@ -266,7 +266,7 @@ export function Sidebar() {
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => signOut({ callbackUrl: "/login" })}
-                    className="cursor-pointer"
+                    className="cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-full"
                   >
                     <Avatar className="h-9 w-9">
                       {userImage && (
