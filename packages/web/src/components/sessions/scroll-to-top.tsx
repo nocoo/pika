@@ -26,7 +26,7 @@ export function ScrollToTop() {
         "fixed bottom-6 right-6 z-40 flex size-10 items-center justify-center",
         "rounded-full border border-border bg-secondary shadow-lg",
         "text-muted-foreground hover:text-foreground",
-        "transition-all duration-300",
+        "transition-[transform,opacity] duration-300",
         visible
           ? "translate-y-0 opacity-100"
           : "translate-y-4 opacity-0 pointer-events-none",

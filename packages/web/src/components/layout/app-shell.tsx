@@ -54,7 +54,7 @@ function AppShellInner({ children }: AppShellProps) {
         <>
           <button
             type="button"
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs appearance-none border-none p-0"
+            className="fixed inset-0 z-40 bg-zinc-950/50 backdrop-blur-xs appearance-none border-none p-0"
             onClick={() => setMobileOpen(false)}
             aria-label="Close sidebar"
           />
@@ -103,7 +103,7 @@ function AppShellInner({ children }: AppShellProps) {
 
         {/* Floating island content area */}
         <div className="flex-1 px-2 pb-2 md:px-3 md:pb-3">
-          <div className="h-full rounded-[16px] md:rounded-[20px] bg-card p-3 md:p-5 overflow-y-auto">
+          <div className="h-full rounded-[var(--radius-card)] bg-card p-3 md:p-5 overflow-y-auto">
             {children}
           </div>
         </div>

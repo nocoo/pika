@@ -189,7 +189,7 @@ export default function TagsSettingsPage() {
           <span className="text-xs text-muted-foreground mr-1">Color:</span>
           <button
             onClick={() => setNewColor(null)}
-            className={`h-5 w-5 rounded-full border-2 transition-all ${
+            className={`h-5 w-5 rounded-full border-2 transition-[transform,border-color] ${
               newColor === null
                 ? "border-foreground scale-110"
                 : "border-border"
@@ -200,7 +200,7 @@ export default function TagsSettingsPage() {
             <button
               key={c}
               onClick={() => setNewColor(c)}
-              className={`h-5 w-5 rounded-full border-2 transition-all ${
+              className={`h-5 w-5 rounded-full border-2 transition-[transform,border-color] ${
                 newColor === c
                   ? "border-foreground scale-110"
                   : "border-transparent"
@@ -280,7 +280,7 @@ export default function TagsSettingsPage() {
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => setEditColor(null)}
-                      className={`h-4 w-4 rounded-full border-2 transition-all ${
+                      className={`h-4 w-4 rounded-full border-2 transition-[transform,border-color] ${
                         editColor === null
                           ? "border-foreground scale-110"
                           : "border-border"
@@ -291,7 +291,7 @@ export default function TagsSettingsPage() {
                       <button
                         key={c}
                         onClick={() => setEditColor(c)}
-                        className={`h-4 w-4 rounded-full border-2 transition-all ${
+                        className={`h-4 w-4 rounded-full border-2 transition-[transform,border-color] ${
                           editColor === c
                             ? "border-foreground scale-110"
                             : "border-transparent"
