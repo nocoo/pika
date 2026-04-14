@@ -1063,6 +1063,84 @@ describe("handleCanonicalUpload", () => {
     expect(bucket.put).toHaveBeenCalledTimes(1);
     expect(db.batch).toHaveBeenCalledTimes(1);
   });
+
+  it("splits D1 batches when statements exceed 500", async () => {
+    // 260 messages × 2 stmts each (INSERT message + INSERT chunk) + 1 DELETE = 521 > 500
+    const manyMessages = Array.from({ length: 260 }, (_, i) => ({
+      role: i % 2 === 0 ? "user" : "assistant",
+      content: `Message ${i}`,
+      timestamp: `2026-01-15T10:${String(Math.floor(i / 60)).padStart(2, "0")}:${String(i % 60).padStart(2, "0")}Z`,
+    }));
+    const largeSession = { ...canonicalSession, messages: manyMessages };
+    const req = await makeCanonicalRequest(
+      undefined,
+      JSON.stringify(largeSession),
+    );
+    const env = mockEnvForCanonical({
+      id: "session-id-1",
+      content_hash: "old-hash",
+      raw_hash: "raw-1",
+      content_key: null,
+      raw_key: null,
+      parser_revision: 1,
+      schema_version: 1,
+    });
+    const res = await handleCanonicalUpload(
+      "claude:abc-123",
+      "user-1",
+      req,
+      env,
+    );
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as {
+      stored: boolean;
+      messages: number;
+      chunks: number;
+    };
+    expect(body.messages).toBe(260);
+
+    // 521 stmts → ceil(521/500) = 2 insert batches + 1 final UPDATE batch = 3
+    const batchCalls = (env.DB.batch as ReturnType<typeof vi.fn>).mock.calls;
+    expect(batchCalls.length).toBeGreaterThanOrEqual(3);
+
+    // Final batch should contain only the UPDATE statement (content_key)
+    const lastBatch = batchCalls[batchCalls.length - 1][0];
+    expect(lastBatch).toHaveLength(1);
+  });
+
+  it("sets content_key only in final batch after all inserts", async () => {
+    const req = await makeCanonicalRequest();
+    const env = mockEnvForCanonical({
+      id: "session-id-1",
+      content_hash: "old-hash",
+      raw_hash: "raw-1",
+      content_key: null,
+      raw_key: null,
+      parser_revision: 1,
+      schema_version: 1,
+    });
+    const res = await handleCanonicalUpload(
+      "claude:abc-123",
+      "user-1",
+      req,
+      env,
+    );
+    expect(res.status).toBe(200);
+
+    // Batch 1: DELETE + INSERT messages + INSERT chunks (all inserts)
+    // Batch 2: UPDATE content_key (final)
+    const batchCalls = (env.DB.batch as ReturnType<typeof vi.fn>).mock.calls;
+    expect(batchCalls.length).toBe(2);
+
+    // Final batch contains exactly 1 statement (the UPDATE)
+    const lastBatch = batchCalls[batchCalls.length - 1][0];
+    expect(lastBatch).toHaveLength(1);
+
+    // First batch should contain more than 1 statement (DELETE + INSERTs)
+    const firstBatch = batchCalls[0][0];
+    expect(firstBatch.length).toBeGreaterThan(1);
+  });
 });
 
 // ── handleRawUpload ───────────────────────────────────────────

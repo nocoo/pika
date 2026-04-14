@@ -267,6 +267,7 @@ export function Sidebar() {
                   <button
                     onClick={() => signOut({ callbackUrl: "/login" })}
                     className="cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-full"
+                    aria-label={`Sign out ${userName}`}
                   >
                     <Avatar className="h-9 w-9">
                       {userImage && (

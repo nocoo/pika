@@ -95,7 +95,11 @@ export async function handleSearch(
     ? DEFAULT_LIMIT
     : Math.min(Math.max(parsedLimit, 1), MAX_LIMIT);
 
-  const conditions: string[] = ["chunks_fts MATCH ?", "mc.user_id = ?"];
+  const conditions: string[] = [
+    "chunks_fts MATCH ?",
+    "mc.user_id = ?",
+    "s.content_key IS NOT NULL",
+  ];
   const queryParams: unknown[] = [q, userId];
 
   // Default: exclude deleted sessions unless includeDeleted is true

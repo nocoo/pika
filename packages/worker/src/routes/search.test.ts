@@ -213,4 +213,15 @@ describe("handleSearch", () => {
     const bindArgs = db.prepare.mock.results[0].value.bind.mock.calls[0];
     expect(bindArgs).toContain(50);
   });
+
+  it("excludes sessions with NULL content_key", async () => {
+    const env = mockEnv({ results: [] });
+
+    const params = new URLSearchParams({ q: "test" });
+    await handleSearch("user-1", params, env);
+
+    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const sql = db.prepare.mock.calls[0][0] as string;
+    expect(sql).toContain("s.content_key IS NOT NULL");
+  });
 });

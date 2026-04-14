@@ -606,6 +606,12 @@ export async function handleCanonicalUpload(
     //
     // D1 has a per-batch statement limit. Split into chunks of 500 to avoid
     // exceeding it on large sessions (thousands of messages/chunks).
+    //
+    // IMPORTANT: Splitting batches breaks single-transaction atomicity.
+    // Between the first batch completing and the final content_key UPDATE,
+    // message_chunks are FTS-indexed but the session has content_key = NULL.
+    // The search route guards against this with `s.content_key IS NOT NULL`.
+    // On retry, DELETE_MESSAGES_SQL cascades to chunks, cleaning up dirty state.
     const D1_BATCH_LIMIT = 500;
     for (let i = 0; i < stmts.length; i += D1_BATCH_LIMIT) {
       await env.DB.batch(stmts.slice(i, i + D1_BATCH_LIMIT));

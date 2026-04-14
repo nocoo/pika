@@ -310,6 +310,7 @@ export default function TagsSettingsPage() {
                         }`}
                         style={{ backgroundColor: c }}
                         aria-label={COLOR_NAMES[c]}
+                        title={COLOR_NAMES[c]}
                       />
                     ))}
                   </div>
