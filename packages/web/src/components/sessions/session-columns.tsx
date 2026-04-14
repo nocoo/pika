@@ -25,7 +25,7 @@ function TitleStarCell({
     <div className="group flex items-center gap-1.5 min-w-0">
       <Link
         href={`/dashboard/sessions/${session.id}`}
-        className="text-sm font-medium text-foreground hover:underline truncate block max-w-[300px] xl:max-w-[400px]"
+        className="text-sm font-medium text-foreground hover:underline truncate block"
         title={session.title ?? "Untitled session"}
       >
         {session.title ?? "Untitled session"}

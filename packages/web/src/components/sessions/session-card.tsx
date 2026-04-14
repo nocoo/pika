@@ -138,9 +138,9 @@ export function SessionCard({ session, className }: SessionCardProps) {
       )}
 
       {/* Project + model */}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex items-center gap-2 min-w-0 text-xs text-muted-foreground">
         {session.project_name && (
-          <span className="truncate max-w-[200px]">
+          <span className="truncate">
             {projectDisplayName(session.project_name)}
           </span>
         )}

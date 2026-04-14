@@ -49,14 +49,14 @@ function SearchResultCardInner({ result }: { result: SearchResultData }) {
       </div>
 
       {/* Title + project */}
-      <div className="flex items-center gap-2 text-sm">
+      <div className="flex items-center gap-2 min-w-0 text-sm">
         <span className="font-medium text-foreground truncate">
           {result.title ?? "Untitled session"}
         </span>
         {result.project_name && (
           <>
-            <span className="text-border">·</span>
-            <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+            <span className="text-border shrink-0">·</span>
+            <span className="text-xs text-muted-foreground truncate">
               {projectDisplayName(result.project_name)}
             </span>
           </>

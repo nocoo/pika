@@ -64,7 +64,7 @@ export function getTrashColumns(): ColumnDef<TrashRowData, unknown>[] {
       cell: ({ row }) => (
         <Link
           href={`/dashboard/sessions/${row.original.id}`}
-          className="text-sm font-medium text-foreground hover:underline truncate block max-w-[300px] xl:max-w-[400px]"
+          className="text-sm font-medium text-foreground hover:underline truncate block"
           title={row.original.title ?? "Untitled session"}
         >
           {row.original.title ?? "Untitled session"}
