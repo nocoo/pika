@@ -32,6 +32,11 @@ import {
 
 const gzipAsync = promisify(gzip);
 
+// ── Constants ─────────────────────────────────────────────────
+
+/** Per-request timeout for content uploads (60s — Workers have 30s wall time) */
+const FETCH_TIMEOUT_MS = 60_000;
+
 // ── Types ──────────────────────────────────────────────────────
 
 export interface ContentUploadOptions {
@@ -95,16 +100,28 @@ async function putWithRetry(
   let lastStatus = 0;
 
   for (let attempt = 0; attempt <= MAX_UPLOAD_RETRIES; attempt++) {
-    const response = await fetchFn(url, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/octet-stream",
-        "Content-Encoding": "gzip",
-        Authorization: `Bearer ${opts.apiKey}`,
-        ...headers,
-      },
-      body,
-    });
+    let response: Response;
+    try {
+      response = await fetchFn(url, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "Content-Encoding": "gzip",
+          Authorization: `Bearer ${opts.apiKey}`,
+          ...headers,
+        },
+        body,
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
+    } catch (err) {
+      // Timeout or network error — retry with backoff
+      if (attempt < MAX_UPLOAD_RETRIES) {
+        const backoff = INITIAL_BACKOFF_MS * 2 ** attempt;
+        await sleepFn(backoff);
+        continue;
+      }
+      throw new RetryExhaustedError(0, MAX_UPLOAD_RETRIES + 1);
+    }
 
     lastStatus = response.status;
 
@@ -179,6 +196,7 @@ export async function requestPresignedUrl(
       Authorization: `Bearer ${opts.apiKey}`,
     },
     body: JSON.stringify({ sessionKey, rawHash }),
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
 
   if (response.status === 401) throw new AuthError();
@@ -214,13 +232,25 @@ export async function uploadToPresignedUrl(
   let lastStatus = 0;
 
   for (let attempt = 0; attempt <= MAX_UPLOAD_RETRIES; attempt++) {
-    const response = await fetchFn(presignedUrl, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/gzip",
-      },
-      body,
-    });
+    let response: Response;
+    try {
+      response = await fetchFn(presignedUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/gzip",
+        },
+        body,
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
+    } catch (err) {
+      // Timeout or network error — retry with backoff
+      if (attempt < MAX_UPLOAD_RETRIES) {
+        const backoff = INITIAL_BACKOFF_MS * 2 ** attempt;
+        await sleepFn(backoff);
+        continue;
+      }
+      throw new RetryExhaustedError(0, MAX_UPLOAD_RETRIES + 1);
+    }
 
     lastStatus = response.status;
 
@@ -267,6 +297,7 @@ export async function confirmRawUpload(
       Authorization: `Bearer ${opts.apiKey}`,
     },
     body: JSON.stringify({ sessionKey, rawHash, rawSize }),
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
 
   if (response.status === 401) throw new AuthError();

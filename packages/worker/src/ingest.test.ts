@@ -832,9 +832,10 @@ describe("handleCanonicalUpload", () => {
     expect(body.messages).toBe(2);
     expect(body.chunks).toBe(2); // 2 messages, each fits in 1 chunk
 
-    // D1 batch should have been called with:
-    // 1 DELETE + 2 INSERTs (messages) + 2 INSERTs (chunks) + 1 UPDATE = 6 statements
-    expect(env.DB.batch).toHaveBeenCalledTimes(1);
+    // D1 batch should have been called:
+    // Batch 1: 1 DELETE + 2 INSERTs (messages) + 2 INSERTs (chunks) = 5 statements
+    // Batch 2: 1 UPDATE (content_key) — executed last for atomicity
+    expect(env.DB.batch).toHaveBeenCalledTimes(2);
 
     // R2 should have been called
     expect(env.BUCKET.put).toHaveBeenCalledTimes(1);
@@ -949,9 +950,10 @@ describe("handleCanonicalUpload", () => {
 
     // Verify D1 batch was called — check that chunk INSERT includes tool_context
     const batchCalls = (env.DB.batch as ReturnType<typeof vi.fn>).mock.calls;
-    expect(batchCalls.length).toBe(1);
-    // The batch has: 1 DELETE + 1 message INSERT + 1 chunk INSERT + 1 UPDATE = 4 stmts
-    expect(batchCalls[0][0]).toHaveLength(4);
+    expect(batchCalls.length).toBe(2);
+    // Batch 1: 1 DELETE + 1 message INSERT + 1 chunk INSERT = 3 stmts
+    // Batch 2: 1 UPDATE (content_key) — executed last
+    expect(batchCalls[0][0]).toHaveLength(3);
   });
 
   it("returns 500 when D1 batch fails", async () => {

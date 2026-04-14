@@ -242,6 +242,9 @@ export default defineCommand({
         consola.warn(
           `${result.contentResult.errors.length} content upload error(s)`,
         );
+        for (const e of result.contentResult.errors.slice(0, 5)) {
+          consola.error(`  [${e.sessionKey}] ${e.error}`);
+        }
       }
     }
 

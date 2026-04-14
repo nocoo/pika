@@ -582,14 +582,13 @@ export async function handleCanonicalUpload(
       );
     }
 
-    // Update session content_key + content_size
+    // Update session content_key + content_size — executed LAST after all
+    // message/chunk inserts so that content_key is only set on full success.
     const r2Key = `${userId}/${sessionKey}/canonical.json.gz`;
-    stmts.push(
-      env.DB.prepare(UPDATE_CANONICAL_SQL).bind(
-        r2Key,
-        compressedSize,
-        sessionId,
-      ),
+    const updateStmt = env.DB.prepare(UPDATE_CANONICAL_SQL).bind(
+      r2Key,
+      compressedSize,
+      sessionId,
     );
 
     // 6. PUT to R2 FIRST — if this fails, no D1 state is corrupted.
@@ -604,7 +603,16 @@ export async function handleCanonicalUpload(
     // 7. Execute D1 batch SECOND — sets content_key only after R2 succeeds.
     // If D1 fails after R2 succeeds, the orphaned R2 object is harmless
     // and the retry will re-upload R2 (idempotent) then succeed on D1.
-    await env.DB.batch(stmts);
+    //
+    // D1 has a per-batch statement limit. Split into chunks of 500 to avoid
+    // exceeding it on large sessions (thousands of messages/chunks).
+    const D1_BATCH_LIMIT = 500;
+    for (let i = 0; i < stmts.length; i += D1_BATCH_LIMIT) {
+      await env.DB.batch(stmts.slice(i, i + D1_BATCH_LIMIT));
+    }
+
+    // Final batch: update content_key only after all inserts succeed
+    await env.DB.batch([updateStmt]);
 
     return Response.json({
       stored: true,
