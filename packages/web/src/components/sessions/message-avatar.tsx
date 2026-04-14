@@ -75,7 +75,7 @@ function UserAvatar() {
   return (
     <HoverCard>
       <HoverCardTrigger asChild>
-        <button type="button" className="shrink-0 focus:outline-none">
+        <button type="button" className="shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-full">
           <Avatar size="sm" className="size-7">
             {user?.image && (
               <AvatarImage src={user.image} alt={user.name ?? "User"} />
@@ -136,7 +136,7 @@ function AssistantAvatar({
   return (
     <HoverCard>
       <HoverCardTrigger asChild>
-        <button type="button" className="shrink-0 focus:outline-none">
+        <button type="button" className="shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-full">
           <div
             className="flex size-7 items-center justify-center rounded-full"
             style={{
