@@ -151,6 +151,7 @@ function SearchDialogContent({
             viewBox="0 0 24 24"
             strokeWidth={2}
             stroke="currentColor"
+            aria-hidden="true"
           >
             <path
               strokeLinecap="round"
@@ -241,6 +242,7 @@ function SearchDialogContent({
               viewBox="0 0 24 24"
               strokeWidth={1}
               stroke="currentColor"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -261,6 +263,7 @@ function SearchDialogContent({
               viewBox="0 0 24 24"
               strokeWidth={1}
               stroke="currentColor"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
