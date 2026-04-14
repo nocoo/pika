@@ -146,7 +146,7 @@ export function SessionReplay({
   return (
     <div className={cn("flex flex-col gap-6", className)} ref={containerRef}>
       {/* Session header card */}
-      <div className="rounded-xl border border-border bg-card p-5">
+      <div className="rounded-xl bg-secondary p-5">
         <div className="flex flex-col gap-3">
           {/* Top: source badge + date */}
           <div className="flex items-center justify-between">
@@ -210,11 +210,11 @@ export function SessionReplay({
       {messages.length > 0 && (
         <div className="flex items-center justify-end gap-3 text-micro text-muted-foreground">
           <span>
-            <kbd className="rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-micro">
+            <kbd className="rounded bg-secondary px-1.5 py-0.5 font-mono text-micro">
               j
             </kbd>
             {" / "}
-            <kbd className="rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-micro">
+            <kbd className="rounded bg-secondary px-1.5 py-0.5 font-mono text-micro">
               k
             </kbd>
             {" navigate messages"}
@@ -246,7 +246,7 @@ export function SessionReplay({
       )}
 
       {!contentUrl && !loadingContent && (
-        <div className="rounded-xl border border-border bg-secondary/30 px-4 py-12 text-center text-sm text-muted-foreground">
+        <div className="rounded-xl bg-secondary px-4 py-12 text-center text-sm text-muted-foreground">
           No conversation content available for this session.
         </div>
       )}

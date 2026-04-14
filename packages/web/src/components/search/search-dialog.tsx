@@ -199,11 +199,11 @@ function SearchDialogContent({
           </span>
           {results.length > 0 && (
             <span className="hidden sm:inline">
-              <kbd className="rounded border border-border bg-secondary px-1 py-0.5 font-mono text-micro">
+              <kbd className="rounded bg-secondary px-1 py-0.5 font-mono text-micro">
                 ↑↓
               </kbd>{" "}
               navigate{" "}
-              <kbd className="rounded border border-border bg-secondary px-1 py-0.5 font-mono text-micro">
+              <kbd className="rounded bg-secondary px-1 py-0.5 font-mono text-micro">
                 ↵
               </kbd>{" "}
               select
