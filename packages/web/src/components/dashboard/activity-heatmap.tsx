@@ -145,7 +145,12 @@ export function ActivityHeatmap({ data, className }: ActivityHeatmapProps) {
             </div>
 
             {/* Heatmap grid */}
-            <div className="flex" style={{ gap: CELL_GAP }} role="group" aria-label="Activity heatmap">
+            <div
+              className="flex"
+              style={{ gap: CELL_GAP }}
+              role="img"
+              aria-label="Activity heatmap"
+            >
               {weeks.map((week, weekIndex) => (
                 <div
                   key={weekIndex}

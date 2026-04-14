@@ -166,7 +166,11 @@ export default function SearchPage() {
       )}
 
       {/* Error */}
-      {error && <div className="text-sm text-destructive py-2" aria-live="polite">{error}</div>}
+      {error && (
+        <div className="text-sm text-destructive py-2" aria-live="polite">
+          {error}
+        </div>
+      )}
 
       {/* Loading skeleton */}
       {loading && (
