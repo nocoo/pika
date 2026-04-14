@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.3] - 2026-04-14
+
+### Fixes
+
+- **Search integrity** — Exclude sessions with NULL `content_key` from search results, preventing partial-write windows from surfacing incomplete sessions during multi-batch D1 ingestion
+- **Ingest robustness** — Split D1 batch statements at 500-limit boundary and defer `content_key` UPDATE to final batch for atomic content visibility
+- **Accessibility** — Add `aria-label` to sidebar sign-out avatar button for screen readers
+- **Tag editor** — Add missing `title` tooltip on edit-mode color swatch (consistent with create-mode)
+
+### Chores
+
+- **Design system** — Restore correct 3-layer luminance hierarchy (L0 background > L1 card > L2 secondary), replace hardcoded colors with theme tokens, add CSS variables for sidebar widths
+- **Typography** — Replace arbitrary text sizes (`text-[9px]`, `text-[10px]`, etc.) with `text-micro` utility class
+- **Motion** — Replace broad `transition-all` with specific transition properties
+- **CI** — Add full monorepo build (`next build`) to pre-push gate; add base-ci quality gate workflow
+- **Layout** — Replace fragile `calc()` with flex layout in project sidebar, remove hard max-w caps on titles
+
 ## [0.8.2] - 2026-04-11
 
 ### Features
