@@ -146,7 +146,7 @@ export function SessionReplay({
   return (
     <div className={cn("flex flex-col gap-6", className)} ref={containerRef}>
       {/* Session header card */}
-      <div className="rounded-xl bg-card p-5">
+      <div className="rounded-xl bg-secondary p-5">
         <div className="flex flex-col gap-3">
           {/* Top: source badge + date */}
           <div className="flex items-center justify-between">
@@ -246,7 +246,7 @@ export function SessionReplay({
       )}
 
       {!contentUrl && !loadingContent && (
-        <div className="rounded-xl bg-card px-4 py-12 text-center text-sm text-muted-foreground">
+        <div className="rounded-xl bg-secondary px-4 py-12 text-center text-sm text-muted-foreground">
           No conversation content available for this session.
         </div>
       )}

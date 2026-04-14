@@ -174,7 +174,7 @@ export default function TagsSettingsPage() {
       {error && <div className="text-sm text-destructive py-2">{error}</div>}
 
       {/* Create form */}
-      <div className="flex flex-col gap-3 rounded-[var(--radius-card)] bg-card p-4">
+      <div className="flex flex-col gap-3 rounded-[var(--radius-card)] bg-secondary p-4">
         <h2 className="text-sm font-medium">Create a new tag</h2>
         <div className="flex items-center gap-2">
           <Input

@@ -24,7 +24,7 @@ export function ScrollToTop() {
       onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
       className={cn(
         "fixed bottom-6 right-6 z-40 flex size-10 items-center justify-center",
-        "rounded-full bg-card shadow-lg",
+        "rounded-full bg-secondary shadow-lg",
         "text-muted-foreground hover:text-foreground",
         "transition-[transform,opacity] duration-300",
         visible

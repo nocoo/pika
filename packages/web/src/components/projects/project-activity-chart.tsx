@@ -151,10 +151,10 @@ function MetricButton({
       className={cn(
         "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors",
         selected
-          ? "bg-card text-foreground shadow-sm"
+          ? "bg-secondary text-foreground shadow-sm"
           : secondary
-            ? "bg-card/50 text-foreground"
-            : "text-muted-foreground hover:text-foreground hover:bg-card/30",
+            ? "bg-secondary/50 text-foreground"
+            : "text-muted-foreground hover:text-foreground hover:bg-secondary/30",
       )}
     >
       <div
@@ -276,7 +276,7 @@ export function ProjectActivityChart({
     return (
       <div
         className={cn(
-          "flex items-center justify-center h-[280px] rounded-[var(--radius-card)] bg-card text-sm text-destructive",
+          "flex items-center justify-center h-[280px] rounded-[var(--radius-card)] bg-secondary text-sm text-destructive",
           className,
         )}
       >
@@ -289,7 +289,7 @@ export function ProjectActivityChart({
     return (
       <div
         className={cn(
-          "flex items-center justify-center h-[280px] rounded-[var(--radius-card)] bg-card text-sm text-muted-foreground",
+          "flex items-center justify-center h-[280px] rounded-[var(--radius-card)] bg-secondary text-sm text-muted-foreground",
           className,
         )}
       >
@@ -301,7 +301,7 @@ export function ProjectActivityChart({
   return (
     <div
       className={cn(
-        "rounded-[var(--radius-card)] bg-card p-4 md:p-5",
+        "rounded-[var(--radius-card)] bg-secondary p-4 md:p-5",
         className,
       )}
     >

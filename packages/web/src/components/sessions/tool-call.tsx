@@ -105,7 +105,7 @@ export function ToolCall({
           "rounded-lg border text-sm overflow-hidden transition-colors",
           hasResult
             ? "border-success/20 bg-success/5"
-            : "border-transparent bg-card/50",
+            : "border-transparent bg-secondary/50",
           className,
         )}
       >

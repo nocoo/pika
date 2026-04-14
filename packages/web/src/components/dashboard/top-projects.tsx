@@ -45,7 +45,7 @@ export function TopProjects({ projects, className }: TopProjectsProps) {
             })()}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <div className="w-20 h-1.5 rounded-full bg-card overflow-hidden">
+            <div className="w-20 h-1.5 rounded-full bg-secondary overflow-hidden">
               <div
                 className="h-full rounded-full bg-primary/60"
                 style={{ width: `${(project.count / maxCount) * 100}%` }}
