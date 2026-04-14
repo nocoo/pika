@@ -181,7 +181,7 @@ function LoginContent() {
                   Pika
                 </span>
               </div>
-              <span className="text-[10px] font-medium uppercase tracking-widest text-primary-foreground/60">
+              <span className="text-micro font-medium uppercase tracking-widest text-primary-foreground/60">
                 DEV
               </span>
             </div>
@@ -258,7 +258,7 @@ function LoginContent() {
             </button>
 
             {/* Terms */}
-            <p className="mt-3 text-center text-[10px] leading-relaxed text-muted-foreground/60">
+            <p className="mt-3 text-center text-micro leading-relaxed text-muted-foreground/60">
               By signing in you agree to our{" "}
               <a
                 href="/privacy"
@@ -273,7 +273,7 @@ function LoginContent() {
           <div className="mt-auto flex items-center justify-center border-t border-border bg-secondary/50 py-2.5">
             <div className="flex items-center gap-1.5">
               <div className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-micro text-muted-foreground">
                 Secure Auth
               </span>
             </div>

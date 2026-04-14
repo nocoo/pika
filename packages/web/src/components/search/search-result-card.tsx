@@ -77,7 +77,7 @@ function SearchResultCardInner({ result }: { result: SearchResultData }) {
       {/* Tool context snippet (if matched on tool_context) */}
       {result.tool_snippet && (
         <div className="border-t border-border pt-2 mt-1">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+          <span className="text-micro font-medium uppercase tracking-wider text-muted-foreground/60">
             Tool context
           </span>
           <div
@@ -88,7 +88,7 @@ function SearchResultCardInner({ result }: { result: SearchResultData }) {
       )}
 
       {/* Message position */}
-      <div className="text-[10px] text-muted-foreground/60">
+      <div className="text-micro text-muted-foreground/60">
         Message #{result.ordinal + 1}
       </div>
     </>

@@ -419,7 +419,7 @@ export default function ProjectsPage() {
       {/* Main body: left/right split */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-10">
         {/* Left: Project list */}
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-3 lg:flex lg:flex-col lg:h-full">
           {loading ? (
             <div className="flex flex-col gap-3">
               {Array.from({ length: 6 }).map((_, i) => (
