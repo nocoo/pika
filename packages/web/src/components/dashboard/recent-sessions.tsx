@@ -42,7 +42,7 @@ export function RecentSessions({ sessions, className }: RecentSessionsProps) {
         )}
       >
         No sessions yet. Run{" "}
-        <code className="px-1.5 py-0.5 rounded bg-secondary text-xs font-mono">
+        <code className="px-1.5 py-0.5 rounded bg-card text-xs font-mono">
           pika sync
         </code>{" "}
         to get started.

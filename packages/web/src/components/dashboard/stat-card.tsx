@@ -28,7 +28,7 @@ export interface StatCardProps {
 }
 
 /**
- * Compact stat card — basalt L2 style (bg-secondary, no border/shadow).
+ * Compact stat card — basalt L2 style (bg-card, no border/shadow).
  * Shows title, large value, optional icon, optional trend.
  *
  * Variants:
@@ -55,7 +55,7 @@ export function StatCard({
   return (
     <div
       className={cn(
-        "rounded-[var(--radius-card)] bg-secondary",
+        "rounded-[var(--radius-card)] bg-card",
         isPrimary ? "p-5 md:p-6" : "p-4 md:p-5",
         className,
       )}
@@ -97,7 +97,7 @@ export function StatCard({
           )}
         </div>
         {Icon && (
-          <div className={cn("rounded-md bg-card p-2", iconColor)}>
+          <div className={cn("rounded-md bg-secondary p-2", iconColor)}>
             <Icon
               className={cn(isPrimary ? "h-6 w-6" : "h-5 w-5")}
               strokeWidth={1.5}

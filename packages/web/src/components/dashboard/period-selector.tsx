@@ -41,7 +41,7 @@ interface PeriodSelectorProps {
 
 export function PeriodSelector({ value, onChange }: PeriodSelectorProps) {
   return (
-    <div className="flex items-center gap-1 rounded-lg bg-secondary p-1">
+    <div className="flex items-center gap-1 rounded-lg bg-card p-1">
       {PERIOD_OPTIONS.map((opt) => (
         <button
           key={opt.value}
@@ -50,7 +50,7 @@ export function PeriodSelector({ value, onChange }: PeriodSelectorProps) {
           className={cn(
             "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
             value === opt.value
-              ? "bg-card text-foreground shadow-sm"
+              ? "bg-secondary text-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground",
           )}
         >

@@ -46,7 +46,7 @@ export function DataTable<TData>({
   skeletonRows = 10,
 }: DataTableProps<TData>) {
   return (
-    <div className="rounded-[var(--radius-card)] bg-secondary overflow-hidden">
+    <div className="rounded-[var(--radius-card)] bg-card overflow-hidden">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (

@@ -33,7 +33,7 @@ function DashboardSkeleton() {
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Heatmap Hero skeleton */}
-      <div className="rounded-[var(--radius-card)] bg-secondary p-4 md:p-6">
+      <div className="rounded-[var(--radius-card)] bg-card p-4 md:p-6">
         <Skeleton className="h-5 w-24 mb-4" />
         <div className="flex items-start justify-between mb-4">
           <div className="space-y-2">
@@ -67,13 +67,13 @@ function DashboardSkeleton() {
 function DashboardEmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="rounded-full bg-secondary p-4 mb-4">
+      <div className="rounded-full bg-card p-4 mb-4">
         <LayoutDashboard className="h-8 w-8 text-muted-foreground" />
       </div>
       <h2 className="text-lg font-semibold mb-2">No sessions yet</h2>
       <p className="text-sm text-muted-foreground max-w-sm">
         Run{" "}
-        <code className="px-1.5 py-0.5 rounded bg-secondary text-xs font-mono">
+        <code className="px-1.5 py-0.5 rounded bg-card text-xs font-mono">
           pika sync
         </code>{" "}
         to start tracking your coding agent sessions.
@@ -101,7 +101,7 @@ function HeatmapHero({
 }: HeatmapHeroProps) {
   if (loading) {
     return (
-      <div className="rounded-[var(--radius-card)] bg-secondary p-4 md:p-6">
+      <div className="rounded-[var(--radius-card)] bg-card p-4 md:p-6">
         <Skeleton className="h-5 w-24 mb-4" />
         <div className="flex items-start justify-between mb-4">
           <div className="space-y-2">
@@ -120,7 +120,7 @@ function HeatmapHero({
     daysInYear > 0 ? Math.round((activeDays / daysInYear) * 100) : 0;
 
   return (
-    <div className="rounded-[var(--radius-card)] bg-secondary p-4 md:p-6">
+    <div className="rounded-[var(--radius-card)] bg-card p-4 md:p-6">
       {/* Section title */}
       <div className="flex items-center gap-2 mb-4">
         <Calendar className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
@@ -339,7 +339,7 @@ export default function DashboardPage() {
       <DashboardSegment title="Breakdown">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-3 md:gap-4">
           {/* Left: Recent sessions */}
-          <div className="rounded-[var(--radius-card)] bg-secondary p-4 md:p-5">
+          <div className="rounded-[var(--radius-card)] bg-card p-4 md:p-5">
             <p className="mb-3 text-xs md:text-sm text-muted-foreground">
               Recent Sessions
             </p>
@@ -350,7 +350,7 @@ export default function DashboardPage() {
           <div className="flex flex-col gap-3 md:gap-4">
             <SourceChart data={stats?.sourceDistribution ?? []} />
 
-            <div className="rounded-[var(--radius-card)] bg-secondary p-4 md:p-5 flex-1">
+            <div className="rounded-[var(--radius-card)] bg-card p-4 md:p-5 flex-1">
               <p className="mb-3 text-xs md:text-sm text-muted-foreground">
                 Top Projects
               </p>
