@@ -1,5 +1,13 @@
 #!/usr/bin/env sh
 
+# Build: full monorepo build (mirrors CI pre-command)
+bun run build 2>&1
+BUILD_EXIT=$?
+if [ $BUILD_EXIT -ne 0 ]; then
+  echo "❌ pre-push FAILED: Build errors detected."
+  exit 1
+fi
+
 # L1: Unit Tests ≥90% coverage
 bun run test:coverage 2>&1
 TEST_EXIT=$?
@@ -48,4 +56,4 @@ if [ $E2E_EXIT -ne 0 ]; then
   exit 1
 fi
 
-echo "✅ pre-push passed: L1 + L2 + G1 (tsc + Biome) + G2 (gitleaks + osv-scanner)"
+echo "✅ pre-push passed: Build + L1 + L2 + G1 (tsc + Biome) + G2 (gitleaks + osv-scanner)"
