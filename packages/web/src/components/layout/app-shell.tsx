@@ -54,7 +54,7 @@ function AppShellInner({ children }: AppShellProps) {
         <>
           <button
             type="button"
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs appearance-none border-none p-0"
+            className="fixed inset-0 z-40 bg-zinc-950/50 backdrop-blur-xs appearance-none border-none p-0"
             onClick={() => setMobileOpen(false)}
             aria-label="Close sidebar"
           />
