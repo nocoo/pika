@@ -113,7 +113,7 @@ async function putWithRetry(
         body,
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
-    } catch (err) {
+    } catch (_err) {
       // Timeout or network error — retry with backoff
       if (attempt < MAX_UPLOAD_RETRIES) {
         const backoff = INITIAL_BACKOFF_MS * 2 ** attempt;
@@ -242,7 +242,7 @@ export async function uploadToPresignedUrl(
         body,
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
-    } catch (err) {
+    } catch (_err) {
       // Timeout or network error — retry with backoff
       if (attempt < MAX_UPLOAD_RETRIES) {
         const backoff = INITIAL_BACKOFF_MS * 2 ** attempt;
