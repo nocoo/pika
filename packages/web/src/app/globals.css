@@ -77,7 +77,7 @@
   --color-source-vscode: hsl(var(--source-vscode));
 
   /* Radius tokens */
-  --radius-card: 14px;
+  --radius-card: 16px;
   --radius-widget: 10px;
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
