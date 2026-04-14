@@ -176,12 +176,14 @@ export function Sidebar() {
       <aside
         className={cn(
           "sticky top-0 flex h-screen shrink-0 flex-col bg-background transition-[width] duration-300 ease-in-out overflow-hidden",
-          collapsed ? "w-[68px]" : "w-[260px]",
+          collapsed
+            ? "w-[var(--sidebar-collapsed)]"
+            : "w-[var(--sidebar-width)]",
         )}
       >
         {collapsed ? (
           /* -- Collapsed (icon-only) view -- */
-          <div className="flex h-screen w-[68px] flex-col items-center">
+          <div className="flex h-screen w-[var(--sidebar-collapsed)] flex-col items-center">
             {/* Logo */}
             <div className="flex h-14 w-full items-center justify-center">
               <Image src="/logo-24.png" alt="Pika" width={24} height={24} />
@@ -284,7 +286,7 @@ export function Sidebar() {
           </div>
         ) : (
           /* -- Expanded view -- */
-          <div className="flex h-screen w-[260px] flex-col">
+          <div className="flex h-screen w-[var(--sidebar-width)] flex-col">
             {/* Header: logo + collapse toggle */}
             <div className="px-3 h-14 flex items-center">
               <div className="flex w-full items-center justify-between px-3">

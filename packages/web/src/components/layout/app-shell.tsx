@@ -58,7 +58,7 @@ function AppShellInner({ children }: AppShellProps) {
             onClick={() => setMobileOpen(false)}
             aria-label="Close sidebar"
           />
-          <div className="fixed inset-y-0 left-0 z-50 w-[260px]">
+          <div className="fixed inset-y-0 left-0 z-50 w-[var(--sidebar-width)]">
             <Sidebar />
           </div>
         </>
