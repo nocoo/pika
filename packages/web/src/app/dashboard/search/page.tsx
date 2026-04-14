@@ -158,7 +158,7 @@ export default function SearchPage() {
 
       {/* Results count */}
       {searched && !loading && (
-        <div className="text-xs text-muted-foreground">
+        <div className="text-xs text-muted-foreground" aria-live="polite">
           {total === 0
             ? "No results found"
             : `${total} result${total !== 1 ? "s" : ""}`}
@@ -166,11 +166,11 @@ export default function SearchPage() {
       )}
 
       {/* Error */}
-      {error && <div className="text-sm text-destructive py-2">{error}</div>}
+      {error && <div className="text-sm text-destructive py-2" aria-live="polite">{error}</div>}
 
       {/* Loading skeleton */}
       {loading && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3" aria-live="polite">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
