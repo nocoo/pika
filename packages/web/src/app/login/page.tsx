@@ -33,7 +33,7 @@ function LoginSkeleton() {
       <div className="flex flex-1 items-center justify-center p-4">
         {/* Badge card skeleton */}
         <div
-          className="relative w-72 aspect-[54/86] overflow-hidden rounded-2xl bg-card flex flex-col ring-1 ring-black/[0.08] dark:ring-white/[0.06]"
+          className="relative w-72 aspect-[54/86] overflow-hidden rounded-2xl bg-card flex flex-col ring-1 ring-foreground/[0.08]"
           style={{
             boxShadow: [
               "0 1px 2px rgba(0,0,0,0.06)",
@@ -146,7 +146,7 @@ function LoginContent() {
       <div className="flex flex-1 items-center justify-center p-4">
         {/* Badge card */}
         <div
-          className="relative w-72 aspect-[54/86] overflow-hidden rounded-2xl bg-card flex flex-col ring-1 ring-black/[0.08] dark:ring-white/[0.06]"
+          className="relative w-72 aspect-[54/86] overflow-hidden rounded-2xl bg-card flex flex-col ring-1 ring-foreground/[0.08]"
           style={{
             boxShadow: [
               "0 1px 2px rgba(0,0,0,0.06)",
@@ -199,7 +199,7 @@ function LoginContent() {
           {/* Badge content */}
           <div className="flex flex-1 flex-col items-center px-6 pt-6 pb-5">
             {/* Avatar placeholder */}
-            <div className="h-24 w-24 overflow-hidden rounded-full bg-secondary dark:bg-[#171717] ring-1 ring-border flex items-center justify-center">
+            <div className="h-24 w-24 overflow-hidden rounded-full bg-secondary dark:bg-background ring-1 ring-border flex items-center justify-center">
               <Image
                 src="/logo-80.png"
                 alt="Pika"
