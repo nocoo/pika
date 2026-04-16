@@ -325,7 +325,7 @@ export function Sidebar() {
             <div className="px-3 mt-1">
               <button
                 onClick={() => setSearchOpen(true)}
-                className="flex w-full items-center gap-3 rounded-lg border border-border bg-input px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="flex w-full items-center gap-3 rounded-lg border border-border bg-card px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
                 <Search className="h-4 w-4 shrink-0" strokeWidth={1.5} />
                 <span className="flex-1 text-left">Search...</span>
