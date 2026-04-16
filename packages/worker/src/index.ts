@@ -715,10 +715,10 @@ export async function handleRawUpload(
 export interface WorkerLiveResult {
   status: "ok" | "error";
   version: string;
-  uptime: number;
+  component: string;
   timestamp: string;
-  d1?: { latencyMs: number };
-  error?: string;
+  uptime: number;
+  database?: { connected: boolean; error?: string };
 }
 
 /** Boot time for uptime calculation */
@@ -732,25 +732,25 @@ const bootTime = Date.now();
  * keyword-based monitor false positives.
  */
 export async function handleLive(env: Env): Promise<Response> {
-  const start = Date.now();
   const version = PIKA_VERSION;
+  const component = "worker";
   const uptime = Math.round((Date.now() - bootTime) / 1000);
   const timestamp = new Date().toISOString();
 
   try {
-    await env.DB.prepare("SELECT 1").first();
-    const latencyMs = Date.now() - start;
+    await env.DB.prepare("SELECT 1 AS probe").first();
 
     return Response.json(
       {
         status: "ok",
         version,
-        uptime,
+        component,
         timestamp,
-        d1: { latencyMs },
+        uptime,
+        database: { connected: true },
       } satisfies WorkerLiveResult,
       {
-        headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+        headers: { "Cache-Control": "no-store" },
       },
     );
   } catch (err) {
@@ -762,13 +762,14 @@ export async function handleLive(env: Env): Promise<Response> {
       {
         status: "error",
         version,
-        uptime,
+        component,
         timestamp,
-        error: message,
+        uptime,
+        database: { connected: false, error: message },
       } satisfies WorkerLiveResult,
       {
         status: 503,
-        headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+        headers: { "Cache-Control": "no-store" },
       },
     );
   }
