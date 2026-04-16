@@ -397,9 +397,34 @@ export function createOpenCodeSqliteDriver(
         let totalRows = 0;
         let maxTimeCreated = watermark ?? "";
 
+        // Optimization: when watermark exists, find sessions with new messages
+        // in a single query instead of querying each session individually.
+        let sessionsWithNewMessages: Set<string> | null = null;
+        if (watermark) {
+          const rows = db
+            .prepare(
+              "SELECT DISTINCT session_id FROM message WHERE time_created >= ?",
+            )
+            .all(watermark) as Array<{ session_id: string }>;
+          sessionsWithNewMessages = new Set(rows.map((r) => r.session_id));
+
+          // Further filter: if prevMessageIds covers all messages at the
+          // boundary, some sessions may have no truly new messages.
+          // We keep the set broad here; per-session newMessages check refines it.
+        }
+
         for (let si = 0; si < sessions.length; si++) {
           const session = sessions[si];
           const sessionRawRow = sessionRawRows[si];
+
+          // Fast skip: if watermark exists and this session has no messages
+          // at or after the watermark, skip without per-session query.
+          if (
+            sessionsWithNewMessages &&
+            !sessionsWithNewMessages.has(session.id)
+          ) {
+            continue;
+          }
 
           // Change detection: use watermark-filtered query to see if new messages exist
           const newMessages = queryMessagesForSession(
@@ -409,6 +434,18 @@ export function createOpenCodeSqliteDriver(
             prevMessageIds,
           );
           totalRows += newMessages.length;
+
+          // Track watermark from new messages BEFORE any skip logic,
+          // so watermark advances even when sessions are skipped by JSON dedup.
+          for (const msg of newMessages) {
+            const tc = msg.time?.created;
+            if (typeof tc === "number" && tc > 0) {
+              const iso = new Date(tc).toISOString();
+              if (iso > maxTimeCreated) {
+                maxTimeCreated = iso;
+              }
+            }
+          }
 
           if (newMessages.length === 0 && watermark) {
             // No new messages since watermark — skip
@@ -481,34 +518,17 @@ export function createOpenCodeSqliteDriver(
             lastMessageAt: result.canonical.lastMessageAt,
             totalMessages: result.canonical.messages.length,
           });
-
-          // Track watermark: latest message time_created from new messages
-          // (only new messages advance the watermark)
-          for (const msg of newMessages) {
-            const tc = msg.time?.created;
-            if (typeof tc === "number" && tc > 0) {
-              const iso = new Date(tc).toISOString();
-              if (iso > maxTimeCreated) {
-                maxTimeCreated = iso;
-              }
-            }
-          }
         }
 
         // Collect message IDs at the watermark timestamp for next-run dedup.
-        // Query all messages at maxTimeCreated across all sessions so the
-        // next >= query can filter them out.
+        // Single query across all sessions instead of per-session loop.
         const boundaryIds: string[] = [];
         if (maxTimeCreated) {
-          for (const session of sessions) {
-            const rows = db
-              .prepare(
-                "SELECT id FROM message WHERE session_id = ? AND time_created = ?",
-              )
-              .all(session.id, maxTimeCreated) as Array<{ id: string }>;
-            for (const row of rows) {
-              boundaryIds.push(row.id);
-            }
+          const rows = db
+            .prepare("SELECT id FROM message WHERE time_created = ?")
+            .all(maxTimeCreated) as Array<{ id: string }>;
+          for (const row of rows) {
+            boundaryIds.push(row.id);
           }
         }
 
