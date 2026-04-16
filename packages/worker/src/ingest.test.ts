@@ -1473,7 +1473,7 @@ describe("worker fetch handler", () => {
 // ── handleLive ─────────────────────────────────────────────────
 
 describe("handleLive", () => {
-  it("returns ok with latencyMs when D1 responds", async () => {
+  it("returns ok with database connected when D1 responds", async () => {
     const env: Env = {
       DB: mockD1(undefined, { firstResult: { "1": 1 } }),
       BUCKET: mockR2(),
@@ -1486,19 +1486,19 @@ describe("handleLive", () => {
     const body = (await res.json()) as {
       status: string;
       version: string;
+      component: string;
       uptime: number;
       timestamp: string;
-      d1: { latencyMs: number };
+      database: { connected: boolean };
     };
     expect(body.status).toBe("ok");
     expect(body.version).toBe(PIKA_VERSION);
-    expect(body.d1.latencyMs).toBeGreaterThanOrEqual(0);
+    expect(body.component).toBe("worker");
+    expect(body.database.connected).toBe(true);
     expect(body.uptime).toBeGreaterThanOrEqual(0);
     expect(Number.isInteger(body.uptime)).toBe(true);
     expect(body.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
-    expect(res.headers.get("Cache-Control")).toBe(
-      "no-store, no-cache, must-revalidate",
-    );
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
   });
 
   it("returns 503 error when D1 throws", async () => {
@@ -1522,17 +1522,16 @@ describe("handleLive", () => {
 
     const body = (await res.json()) as {
       status: string;
-      error: string;
+      database: { connected: boolean; error: string };
       uptime: number;
       timestamp: string;
     };
     expect(body.status).toBe("error");
-    expect(body.error).toBe("D1 connection refused");
+    expect(body.database.connected).toBe(false);
+    expect(body.database.error).toBe("D1 connection refused");
     expect(body.uptime).toBeGreaterThanOrEqual(0);
     expect(body.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-    expect(res.headers.get("Cache-Control")).toBe(
-      "no-store, no-cache, must-revalidate",
-    );
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
   });
 
   it("error response does not contain 'ok'", async () => {
@@ -1553,9 +1552,9 @@ describe("handleLive", () => {
     const body = await res.text();
 
     expect(body).not.toContain('"ok"');
-    // Verify "ok" was sanitized in the error message
-    const parsed = JSON.parse(body) as { error: string };
-    expect(parsed.error).toBe("lookup *** failed");
+    // Verify "ok" was sanitized in the database error message
+    const parsed = JSON.parse(body) as { database: { error: string } };
+    expect(parsed.database.error).toBe("lookup *** failed");
   });
 
   it("handles non-Error thrown values", async () => {
@@ -1575,7 +1574,7 @@ describe("handleLive", () => {
     const res = await handleLive(env);
     expect(res.status).toBe(503);
 
-    const body = (await res.json()) as { error: string };
-    expect(body.error).toBe("string failure");
+    const body = (await res.json()) as { database: { error: string } };
+    expect(body.database.error).toBe("string failure");
   });
 });
