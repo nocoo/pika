@@ -79,6 +79,28 @@ function createMockDb(tables: {
           }
 
           if (sql.includes("FROM message")) {
+            // SELECT DISTINCT session_id FROM message WHERE time_created >= ?
+            if (sql.includes("DISTINCT session_id")) {
+              const watermark = params[0] as string;
+              const filtered = messageRows.filter(
+                (r) => (r.time_created as string) >= watermark,
+              );
+              const ids = [...new Set(filtered.map((r) => r.session_id))];
+              return ids.map((id) => ({ session_id: id }));
+            }
+
+            // SELECT id FROM message WHERE time_created = ? (boundary IDs, no session_id)
+            if (
+              sql.includes("time_created = ?") &&
+              !sql.includes("session_id")
+            ) {
+              const tc = params[0] as string;
+              return messageRows
+                .filter((r) => r.time_created === tc)
+                .map((r) => ({ id: r.id }));
+            }
+
+            // Per-session message queries
             const sessionId = params[0] as string;
             const watermark = params.length > 1 ? (params[1] as string) : null;
             let filtered = messageRows.filter(
@@ -1069,5 +1091,130 @@ describe("openCodeSqliteDriver.run", () => {
 
     // Raw also includes all 3 messages + 3 parts + 1 session = 7 source files
     expect(results[0].raw.sourceFiles).toHaveLength(7);
+  });
+
+  it("advances watermark even when all sessions are skipped by JSON dedup", async () => {
+    const dbPath = join(tmpDir, "test.db");
+    await writeFile(dbPath, "dummy");
+
+    const epoch1 = 1700000001000;
+    const epoch2 = 1700000005000;
+    const iso1 = new Date(epoch1).toISOString();
+    const iso2 = new Date(epoch2).toISOString();
+
+    const mockDb = createMockDb({
+      session: [{ data: sessionData("ses_001") }],
+      message: [
+        {
+          id: "msg_001",
+          session_id: "ses_001",
+          data: messageData("msg_001", "ses_001", "user", epoch1),
+          time_created: iso1,
+        },
+        {
+          id: "msg_002",
+          session_id: "ses_001",
+          data: messageData("msg_002", "ses_001", "assistant", epoch2, {
+            modelID: "test-model",
+            tokens: { input: 50, output: 25 },
+          }),
+          time_created: iso2,
+        },
+      ],
+      part: [
+        {
+          message_id: "msg_001",
+          data: partData("prt_001", "text", { text: "Q" }),
+        },
+        {
+          message_id: "msg_002",
+          data: partData("prt_002", "text", { text: "A" }),
+        },
+      ],
+    });
+
+    const openDb: OpenDbFn = () => mockDb;
+    const driver = createOpenCodeSqliteDriver(openDb, dbPath);
+    // JSON driver already has this session with equal-or-newer data
+    const ctx: SyncContext = {
+      openCodeSessionState: new Map([
+        [
+          "opencode:ses_001",
+          {
+            lastMessageAt: "2099-01-01T00:00:00.000Z",
+            totalMessages: 999,
+          },
+        ],
+      ]),
+    };
+
+    const { results, cursor } = await driver.run(undefined, ctx);
+    // Session skipped by JSON dedup
+    expect(results).toHaveLength(0);
+    // But watermark should still advance to the latest message time
+    expect(cursor.lastTimeCreated).toBe(new Date(1700000005000).toISOString());
+    expect(cursor.lastMessageIds).toContain("msg_002");
+  });
+
+  it("skips sessions without new messages via batch query optimization", async () => {
+    const dbPath = join(tmpDir, "test.db");
+    await writeFile(dbPath, "dummy");
+
+    const { stat: statFn } = await import("node:fs/promises");
+    const dbStat = await statFn(dbPath);
+
+    const oldEpoch = 1700000001000;
+    const oldIso = new Date(oldEpoch).toISOString();
+
+    const mockDb = createMockDb({
+      session: [
+        { data: sessionData("ses_001") },
+        { data: sessionData("ses_002") },
+        { data: sessionData("ses_003") },
+      ],
+      message: [
+        {
+          id: "msg_001",
+          session_id: "ses_001",
+          data: messageData("msg_001", "ses_001", "user", oldEpoch),
+          time_created: oldIso,
+        },
+        {
+          id: "msg_002",
+          session_id: "ses_002",
+          data: messageData("msg_002", "ses_002", "user", oldEpoch),
+          time_created: oldIso,
+        },
+        {
+          id: "msg_003",
+          session_id: "ses_003",
+          data: messageData("msg_003", "ses_003", "user", oldEpoch),
+          time_created: oldIso,
+        },
+      ],
+      part: [
+        { message_id: "msg_001", data: partData("p1", "text", { text: "A" }) },
+        { message_id: "msg_002", data: partData("p2", "text", { text: "B" }) },
+        { message_id: "msg_003", data: partData("p3", "text", { text: "C" }) },
+      ],
+    });
+
+    const openDb: OpenDbFn = () => mockDb;
+    const driver = createOpenCodeSqliteDriver(openDb, dbPath);
+
+    // Watermark at oldIso with all messages already seen
+    const prevCursor: OpenCodeSqliteCursor = {
+      inode: dbStat.ino,
+      lastTimeCreated: oldIso,
+      lastMessageIds: ["msg_001", "msg_002", "msg_003"],
+      updatedAt: "2024-01-01T00:00:00.000Z",
+    };
+
+    const ctx: SyncContext = {};
+    const { results, rowCount } = await driver.run(prevCursor, ctx);
+
+    // All sessions at boundary but all messages already in lastMessageIds → no new data
+    expect(results).toHaveLength(0);
+    expect(rowCount).toBe(0);
   });
 });
