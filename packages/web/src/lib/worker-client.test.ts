@@ -178,6 +178,49 @@ describe("WorkerClient", () => {
       );
       expect(result).toEqual({ id: "new-tag" });
     });
+
+    it("returns null for 204 No Content", async () => {
+      mockFetch.mockResolvedValue({ ok: true, status: 204 });
+      const result = await client.post("/test", "user-1", { data: "test" });
+      expect(result).toBeNull();
+    });
+
+    it("throws WorkerError on non-ok response", async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: async () => "Internal Server Error",
+      });
+
+      await expect(
+        client.post("/test", "user-1", { data: "test" }),
+      ).rejects.toThrow(WorkerError);
+
+      try {
+        await client.post("/test", "user-1", { data: "test" });
+      } catch (err) {
+        expect(err).toBeInstanceOf(WorkerError);
+        expect((err as WorkerError).status).toBe(500);
+        expect((err as WorkerError).message).toBe("Internal Server Error");
+      }
+    });
+
+    it("sends undefined body when no body provided", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      });
+
+      await client.post("/test", "user-1");
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          body: undefined,
+        }),
+      );
+    });
   });
 
   describe("patch", () => {
@@ -197,6 +240,32 @@ describe("WorkerClient", () => {
         }),
       );
     });
+
+    it("returns null for 204 No Content", async () => {
+      mockFetch.mockResolvedValue({ ok: true, status: 204 });
+      const result = await client.patch("/test", "user-1", { data: "test" });
+      expect(result).toBeNull();
+    });
+
+    it("throws WorkerError on non-ok response", async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 422,
+        text: async () => "Unprocessable Entity",
+      });
+
+      await expect(
+        client.patch("/test", "user-1", { data: "test" }),
+      ).rejects.toThrow(WorkerError);
+
+      try {
+        await client.patch("/test", "user-1", { data: "test" });
+      } catch (err) {
+        expect(err).toBeInstanceOf(WorkerError);
+        expect((err as WorkerError).status).toBe(422);
+        expect((err as WorkerError).message).toBe("Unprocessable Entity");
+      }
+    });
   });
 
   describe("put", () => {
@@ -215,6 +284,32 @@ describe("WorkerClient", () => {
           method: "PUT",
         }),
       );
+    });
+
+    it("returns null for 204 No Content", async () => {
+      mockFetch.mockResolvedValue({ ok: true, status: 204 });
+      const result = await client.put("/test", "user-1", { data: "test" });
+      expect(result).toBeNull();
+    });
+
+    it("throws WorkerError on non-ok response", async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 409,
+        text: async () => "Conflict",
+      });
+
+      await expect(
+        client.put("/test", "user-1", { data: "test" }),
+      ).rejects.toThrow(WorkerError);
+
+      try {
+        await client.put("/test", "user-1", { data: "test" });
+      } catch (err) {
+        expect(err).toBeInstanceOf(WorkerError);
+        expect((err as WorkerError).status).toBe(409);
+        expect((err as WorkerError).message).toBe("Conflict");
+      }
     });
   });
 
@@ -249,6 +344,32 @@ describe("WorkerClient", () => {
           body: JSON.stringify({ tagId: "tag-1" }),
         }),
       );
+    });
+
+    it("returns null for 204 No Content", async () => {
+      mockFetch.mockResolvedValue({ ok: true, status: 204 });
+      const result = await client.delete("/test", "user-1");
+      expect(result).toBeNull();
+    });
+
+    it("throws WorkerError on non-ok response", async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 403,
+        text: async () => "Forbidden",
+      });
+
+      await expect(client.delete("/test", "user-1")).rejects.toThrow(
+        WorkerError,
+      );
+
+      try {
+        await client.delete("/test", "user-1");
+      } catch (err) {
+        expect(err).toBeInstanceOf(WorkerError);
+        expect((err as WorkerError).status).toBe(403);
+        expect((err as WorkerError).message).toBe("Forbidden");
+      }
     });
   });
 

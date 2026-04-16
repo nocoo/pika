@@ -191,6 +191,127 @@ describe("handleListSessions", () => {
     expect(sql).toContain("s.total_output_tokens <= ?");
   });
 
+  it("decodes base64 cursor for keyset pagination", async () => {
+    const env = mockEnv({ results: [] });
+    const cursorPayload = btoa(
+      JSON.stringify({ v: "2026-01-01T10:00:00Z", id: "s0" }),
+    );
+    const params = new URLSearchParams({ limit: "10", cursor: cursorPayload });
+
+    const res = await handleListSessions("user-1", params, env);
+
+    expect(res.status).toBe(200);
+    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const stmt = db.prepare();
+    // bind should have been called with cursor values
+    expect(stmt.bind).toHaveBeenCalled();
+  });
+
+  it("applies model filter", async () => {
+    const env = mockEnv({ results: [] });
+    const params = new URLSearchParams({ model: "claude-sonnet" });
+
+    await handleListSessions("user-1", params, env);
+
+    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const sql = db.prepare.mock.calls[0][0];
+    expect(sql).toContain("s.model = ?");
+  });
+
+  it("applies project filter", async () => {
+    const env = mockEnv({ results: [] });
+    const params = new URLSearchParams({ project: "pika" });
+
+    await handleListSessions("user-1", params, env);
+
+    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const sql = db.prepare.mock.calls[0][0];
+    expect(sql).toContain("s.project_ref = ?");
+  });
+
+  it("applies projectKey filter", async () => {
+    const env = mockEnv({ results: [] });
+    const params = new URLSearchParams({ projectKey: "Pika" });
+
+    await handleListSessions("user-1", params, env);
+
+    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const sql = db.prepare.mock.calls[0][0];
+    expect(sql).toContain("COALESCE(s.project_name, s.project_ref)");
+  });
+
+  it("applies from/to date filters", async () => {
+    const env = mockEnv({ results: [] });
+    const params = new URLSearchParams({
+      from: "2026-01-01T00:00:00Z",
+      to: "2026-02-01T00:00:00Z",
+    });
+
+    await handleListSessions("user-1", params, env);
+
+    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const sql = db.prepare.mock.calls[0][0];
+    expect(sql).toContain("s.last_message_at >= ?");
+    expect(sql).toContain("s.last_message_at <= ?");
+  });
+
+  it("applies starred filter", async () => {
+    const env = mockEnv({ results: [] });
+    const params = new URLSearchParams({ starred: "true" });
+
+    await handleListSessions("user-1", params, env);
+
+    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const sql = db.prepare.mock.calls[0][0];
+    expect(sql).toContain("s.is_starred");
+  });
+
+  it("applies deleted filter", async () => {
+    const env = mockEnv({ results: [] });
+    const params = new URLSearchParams({ deleted: "true" });
+
+    await handleListSessions("user-1", params, env);
+
+    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const sql = db.prepare.mock.calls[0][0];
+    expect(sql).toContain("s.deleted_at IS NOT NULL");
+  });
+
+  it("applies includeDeleted filter", async () => {
+    const env = mockEnv({ results: [] });
+    const params = new URLSearchParams({ includeDeleted: "true" });
+
+    await handleListSessions("user-1", params, env);
+
+    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const sql = db.prepare.mock.calls[0][0];
+    // When includeDeleted is true, there should be no deleted_at filter
+    expect(sql).not.toContain("s.deleted_at IS NULL");
+    expect(sql).not.toContain("s.deleted_at IS NOT NULL");
+  });
+
+  it("applies minMessages filter", async () => {
+    const env = mockEnv({ results: [] });
+    const params = new URLSearchParams({ minMessages: "5" });
+
+    await handleListSessions("user-1", params, env);
+
+    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const sql = db.prepare.mock.calls[0][0];
+    expect(sql).toContain("s.total_messages >= ?");
+  });
+
+  it("applies maxMessages filter", async () => {
+    const env = mockEnv({ results: [] });
+    const params = new URLSearchParams({ maxMessages: "50" });
+
+    await handleListSessions("user-1", params, env);
+
+    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const sql = db.prepare.mock.calls[0][0];
+    expect(sql).toContain("s.total_messages <= ?");
+  });
+
   it("applies total token filters", async () => {
     const env = mockEnv({ results: [] });
     const params = new URLSearchParams({
@@ -294,6 +415,52 @@ describe("handleGetSessionContent", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toBe("application/json");
+  });
+
+  it("returns 403 when content_key does not belong to user", async () => {
+    const env = mockEnv({
+      firstResult: { content_key: "other-user/s1/canonical.json.gz" },
+    });
+    const res = await handleGetSessionContent("user-1", "s1", env);
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as Record<string, any>;
+    expect(body.error).toContain("Forbidden");
+  });
+
+  it("decompresses gzipped content from R2", async () => {
+    const jsonContent = JSON.stringify({ messages: ["hello"] });
+    const encoded = new TextEncoder().encode(jsonContent);
+
+    // Compress the content using CompressionStream
+    const compressedStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoded);
+        controller.close();
+      },
+    }).pipeThrough(
+      new CompressionStream("gzip") as unknown as TransformStream<
+        Uint8Array,
+        Uint8Array
+      >,
+    );
+
+    const env = mockEnv(
+      { firstResult: { content_key: "user-1/s1/canonical.json.gz" } },
+      {
+        getResult: {
+          body: compressedStream,
+          httpMetadata: { contentEncoding: "gzip" },
+        },
+      },
+    );
+
+    const res = await handleGetSessionContent("user-1", "s1", env);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("application/json");
+    const body = await res.text();
+    const parsed = JSON.parse(body);
+    expect(parsed.messages).toEqual(["hello"]);
   });
 });
 
@@ -493,6 +660,16 @@ describe("handleSetStar", () => {
     expect(body.starred).toBe(false);
   });
 
+  it("returns 400 for null body", async () => {
+    const env = mockEnv();
+
+    const res = await handleSetStar("user-1", "sess-1", null, env);
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as Record<string, any>;
+    expect(body.error).toContain("Invalid request body");
+  });
+
   it("returns 400 for invalid body", async () => {
     const env = mockEnv();
 
@@ -554,6 +731,16 @@ describe("handleTrashSession", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, any>;
     expect(body.deleted).toBe(false);
+  });
+
+  it("returns 400 for null body", async () => {
+    const env = mockEnv();
+
+    const res = await handleTrashSession("user-1", "sess-1", null, env);
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as Record<string, any>;
+    expect(body.error).toContain("Invalid request body");
   });
 
   it("returns 400 for invalid body", async () => {
@@ -691,6 +878,35 @@ describe("handleBatchOperation", () => {
     expect(body.affected).toBe(5);
   });
 
+  it("returns 400 when ids exceed MAX_BATCH_IDS (100)", async () => {
+    const env = mockEnv();
+    const ids = Array.from({ length: 101 }, (_, i) => `s${i}`);
+
+    const res = await handleBatchOperation(
+      "user-1",
+      { action: "delete", ids },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as Record<string, any>;
+    expect(body.error).toContain("Too many IDs");
+  });
+
+  it("returns 400 when ids contain non-string values", async () => {
+    const env = mockEnv();
+
+    const res = await handleBatchOperation(
+      "user-1",
+      { action: "delete", ids: [123, "s1"] },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as Record<string, any>;
+    expect(body.error).toBeDefined();
+  });
+
   it("returns 400 when both ids and filter provided", async () => {
     const env = mockEnv();
 
@@ -765,6 +981,20 @@ describe("handleConfirmRaw", () => {
     const res = await handleConfirmRaw(
       "user-1",
       { sessionKey: "sess-1", rawHash: "abc12345" },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as Record<string, any>;
+    expect(body.error).toContain("rawSize");
+  });
+
+  it("returns 400 for non-integer rawSize", async () => {
+    const env = mockEnv();
+
+    const res = await handleConfirmRaw(
+      "user-1",
+      { sessionKey: "sess-1", rawHash: "abc12345", rawSize: 1.5 },
       env,
     );
 

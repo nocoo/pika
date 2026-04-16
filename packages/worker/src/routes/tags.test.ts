@@ -172,6 +172,16 @@ describe("handleCreateTag", () => {
 
     expect(res.status).toBe(400);
   });
+
+  it("returns 400 when name is a number type", async () => {
+    const env = mockEnv();
+
+    const res = await handleCreateTag("user-1", { name: 123 }, env);
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as Record<string, any>;
+    expect(body.error).toContain("name");
+  });
 });
 
 // ── handleUpdateTag tests ──────────────────────────────────────
@@ -318,6 +328,47 @@ describe("handleUpdateTag", () => {
     const res = await handleUpdateTag("user-1", "tag-1", null, env);
 
     expect(res.status).toBe(400);
+  });
+
+  it("returns 400 for name too long", async () => {
+    const env = mockEnv();
+    const longName = "a".repeat(51);
+
+    const res = await handleUpdateTag(
+      "user-1",
+      "tag-1",
+      { name: longName },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as Record<string, any>;
+    expect(body.error).toContain("50 characters");
+  });
+
+  it("returns 400 for invalid color in update", async () => {
+    const env = mockEnv();
+
+    const res = await handleUpdateTag(
+      "user-1",
+      "tag-1",
+      { color: "not-a-color" },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as Record<string, any>;
+    expect(body.error).toContain("color");
+  });
+
+  it("returns 400 for empty name string", async () => {
+    const env = mockEnv();
+
+    const res = await handleUpdateTag("user-1", "tag-1", { name: "" }, env);
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as Record<string, any>;
+    expect(body.error).toContain("name");
   });
 });
 
@@ -525,6 +576,46 @@ describe("handleAddSessionTag", () => {
 
     expect(res.status).toBe(400);
   });
+
+  it("returns 404 when tag not found by tagId", async () => {
+    const db = mockD1();
+    const prepare = db.prepare as ReturnType<typeof vi.fn>;
+    let callCount = 0;
+    prepare.mockImplementation(() => {
+      callCount++;
+      return {
+        bind: vi.fn().mockReturnThis(),
+        first: vi.fn().mockResolvedValue(
+          callCount === 1 ? { id: "sess-1" } : null, // session found, tag not found
+        ),
+        run: vi.fn().mockResolvedValue({ meta: { changes: 1 } }),
+      };
+    });
+    const env = { DB: db, BUCKET: {} as R2Bucket, WORKER_SECRET: "test" };
+
+    const res = await handleAddSessionTag(
+      "user-1",
+      "sess-1",
+      { tagId: "nonexistent-tag" },
+      env,
+    );
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as Record<string, any>;
+    expect(body.error).toContain("Tag not found");
+  });
+
+  it("returns 400 when tagId is empty string and tagName is falsy", async () => {
+    const env = mockEnv();
+
+    const res = await handleAddSessionTag(
+      "user-1",
+      "sess-1",
+      { tagId: "", tagName: "" },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+  });
 });
 
 // ── handleRemoveSessionTag tests ───────────────────────────────
@@ -592,6 +683,19 @@ describe("handleRemoveSessionTag", () => {
     const env = mockEnv();
 
     const res = await handleRemoveSessionTag("user-1", "sess-1", null, env);
+
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when tagId and tagName are empty strings", async () => {
+    const env = mockEnv();
+
+    const res = await handleRemoveSessionTag(
+      "user-1",
+      "sess-1",
+      { tagId: "", tagName: "" },
+      env,
+    );
 
     expect(res.status).toBe(400);
   });

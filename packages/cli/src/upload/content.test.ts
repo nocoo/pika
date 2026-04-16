@@ -12,7 +12,7 @@ import {
   uploadSessionContent,
   uploadToPresignedUrl,
 } from "./content";
-import { AuthError, ClientError, RetryExhaustedError } from "./engine";
+import { AuthError, ClientError, RetryExhaustedError, sha256 } from "./engine";
 
 // ── Fixtures ───────────────────────────────────────────────────
 
@@ -733,6 +733,23 @@ describe("requestPresignedUrl", () => {
     expect(err.statusCode).toBe(400);
   });
 
+  it("throws ClientError when response is missing key (only url present)", async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ url: "https://r2.example.com/presigned" }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    );
+    const err = await requestPresignedUrl("key", "hash1234", opts()).catch(
+      (e) => e,
+    );
+    expect(err).toBeInstanceOf(ClientError);
+    expect(err.body).toContain("missing url or key");
+  });
+
   it("throws ClientError when response is missing url", async () => {
     mockFetch.mockResolvedValueOnce(
       new Response(JSON.stringify({ key: "k" }), {
@@ -792,6 +809,34 @@ describe("uploadToPresignedUrl", () => {
         opts(),
       ),
     ).resolves.toBeUndefined();
+  });
+
+  it("retries on network error (fetch throws)", async () => {
+    mockFetch
+      .mockRejectedValueOnce(new Error("Network error"))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }));
+    await uploadToPresignedUrl(
+      "https://r2.example.com/p",
+      Buffer.from("data"),
+      opts(),
+    );
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockSleep).toHaveBeenCalledWith(INITIAL_BACKOFF_MS);
+  });
+
+  it("throws RetryExhaustedError when network error exhausts retries", async () => {
+    mockFetch
+      .mockRejectedValueOnce(new Error("Network error"))
+      .mockRejectedValueOnce(new Error("Network error"))
+      .mockRejectedValueOnce(new Error("Network error"));
+
+    await expect(
+      uploadToPresignedUrl(
+        "https://r2.example.com/p",
+        Buffer.from("data"),
+        opts(),
+      ),
+    ).rejects.toThrow(RetryExhaustedError);
   });
 
   it("retries on 5xx with backoff", async () => {
@@ -1072,5 +1117,239 @@ describe("uploadSessionContent (presigned flow)", () => {
     await expect(
       uploadSessionContent(canonical, raw, { ...opts(), fetch: routerFetch }),
     ).rejects.toThrow(AuthError);
+  });
+});
+
+// ── uploadSessionContent with precomputed hashes ──────────────
+
+describe("uploadSessionContent (precomputed hashes)", () => {
+  let mockFetch: ReturnType<typeof vi.fn>;
+  let mockSleep: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    mockSleep = vi.fn().mockResolvedValue(undefined);
+  });
+
+  function opts(
+    overrides?: Partial<ContentUploadOptions>,
+  ): ContentUploadOptions {
+    return makeOpts({ fetch: mockFetch, sleep: mockSleep, ...overrides });
+  }
+
+  it("uses precomputed hashes instead of recomputing", async () => {
+    const canonical = makeCanonical();
+    const raw = makeRaw();
+
+    const canonicalJson = JSON.stringify(canonical);
+    const rawJson = JSON.stringify(raw);
+    const contentHash = sha256(canonicalJson);
+    const rawHash = sha256(rawJson);
+
+    mockFetch
+      .mockResolvedValueOnce(new Response(null, { status: 201 })) // canonical PUT
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ url: "https://r2/presigned", key: "k" }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ) // presign
+      .mockResolvedValueOnce(new Response(null, { status: 200 })) // R2 PUT
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ confirmed: true }), { status: 200 }),
+      ); // confirm
+
+    const result = await uploadSessionContent(canonical, raw, opts(), {
+      canonicalJson,
+      rawJson,
+      contentHash,
+      rawHash,
+    });
+
+    expect(result.contentHash).toBe(contentHash);
+    expect(result.rawHash).toBe(rawHash);
+    expect(result.canonicalUploaded).toBe(true);
+    expect(result.rawUploaded).toBe(true);
+
+    // Verify the X-Content-Hash header matches precomputed hash
+    const canonicalInit = mockFetch.mock.calls[0][1];
+    expect(canonicalInit.headers["X-Content-Hash"]).toBe(contentHash);
+  });
+});
+
+// ── putWithRetry — network error retry (via uploadSessionContent) ──
+
+describe("putWithRetry (network error via uploadSessionContent)", () => {
+  let mockSleep: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockSleep = vi.fn().mockResolvedValue(undefined);
+  });
+
+  it("retries canonical PUT on network error then succeeds", async () => {
+    const canonical = makeCanonical();
+    const raw = makeRaw();
+
+    const callLog: string[] = [];
+    let canonicalAttempt = 0;
+
+    const routerFetch = vi.fn().mockImplementation((url: string) => {
+      callLog.push(url);
+      if (url.includes("/canonical")) {
+        canonicalAttempt++;
+        if (canonicalAttempt === 1) {
+          return Promise.reject(new Error("Network error"));
+        }
+        return Promise.resolve(new Response(null, { status: 201 }));
+      }
+      if (url.includes("/presign")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ url: "https://r2/p", key: "k" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      if (url.includes("/confirm-raw")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ confirmed: true }), { status: 200 }),
+        );
+      }
+      return Promise.resolve(new Response(null, { status: 200 }));
+    });
+
+    const result = await uploadSessionContent(canonical, raw, {
+      ...makeOpts({ sleep: mockSleep }),
+      fetch: routerFetch,
+    });
+
+    expect(result.canonicalUploaded).toBe(true);
+    expect(mockSleep).toHaveBeenCalledWith(INITIAL_BACKOFF_MS);
+  });
+});
+
+// ── uploadContentBatch — both canonical+raw 204 ──────────────
+
+describe("uploadContentBatch (both 204 — fully skipped)", () => {
+  let mockSleep: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockSleep = vi.fn().mockResolvedValue(undefined);
+  });
+
+  it("counts session as skipped when both canonical and raw return 204", async () => {
+    const sessions = [{ canonical: makeCanonical(), raw: makeRaw() }];
+
+    // canonical 204 + raw presign succeeds but R2 returns 204-equivalent
+    // For raw: presign → R2 PUT (200) → confirm OK, so raw is uploaded
+    // To get both skipped, the raw proxy fallback must also 204
+    // Actually: canonical 204 = not uploaded, raw uses presigned flow which returns true
+    // For both to be "not uploaded", we need canonical 204 AND raw presigned flow to fail
+    // then fallback proxy also 204
+    const routerFetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/canonical")) {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      if (url.includes("/presign")) {
+        // Presign fails with non-auth error → triggers proxy fallback
+        return Promise.resolve(new Response("Server error", { status: 500 }));
+      }
+      if (url.includes("/raw")) {
+        // Proxy fallback also returns 204 (no-op)
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      return Promise.resolve(new Response(null, { status: 200 }));
+    });
+
+    const result = await uploadContentBatch(
+      sessions,
+      { ...makeOpts({ sleep: mockSleep }), fetch: routerFetch },
+      1,
+    );
+    // Neither canonical nor raw was uploaded → skipped
+    expect(result.skipped).toBe(1);
+    expect(result.uploaded).toBe(0);
+    expect(result.errors).toEqual([]);
+  });
+});
+
+// ── uploadSessionContent — raw presigned fallback to proxy on non-auth error ──
+
+describe("uploadSessionContent (raw proxy fallback on non-auth error)", () => {
+  let mockSleep: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockSleep = vi.fn().mockResolvedValue(undefined);
+  });
+
+  it("falls back to proxy when presign returns 500", async () => {
+    const canonical = makeCanonical();
+    const raw = makeRaw();
+
+    const callLog: string[] = [];
+    const routerFetch = vi.fn().mockImplementation((url: string) => {
+      callLog.push(url);
+      if (url.includes("/canonical")) {
+        return Promise.resolve(new Response(null, { status: 201 }));
+      }
+      if (url.includes("/presign")) {
+        return Promise.resolve(new Response("Internal error", { status: 500 }));
+      }
+      if (url.includes("/raw")) {
+        return Promise.resolve(new Response(null, { status: 201 }));
+      }
+      return Promise.resolve(new Response(null, { status: 200 }));
+    });
+
+    const result = await uploadSessionContent(canonical, raw, {
+      ...makeOpts({ sleep: mockSleep }),
+      fetch: routerFetch,
+    });
+
+    expect(result.canonicalUploaded).toBe(true);
+    expect(result.rawUploaded).toBe(true);
+    // Should have called: canonical, presign (fail), raw proxy fallback
+    expect(callLog.some((u) => u.includes("/presign"))).toBe(true);
+    expect(callLog.some((u) => u.includes("/raw"))).toBe(true);
+  });
+
+  it("falls back to proxy when R2 PUT fails with ClientError", async () => {
+    const canonical = makeCanonical();
+    const raw = makeRaw();
+
+    const routerFetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/canonical")) {
+        return Promise.resolve(new Response(null, { status: 201 }));
+      }
+      if (url.includes("/presign")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ url: "https://r2/p", key: "k" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      if (url.includes("r2")) {
+        // R2 PUT fails with 403
+        return Promise.resolve(new Response("Forbidden", { status: 403 }));
+      }
+      if (url.includes("/raw")) {
+        return Promise.resolve(new Response(null, { status: 201 }));
+      }
+      if (url.includes("/confirm-raw")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ confirmed: true }), { status: 200 }),
+        );
+      }
+      return Promise.resolve(new Response(null, { status: 200 }));
+    });
+
+    const result = await uploadSessionContent(canonical, raw, {
+      ...makeOpts({ sleep: mockSleep }),
+      fetch: routerFetch,
+    });
+
+    expect(result.canonicalUploaded).toBe(true);
+    expect(result.rawUploaded).toBe(true);
   });
 });

@@ -141,6 +141,27 @@ describe("resolveUserForWorker", () => {
 
     expect(result).toBeNull();
   });
+
+  it("returns null when WORKER_URL is missing and API key is provided", async () => {
+    delete process.env.WORKER_URL;
+    mockAuth.mockResolvedValue(null);
+    const request = new Request("http://localhost:7022/api/test", {
+      headers: { Authorization: "Bearer pk_abcd1234" },
+    });
+    const result = await resolveUserForWorker(request);
+    expect(result).toBeNull();
+  });
+
+  it("returns null when fetch throws a network error for API key auth", async () => {
+    mockAuth.mockResolvedValue(null);
+    mockFetch.mockRejectedValue(new Error("Network error"));
+
+    const request = new Request("http://localhost:7022/api/test", {
+      headers: { Authorization: "Bearer pk_abcd1234" },
+    });
+    const result = await resolveUserForWorker(request);
+    expect(result).toBeNull();
+  });
 });
 
 describe("handleWorkerError", () => {
@@ -163,6 +184,14 @@ describe("handleWorkerError", () => {
     const response = handleWorkerError(err);
 
     expect(response.status).toBe(500);
+  });
+
+  it("handles non-Error value (string thrown)", async () => {
+    const response = handleWorkerError("something went wrong");
+
+    expect(response.status).toBe(500);
+    const body = await response.json();
+    expect(body.error).toContain("something went wrong");
   });
 });
 
@@ -244,6 +273,59 @@ describe("createWorkerGetRoute", () => {
       expect.anything(),
     );
   });
+
+  it("uses extractParams option when provided", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: "filtered" }),
+    });
+
+    const handler = createWorkerGetRoute("/sessions", (url) => ({
+      custom: url.searchParams.get("custom") ?? "",
+    }));
+    const request = new Request(
+      "http://localhost:7022/api/sessions?custom=value&ignored=true",
+    );
+    const response = await handler(request);
+
+    expect(response.status).toBe(200);
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        href: expect.stringContaining("custom=value"),
+      }),
+      expect.anything(),
+    );
+    // The ignored param should not be passed
+    const calledUrl = mockFetch.mock.calls[0][0] as URL;
+    expect(calledUrl.href).not.toContain("ignored=true");
+  });
+
+  it("returns WorkerError status when worker throws WorkerError", async () => {
+    mockFetch.mockImplementation(() => {
+      throw new WorkerError(403, "Forbidden");
+    });
+
+    const handler = createWorkerGetRoute("/sessions");
+    const request = new Request("http://localhost:7022/api/sessions");
+    const response = await handler(request);
+
+    expect(response.status).toBe(403);
+  });
+
+  it("returns 204 when worker returns null", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 204,
+      json: async () => null,
+    });
+
+    const handler = createWorkerGetRoute("/sessions");
+    const request = new Request("http://localhost:7022/api/sessions");
+    const response = await handler(request);
+
+    expect(response.status).toBe(204);
+  });
 });
 
 describe("createWorkerPostRoute", () => {
@@ -294,6 +376,42 @@ describe("createWorkerPostRoute", () => {
 
     expect(response.status).toBe(400);
   });
+
+  it("uses custom successStatus option", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true }),
+    });
+
+    const handler = createWorkerPostRoute("/actions", { successStatus: 200 });
+    const request = new Request("http://localhost:7022/api/actions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "run" }),
+    });
+    const response = await handler(request);
+
+    expect(response.status).toBe(200);
+  });
+
+  it("returns 204 when worker returns null", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 204,
+      json: async () => null,
+    });
+
+    const handler = createWorkerPostRoute("/actions");
+    const request = new Request("http://localhost:7022/api/actions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "run" }),
+    });
+    const response = await handler(request);
+
+    expect(response.status).toBe(204);
+  });
 });
 
 describe("createWorkerPatchRoute", () => {
@@ -331,6 +449,51 @@ describe("createWorkerPatchRoute", () => {
 
     expect(response.status).toBe(200);
   });
+
+  it("returns 400 for invalid JSON body", async () => {
+    const handler = createWorkerPatchRoute("/sessions/123/star");
+    const request = new Request("http://localhost:7022/api/sessions/123/star", {
+      method: "PATCH",
+      body: "not json",
+    });
+    const response = await handler(request);
+
+    expect(response.status).toBe(400);
+  });
+
+  it("returns 204 when worker returns null", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 204,
+      json: async () => null,
+    });
+
+    const handler = createWorkerPatchRoute("/sessions/123/star");
+    const request = new Request("http://localhost:7022/api/sessions/123/star", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ starred: true }),
+    });
+    const response = await handler(request);
+
+    expect(response.status).toBe(204);
+  });
+
+  it("returns WorkerError status when worker throws WorkerError", async () => {
+    mockFetch.mockImplementation(() => {
+      throw new WorkerError(409, "Conflict");
+    });
+
+    const handler = createWorkerPatchRoute("/sessions/123/star");
+    const request = new Request("http://localhost:7022/api/sessions/123/star", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ starred: true }),
+    });
+    const response = await handler(request);
+
+    expect(response.status).toBe(409);
+  });
 });
 
 describe("createWorkerPutRoute", () => {
@@ -367,6 +530,35 @@ describe("createWorkerPutRoute", () => {
     const response = await handler(request);
 
     expect(response.status).toBe(200);
+  });
+
+  it("returns 400 for invalid JSON body", async () => {
+    const handler = createWorkerPutRoute("/sessions/123/tags");
+    const request = new Request("http://localhost:7022/api/sessions/123/tags", {
+      method: "PUT",
+      body: "not json",
+    });
+    const response = await handler(request);
+
+    expect(response.status).toBe(400);
+  });
+
+  it("returns 204 when worker returns null", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 204,
+      json: async () => null,
+    });
+
+    const handler = createWorkerPutRoute("/sessions/123/tags");
+    const request = new Request("http://localhost:7022/api/sessions/123/tags", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tagId: "tag-1" }),
+    });
+    const response = await handler(request);
+
+    expect(response.status).toBe(204);
   });
 });
 

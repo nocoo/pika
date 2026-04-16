@@ -337,6 +337,85 @@ headObjectDescribe("R2Client.headObject", () => {
   });
 });
 
+// ── getObject() ───────────────────────────────────────────────
+const getObjectDescribe =
+  typeof (globalThis as any).Bun !== "undefined" ? describe.skip : describe;
+
+getObjectDescribe("R2Client.getObject", () => {
+  it("returns bytes when object exists", async () => {
+    const { __mockSend } = (await import("@aws-sdk/client-s3")) as unknown as {
+      __mockSend: ReturnType<typeof vi.fn>;
+    };
+    const bytes = new Uint8Array([1, 2, 3]);
+    __mockSend.mockResolvedValueOnce({
+      Body: { transformToByteArray: () => Promise.resolve(bytes) },
+    });
+    const client = new R2Client(cfg);
+    const result = await client.getObject("some/key");
+    expect(result).toEqual(bytes);
+  });
+
+  it("returns null when body is null", async () => {
+    const { __mockSend } = (await import("@aws-sdk/client-s3")) as unknown as {
+      __mockSend: ReturnType<typeof vi.fn>;
+    };
+    __mockSend.mockResolvedValueOnce({ Body: null });
+    const client = new R2Client(cfg);
+    const result = await client.getObject("some/key");
+    expect(result).toBeNull();
+  });
+
+  it("returns null for NoSuchKey error", async () => {
+    const { __mockSend } = (await import("@aws-sdk/client-s3")) as unknown as {
+      __mockSend: ReturnType<typeof vi.fn>;
+    };
+    const err = new Error("No such key");
+    err.name = "NoSuchKey";
+    __mockSend.mockRejectedValueOnce(err);
+    const client = new R2Client(cfg);
+    const result = await client.getObject("missing/key");
+    expect(result).toBeNull();
+  });
+
+  it("returns null for NotFound error", async () => {
+    const { __mockSend } = (await import("@aws-sdk/client-s3")) as unknown as {
+      __mockSend: ReturnType<typeof vi.fn>;
+    };
+    const err = new Error("Not Found");
+    err.name = "NotFound";
+    __mockSend.mockRejectedValueOnce(err);
+    const client = new R2Client(cfg);
+    const result = await client.getObject("missing/key");
+    expect(result).toBeNull();
+  });
+
+  it("rethrows unexpected errors", async () => {
+    const { __mockSend } = (await import("@aws-sdk/client-s3")) as unknown as {
+      __mockSend: ReturnType<typeof vi.fn>;
+    };
+    __mockSend.mockRejectedValueOnce(new Error("NetworkError"));
+    const client = new R2Client(cfg);
+    await expect(client.getObject("some/key")).rejects.toThrow("NetworkError");
+  });
+});
+
+// ── putPresignedUrl default contentType ───────────────────────
+
+describe("R2Client.putPresignedUrl default contentType", () => {
+  it("uses application/octet-stream as default contentType", async () => {
+    const { PutObjectCommand } = await import("@aws-sdk/client-s3");
+    const client = new R2Client(cfg);
+
+    await client.putPresignedUrl("some/key.bin");
+
+    expect(PutObjectCommand).toHaveBeenCalledWith({
+      Bucket: "pika-sessions",
+      Key: "some/key.bin",
+      ContentType: "application/octet-stream",
+    });
+  });
+});
+
 // ── assertTestBucket ────────────────────────────────────────
 
 describe("assertTestBucket", () => {
