@@ -10,6 +10,7 @@ import {
   chartPositive,
   chartPrimary,
   modelColor,
+  projectColor,
   withAlpha,
 } from "./palette";
 
@@ -96,6 +97,31 @@ describe("modelColor", () => {
 
   it("token and color are consistent", () => {
     const result = modelColor("sonnet-4");
+    const idx = CHART_TOKENS.indexOf(result.token);
+    expect(idx).toBeGreaterThanOrEqual(0);
+    expect(result.color).toBe(CHART_COLORS[idx]);
+  });
+});
+
+// ── projectColor ──────────────────────────────────────────────
+
+describe("projectColor", () => {
+  it("returns deterministic color for a project ref", () => {
+    const a = projectColor("abc123");
+    const b = projectColor("abc123");
+    expect(a.color).toBe(b.color);
+    expect(a.token).toBe(b.token);
+  });
+
+  it("returns different colors for different refs", () => {
+    const a = projectColor("project-alpha");
+    const b = projectColor("project-beta");
+    expect(CHART_TOKENS).toContain(a.token);
+    expect(CHART_TOKENS).toContain(b.token);
+  });
+
+  it("token and color are consistent", () => {
+    const result = projectColor("my-project");
     const idx = CHART_TOKENS.indexOf(result.token);
     expect(idx).toBeGreaterThanOrEqual(0);
     expect(result.color).toBe(CHART_COLORS[idx]);

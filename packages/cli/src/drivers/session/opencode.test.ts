@@ -383,6 +383,46 @@ describe("openCodeJsonDriver.shouldSkip", () => {
     }
   });
 
+  it("returns false when message dir appears after cursor was built without one", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "pika-oc-skip-"));
+    try {
+      const storageDir = join(tmpDir, "storage");
+      const sessDir = join(storageDir, "session", "proj_a");
+      const messageDir = join(storageDir, "message");
+      await mkdir(sessDir, { recursive: true });
+      await mkdir(messageDir, { recursive: true });
+      await writeSessionJson(sessDir, "ses_001");
+      // No message dir for this session initially
+
+      const ctx: SyncContext = {};
+      const driver = createOpenCodeJsonDriver(ctx);
+
+      // First discover — no message dir exists
+      const files = await driver.discover({ openCodeMessageDir: messageDir });
+      const fileStat = await stat(files[0]);
+      const fingerprint = fp({
+        inode: fileStat.ino,
+        mtimeMs: fileStat.mtimeMs,
+        size: fileStat.size,
+      });
+
+      // Build cursor without messageDirMtimeMs (no message dir existed)
+      const cursor = driver.buildCursor(fingerprint, []);
+      expect(cursor.messageDirMtimeMs).toBeUndefined();
+
+      // Now create a message dir (message dir appears)
+      await writeMessageJson(messageDir, "ses_001", "msg_001");
+
+      // Re-discover to update msgDirMtimes
+      await driver.discover({ openCodeMessageDir: messageDir });
+
+      // Should NOT skip — message dir appeared
+      expect(driver.shouldSkip(cursor, fingerprint)).toBe(false);
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it("returns true when nothing changed (session file + message dir)", async () => {
     const tmpDir = await mkdtemp(join(tmpdir(), "pika-oc-skip-"));
     try {

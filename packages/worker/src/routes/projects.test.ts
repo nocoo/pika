@@ -90,6 +90,31 @@ describe("handleListProjects", () => {
     expect(body.projects).toEqual([]);
     expect(body.overview.totalProjects).toBe(0);
   });
+
+  it("groups source distribution by project_key", async () => {
+    const sources = [
+      { project_key: "pika", source: "claude-code", count: 7 },
+      { project_key: "pika", source: "opencode", count: 3 },
+      { project_key: "cov", source: "claude-code", count: 5 },
+    ];
+    const overview = {
+      total_projects: 2,
+      total_sessions: 15,
+      total_messages: 150,
+    };
+
+    // The mock's `all()` returns `results` and `first()` returns `firstResult`
+    const env = mockEnv({ results: sources, firstResult: overview });
+    const params = new URLSearchParams();
+    const res = await handleListProjects("user-1", params, env);
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, any>;
+    expect(body.sourceDistribution.pika).toHaveLength(2);
+    expect(body.sourceDistribution.cov).toHaveLength(1);
+    expect(body.sourceDistribution.pika[0].source).toBe("claude-code");
+    expect(body.sourceDistribution.pika[1].source).toBe("opencode");
+  });
 });
 
 // ── handleProjectActivity tests ────────────────────────────────

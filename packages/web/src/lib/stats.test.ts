@@ -85,6 +85,16 @@ describe("buildDailyActivityQuery", () => {
     const { sql } = buildDailyActivityQuery("u1");
     expect(sql).toContain("deleted_at IS NULL");
   });
+
+  it("returns all-time query when days is null", () => {
+    const { sql, params } = buildDailyActivityQuery("u1", null);
+
+    expect(sql).toContain("date(started_at) AS date");
+    expect(sql).toContain("GROUP BY date(started_at)");
+    expect(sql).toContain("ORDER BY date ASC");
+    expect(sql).not.toContain("datetime('now'");
+    expect(params).toEqual(["u1"]);
+  });
 });
 
 // ── buildTopProjectsQuery ──────────────────────────────────────
