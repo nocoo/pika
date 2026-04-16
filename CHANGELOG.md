@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.4] - 2026-04-16
+
+### Fixes
+
+- **OpenCode SQLite watermark** — Fix cursor never advancing when all sessions are skipped by JSON cross-source dedup, causing 7,099 sessions to be full-scanned on every `pika sync` run
+
+### Performance
+
+- **Batch session skip** — Use single `SELECT DISTINCT session_id` query to identify sessions with new messages, reducing per-session queries from O(N) to O(1) + O(changed)
+- **Boundary ID collection** — Replace per-session boundary ID loop with single cross-session query
+
 ## [0.8.3] - 2026-04-14
 
 ### Fixes
