@@ -100,7 +100,7 @@ export default function SessionDetailPage() {
             className="size-4"
             fill="none"
             viewBox="0 0 24 24"
-            strokeWidth={2}
+            strokeWidth={1.5}
             stroke="currentColor"
             aria-hidden="true"
           >

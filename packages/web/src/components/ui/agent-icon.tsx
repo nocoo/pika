@@ -49,7 +49,7 @@ function OpenCodeIcon({ className }: { className?: string }) {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={2}
+      strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
       className={cn("size-4", className)}
@@ -67,7 +67,7 @@ function CopilotIcon({ className }: { className?: string }) {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={2}
+      strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
       className={cn("size-4", className)}
@@ -106,7 +106,7 @@ export function AgentIcon({ source, className }: AgentIconProps) {
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
-        strokeWidth={2}
+        strokeWidth={1.5}
         strokeLinecap="round"
         strokeLinejoin="round"
         className={cn("size-4", className)}

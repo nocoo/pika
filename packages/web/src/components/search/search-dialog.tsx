@@ -149,7 +149,7 @@ function SearchDialogContent({
             className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"
             fill="none"
             viewBox="0 0 24 24"
-            strokeWidth={2}
+            strokeWidth={1.5}
             stroke="currentColor"
             aria-hidden="true"
           >
@@ -240,7 +240,7 @@ function SearchDialogContent({
               className="size-12 mb-3 text-muted-foreground/30"
               fill="none"
               viewBox="0 0 24 24"
-              strokeWidth={1}
+              strokeWidth={1.5}
               stroke="currentColor"
               aria-hidden="true"
             >
@@ -261,7 +261,7 @@ function SearchDialogContent({
               className="size-12 mb-3 text-muted-foreground/30"
               fill="none"
               viewBox="0 0 24 24"
-              strokeWidth={1}
+              strokeWidth={1.5}
               stroke="currentColor"
               aria-hidden="true"
             >

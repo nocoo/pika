@@ -32,13 +32,13 @@ function InstallCommand() {
       {copied ? (
         <Check
           className="h-4 w-4 text-success shrink-0"
-          strokeWidth={2}
+          strokeWidth={1.5}
           aria-hidden="true"
         />
       ) : (
         <Copy
           className="h-4 w-4 text-muted-foreground group-hover:text-foreground shrink-0 transition-[color] duration-200"
-          strokeWidth={2}
+          strokeWidth={1.5}
           aria-hidden="true"
         />
       )}

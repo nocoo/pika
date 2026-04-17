@@ -394,7 +394,7 @@ export function ProjectActivityChart({
               type="monotone"
               dataKey={primaryKey}
               stroke={primaryMetric.color}
-              strokeWidth={2}
+              strokeWidth={1.5}
               fill="url(#gradPrimary)"
             />
             {/* Secondary metric: Line */}
@@ -404,7 +404,7 @@ export function ProjectActivityChart({
                 type="monotone"
                 dataKey={secondaryMetric.key}
                 stroke={secondaryMetric.color}
-                strokeWidth={2}
+                strokeWidth={1.5}
                 dot={false}
                 strokeDasharray="4 2"
               />
