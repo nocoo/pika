@@ -20,7 +20,8 @@
     "lint:deps": "osv-scanner scan --lockfile=bun.lock --config .osv-scanner.toml",
     "lint:all": "bun run lint && bunx biome check packages/ && bun run lint:secrets && bun run lint:deps",
     "sync-versions": "bun scripts/sync-versions.ts --write",
-    "prepare": "husky"
+    "prepare": "husky",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p packages/web/tsconfig.json"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.9",
@@ -38,5 +39,10 @@
   },
   "dependencies": {
     "vite": "^8.0.7"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,json}": [
+      "biome check --error-on-warnings --no-errors-on-unmatched"
+    ]
   }
 }
