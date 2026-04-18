@@ -25,6 +25,21 @@ trap 'rm -rf "$LOG_DIR" "$PHASE_DIR"' EXIT
 
 now_ms() { python3 -c 'import time;print(int(time.time()*1000))'; }
 
+# Number of repetitions; we report the median across runs to suppress system
+# noise (CPU contention from background processes, FS cache effects, etc.).
+REPS="${PIKA_BENCH_REPS:-2}"
+
+median() {
+  printf '%s\n' "$@" | sort -n | awk '
+    { a[NR]=$1 }
+    END {
+      n = NR
+      if (n == 0) { print 0; exit }
+      if (n % 2 == 1) { print a[(n+1)/2] }
+      else { print int((a[n/2] + a[n/2+1]) / 2) }
+    }'
+}
+
 BENCH_FAILED=0
 
 dump_on_fail() {
@@ -42,33 +57,53 @@ read_phase_ms() {
   cat "$PHASE_DIR/$name.ms" 2>/dev/null || echo 0
 }
 
-# --- pre-commit ---
-t1=$(now_ms)
-PIKA_PHASE_DIR="$PHASE_DIR" .husky/pre-commit \
-  >"$LOG_DIR/pre-commit.log" 2>&1
-PC_RC=$?
-t2=$(now_ms)
-PRECOMMIT_MS=$(( t2 - t1 ))
-echo "PHASE pre_commit=${PRECOMMIT_MS} rc=${PC_RC}"
-dump_on_fail "pre_commit" "$PC_RC" "$LOG_DIR/pre-commit.log"
+PRECOMMIT_MS_LIST=""
+PREPUSH_MS_LIST=""
+MS_TEST_COVERAGE_LIST=""
+MS_BIOME_LIST=""
+MS_BUILD_LIST=""
+MS_TSC_LIST=""
+MS_SECRETS_LIST=""
+MS_DEPS_LIST=""
 
-# --- pre-push (e2e skipped, see header) ---
-t1=$(now_ms)
-PIKA_SKIP_E2E=1 PIKA_PHASE_DIR="$PHASE_DIR" .husky/pre-push \
-  >"$LOG_DIR/pre-push.log" 2>&1
-PP_RC=$?
-t2=$(now_ms)
-PREPUSH_MS=$(( t2 - t1 ))
-echo "PHASE pre_push=${PREPUSH_MS} rc=${PP_RC}"
-dump_on_fail "pre_push" "$PP_RC" "$LOG_DIR/pre-push.log"
+for rep in $(seq 1 "$REPS"); do
+  # --- pre-commit ---
+  t1=$(now_ms)
+  PIKA_PHASE_DIR="$PHASE_DIR" .husky/pre-commit \
+    >"$LOG_DIR/pre-commit-$rep.log" 2>&1
+  PC_RC=$?
+  t2=$(now_ms)
+  PRECOMMIT_MS=$(( t2 - t1 ))
+  echo "PHASE pre_commit_rep${rep}=${PRECOMMIT_MS} rc=${PC_RC}"
+  dump_on_fail "pre_commit_rep${rep}" "$PC_RC" "$LOG_DIR/pre-commit-$rep.log"
+  PRECOMMIT_MS_LIST="$PRECOMMIT_MS_LIST $PRECOMMIT_MS"
+  MS_TEST_COVERAGE_LIST="$MS_TEST_COVERAGE_LIST $(read_phase_ms tests)"
+  MS_BIOME_LIST="$MS_BIOME_LIST $(read_phase_ms biome)"
 
-# Per-phase timings recovered from the parallel gates.
-MS_test_coverage=$(read_phase_ms tests)
-MS_biome=$(read_phase_ms biome)
-MS_build=$(read_phase_ms build)
-MS_tsc=$(read_phase_ms tsc)
-MS_secrets=$(read_phase_ms secrets)
-MS_deps=$(read_phase_ms deps)
+  # --- pre-push (e2e skipped, see header) ---
+  t1=$(now_ms)
+  PIKA_SKIP_E2E=1 PIKA_PHASE_DIR="$PHASE_DIR" .husky/pre-push \
+    >"$LOG_DIR/pre-push-$rep.log" 2>&1
+  PP_RC=$?
+  t2=$(now_ms)
+  PREPUSH_MS=$(( t2 - t1 ))
+  echo "PHASE pre_push_rep${rep}=${PREPUSH_MS} rc=${PP_RC}"
+  dump_on_fail "pre_push_rep${rep}" "$PP_RC" "$LOG_DIR/pre-push-$rep.log"
+  PREPUSH_MS_LIST="$PREPUSH_MS_LIST $PREPUSH_MS"
+  MS_BUILD_LIST="$MS_BUILD_LIST $(read_phase_ms build)"
+  MS_TSC_LIST="$MS_TSC_LIST $(read_phase_ms tsc)"
+  MS_SECRETS_LIST="$MS_SECRETS_LIST $(read_phase_ms secrets)"
+  MS_DEPS_LIST="$MS_DEPS_LIST $(read_phase_ms deps)"
+done
+
+PRECOMMIT_MS=$(median $PRECOMMIT_MS_LIST)
+PREPUSH_MS=$(median $PREPUSH_MS_LIST)
+MS_test_coverage=$(median $MS_TEST_COVERAGE_LIST)
+MS_biome=$(median $MS_BIOME_LIST)
+MS_build=$(median $MS_BUILD_LIST)
+MS_tsc=$(median $MS_TSC_LIST)
+MS_secrets=$(median $MS_SECRETS_LIST)
+MS_deps=$(median $MS_DEPS_LIST)
 
 TOTAL_MS=$(( PRECOMMIT_MS + PREPUSH_MS ))
 
