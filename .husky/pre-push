@@ -1,58 +1,69 @@
 #!/usr/bin/env sh
 
-# Build: full monorepo build (mirrors CI pre-command)
-bun run build 2>&1
-BUILD_EXIT=$?
-if [ $BUILD_EXIT -ne 0 ]; then
-  echo "❌ pre-push FAILED: Build errors detected."
-  exit 1
+# Parallelize all pre-push gates. Every gate is independent of the others, so
+# wall-clock is dominated by the slowest one (`bun run build`) instead of the
+# sum.
+#
+# Implementation: launch each gate as a background job that writes its log to a
+# tmpfile and signals completion via a status file. Wait for all, then dump
+# logs only for failures so successful runs stay quiet (matches the original
+# UX). Any failure → exit 1 with the offending log inline.
+
+set -u
+
+TMP=$(mktemp -d -t pika-prepush-XXXXXX)
+trap 'rm -rf "$TMP"' EXIT
+
+run_gate() {
+  name="$1"; shift
+  cmd="$*"
+  (
+    sh -c "$cmd" >"$TMP/$name.log" 2>&1
+    echo $? >"$TMP/$name.rc"
+  ) &
+  eval "PID_${name}=$!"
+}
+
+# Launch all gates concurrently.
+run_gate build      "bun run build"
+run_gate tests      "bun run test:coverage"
+run_gate tsc        "bun run lint"
+run_gate biome      "bunx biome check packages/"
+run_gate secrets    "bun run lint:secrets"
+run_gate deps       "bun run lint:deps"
+if [ "${PIKA_SKIP_E2E:-0}" != "1" ]; then
+  run_gate e2e        "bun run test:e2e"
 fi
 
-# L1: Unit Tests ≥90% coverage
-bun run test:coverage 2>&1
-TEST_EXIT=$?
-if [ $TEST_EXIT -ne 0 ]; then
-  echo "❌ pre-push FAILED: Unit tests or coverage threshold (90%) not met."
-  exit 1
+# Wait for everything to finish (don't fail-fast — we want all logs).
+wait
+
+FAILED=0
+
+report() {
+  name="$1"; label="$2"
+  rc=$(cat "$TMP/$name.rc" 2>/dev/null || echo 1)
+  if [ "$rc" -ne 0 ]; then
+    echo ""
+    echo "❌ pre-push FAILED: $label"
+    echo "--- $name output ---"
+    cat "$TMP/$name.log"
+    echo "--- end $name ---"
+    FAILED=1
+  fi
+}
+
+report build   "Build errors detected."
+report tests   "Unit tests or coverage threshold (90%) not met."
+report tsc     "TypeScript type check errors."
+report biome   "Biome lint/format violations found."
+report secrets "Secrets detected by gitleaks."
+report deps    "Known vulnerabilities detected by osv-scanner."
+if [ "${PIKA_SKIP_E2E:-0}" != "1" ]; then
+  report e2e     "E2E API tests failed."
 fi
 
-# G1: TypeScript type check
-bun run lint 2>&1
-LINT_EXIT=$?
-if [ $LINT_EXIT -ne 0 ]; then
-  echo "❌ pre-push FAILED: TypeScript type check errors."
-  exit 1
-fi
-
-# G1: Biome lint + format
-bunx biome check packages/ 2>&1
-BIOME_EXIT=$?
-if [ $BIOME_EXIT -ne 0 ]; then
-  echo "❌ pre-push FAILED: Biome lint/format violations found."
-  exit 1
-fi
-
-# G2: Secret scanning
-bun run lint:secrets 2>&1
-SECRETS_EXIT=$?
-if [ $SECRETS_EXIT -ne 0 ]; then
-  echo "❌ pre-push FAILED: Secrets detected by gitleaks."
-  exit 1
-fi
-
-# G2: Dependency audit
-bun run lint:deps 2>&1
-DEPS_EXIT=$?
-if [ $DEPS_EXIT -ne 0 ]; then
-  echo "❌ pre-push FAILED: Known vulnerabilities detected by osv-scanner."
-  exit 1
-fi
-
-# L2: API E2E Tests
-bun run test:e2e 2>&1
-E2E_EXIT=$?
-if [ $E2E_EXIT -ne 0 ]; then
-  echo "❌ pre-push FAILED: E2E API tests failed."
+if [ "$FAILED" -ne 0 ]; then
   exit 1
 fi
 

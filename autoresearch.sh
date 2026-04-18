@@ -72,36 +72,13 @@ echo "PHASE pre_commit=${PRECOMMIT_MS} rc=${PC_RC}"
 dump_on_fail "pre_commit" "$PC_RC" "$LOG_DIR/pre-commit.log"
 
 # --- Real pre-push gate (minus test:e2e) ------------------------------------
-# Mirrors .husky/pre-push verbatim, with the `bun run test:e2e` step removed
-# because it requires Cloudflare credentials. The metric still reflects every
-# other step (Build + L1 + G1 tsc/Biome + G2 gitleaks/osv-scanner) which is
-# where ~95% of pre-push time lives.
+# Runs .husky/pre-push verbatim with PIKA_SKIP_E2E=1 so the e2e gate becomes a
+# no-op (it requires Cloudflare credentials and a live Worker, unavailable in
+# the autoresearch loop). The metric still reflects every other step (Build +
+# L1 + G1 tsc/Biome + G2 gitleaks/osv-scanner), which is where ~95% of
+# pre-push time lives.
 t1=$(now_ms)
-{
-  bun run build
-  BUILD_EXIT=$?
-  if [ $BUILD_EXIT -ne 0 ]; then exit 1; fi
-
-  bun run test:coverage
-  TEST_EXIT=$?
-  if [ $TEST_EXIT -ne 0 ]; then exit 1; fi
-
-  bun run lint
-  LINT_EXIT=$?
-  if [ $LINT_EXIT -ne 0 ]; then exit 1; fi
-
-  bunx biome check packages/
-  BIOME_EXIT=$?
-  if [ $BIOME_EXIT -ne 0 ]; then exit 1; fi
-
-  bun run lint:secrets
-  SECRETS_EXIT=$?
-  if [ $SECRETS_EXIT -ne 0 ]; then exit 1; fi
-
-  bun run lint:deps
-  DEPS_EXIT=$?
-  if [ $DEPS_EXIT -ne 0 ]; then exit 1; fi
-} >"$LOG_DIR/pre-push.log" 2>&1
+PIKA_SKIP_E2E=1 .husky/pre-push >"$LOG_DIR/pre-push.log" 2>&1
 PP_RC=$?
 t2=$(now_ms)
 PREPUSH_MS=$(( t2 - t1 ))
