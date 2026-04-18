@@ -4,6 +4,8 @@ export default defineConfig({
   test: {
     include: ["packages/*/src/**/*.test.ts"],
     exclude: ["**/migration.test.ts"],
+    pool: "threads",
+    isolate: false,
     coverage: {
       provider: "v8",
       include: ["packages/*/src/**/*.ts"],
