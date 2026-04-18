@@ -80,7 +80,7 @@ export function SessionCard({ session, className }: SessionCardProps) {
     <Link
       href={`/dashboard/sessions/${session.id}`}
       className={cn(
-        "flex flex-col gap-2 rounded-[var(--radius-card)] bg-card p-4 transition-colors hover:bg-accent/50",
+        "flex flex-col gap-2 rounded-[var(--radius-card)] bg-secondary p-4 transition-colors hover:bg-accent/50",
         className,
       )}
       data-testid="session-card"

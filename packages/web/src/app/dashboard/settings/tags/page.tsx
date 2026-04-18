@@ -257,7 +257,7 @@ export default function TagsSettingsPage() {
           {tags.map((tag) => (
             <div
               key={tag.id}
-              className="flex items-center gap-3 rounded-[var(--radius-card)] bg-card px-4 py-3"
+              className="flex items-center gap-3 rounded-[var(--radius-card)] bg-secondary px-4 py-3"
             >
               {editingId === tag.id ? (
                 /* Edit mode */
