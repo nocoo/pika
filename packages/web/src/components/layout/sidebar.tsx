@@ -299,7 +299,9 @@ export function Sidebar() {
                     height={24}
                     className="shrink-0"
                   />
-                  <span className="text-lg font-bold tracking-tighter text-primary">Pika</span>
+                  <span className="text-lg font-bold tracking-tighter text-primary">
+                    Pika
+                  </span>
                   <Badge
                     variant="secondary"
                     className="px-1.5 py-0 text-micro font-normal text-muted-foreground"
