@@ -54,17 +54,9 @@ phase secrets        "bun run lint:secrets"
 phase deps           "bun run lint:deps"
 
 # --- Real pre-commit gate ---------------------------------------------------
-# Mirrors .husky/pre-commit verbatim.
+# Runs .husky/pre-commit verbatim.
 t1=$(now_ms)
-{
-  bun run test:coverage
-  TEST_EXIT=$?
-  if [ $TEST_EXIT -ne 0 ]; then exit 1; fi
-
-  bunx biome check packages/
-  BIOME_EXIT=$?
-  if [ $BIOME_EXIT -ne 0 ]; then exit 1; fi
-} >"$LOG_DIR/pre-commit.log" 2>&1
+.husky/pre-commit >"$LOG_DIR/pre-commit.log" 2>&1
 PC_RC=$?
 t2=$(now_ms)
 PRECOMMIT_MS=$(( t2 - t1 ))
