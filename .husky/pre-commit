@@ -7,12 +7,21 @@ set -u
 TMP=$(mktemp -d -t pika-precommit-XXXXXX)
 trap 'rm -rf "$TMP"' EXIT
 
+# Optional per-phase timing dir (set by the autoresearch bench).
+PHASE_DIR="${PIKA_PHASE_DIR:-}"
+
 run_gate() {
   name="$1"; shift
   cmd="$*"
   (
+    t1=$(date +%s%N 2>/dev/null || python3 -c 'import time;print(int(time.time()*1e9))')
     sh -c "$cmd" >"$TMP/$name.log" 2>&1
-    echo $? >"$TMP/$name.rc"
+    rc=$?
+    t2=$(date +%s%N 2>/dev/null || python3 -c 'import time;print(int(time.time()*1e9))')
+    echo $rc >"$TMP/$name.rc"
+    if [ -n "$PHASE_DIR" ]; then
+      echo $(( (t2 - t1) / 1000000 )) >"$PHASE_DIR/$name.ms"
+    fi
   ) &
 }
 
