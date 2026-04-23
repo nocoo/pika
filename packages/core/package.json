@@ -17,10 +17,26 @@
     "./infra/authjs-cookie": {
       "import": "./src/infra/authjs-cookie.ts",
       "types": "./src/infra/authjs-cookie.ts"
+    },
+    "./infra/d1": {
+      "import": "./src/infra/d1.ts",
+      "types": "./src/infra/d1.ts"
+    },
+    "./infra/r2": {
+      "import": "./src/infra/r2.ts",
+      "types": "./src/infra/r2.ts"
+    },
+    "./infra/worker-client": {
+      "import": "./src/infra/worker-client.ts",
+      "types": "./src/infra/worker-client.ts"
     }
   },
   "scripts": {
     "build": "tsc",
     "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1008.0",
+    "@aws-sdk/s3-request-presigner": "^3.1008.0"
   }
 }

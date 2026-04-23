@@ -1,157 +1,30 @@
 /**
- * Cloudflare D1 HTTP API client.
+ * Web-side D1 client wrapper.
  *
- * Runs from Railway (or any Node.js host) and communicates with D1
- * via the Cloudflare REST API.
- *
- * @see https://developers.cloudflare.com/api/resources/d1/subresources/database/methods/query
+ * Re-exports the runtime-agnostic class from @pika/core/infra/d1 and adds:
+ *  - getD1Client(): singleton factory reading process.env
+ *  - resetD1Client(): test helper
+ *  - assertTestDatabase(): wrapper that reads CF_D1_DATABASE_ID from env
  */
 
-// ── Types ──────────────────────────────────────────────────────
+import {
+  assertTestDatabase as coreAssertTestDatabase,
+  D1Client,
+  TEST_DATABASE_ID,
+} from "@pika/core/infra/d1";
 
-export interface D1Config {
-  accountId: string;
-  databaseId: string;
-  apiToken: string;
-}
-
-export interface D1Meta {
-  changes: number;
-  duration: number;
-  last_row_id?: number;
-  rows_read?: number;
-  rows_written?: number;
-}
-
-export interface D1QueryResult<T = Record<string, unknown>> {
-  results: T[];
-  meta: D1Meta;
-}
-
-export interface D1BatchStatement {
-  sql: string;
-  params?: unknown[];
-}
-
-// ── Error ──────────────────────────────────────────────────────
-
-export class D1Error extends Error {
-  constructor(
-    message: string,
-    public readonly status?: number,
-    public readonly errors?: Array<{ message: string }>,
-  ) {
-    super(message);
-    this.name = "D1Error";
-  }
-}
-
-// ── Client ─────────────────────────────────────────────────────
-
-export class D1Client {
-  private readonly baseUrl: string;
-  private readonly headers: Record<string, string>;
-
-  constructor(config: D1Config) {
-    if (!config.accountId) throw new Error("accountId is required");
-    if (!config.databaseId) throw new Error("databaseId is required");
-    if (!config.apiToken) throw new Error("apiToken is required");
-
-    this.baseUrl = `https://api.cloudflare.com/client/v4/accounts/${config.accountId}/d1/database/${config.databaseId}`;
-    this.headers = {
-      Authorization: `Bearer ${config.apiToken}`,
-      "Content-Type": "application/json",
-    };
-  }
-
-  /** Execute a read query and return typed results. */
-  async query<T = Record<string, unknown>>(
-    sql: string,
-    params: unknown[] = [],
-  ): Promise<D1QueryResult<T>> {
-    const body = JSON.stringify({ sql, params });
-    const data = await this.request(`${this.baseUrl}/query`, body);
-
-    const first = data.result?.[0];
-    return {
-      results: (first?.results ?? []) as T[],
-      meta: first?.meta ?? { changes: 0, duration: 0 },
-    };
-  }
-
-  /** Execute a write query (INSERT, UPDATE, DELETE) and return meta. */
-  async execute(sql: string, params: unknown[] = []): Promise<D1Meta> {
-    const result = await this.query(sql, params);
-    return result.meta;
-  }
-
-  /** Return the first row or null. */
-  async firstOrNull<T = Record<string, unknown>>(
-    sql: string,
-    params: unknown[] = [],
-  ): Promise<T | null> {
-    const result = await this.query<T>(sql, params);
-    return result.results[0] ?? null;
-  }
-
-  // ── Internal ─────────────────────────────────────────────────
-
-  private async request(
-    url: string,
-    body: string,
-  ): Promise<{
-    success: boolean;
-    result?: Array<{ results?: unknown[]; meta?: D1Meta }>;
-    errors?: Array<{ message: string }>;
-  }> {
-    // Retry once on 429 (D1 throttling) with exponential backoff
-    for (let attempt = 0; attempt <= 1; attempt++) {
-      let response: Response;
-      try {
-        response = await fetch(url, {
-          method: "POST",
-          headers: this.headers,
-          body,
-        });
-      } catch (err) {
-        throw new D1Error(
-          `D1 network error: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-
-      const data = (await response.json()) as {
-        success: boolean;
-        result?: Array<{ results?: unknown[]; meta?: D1Meta }>;
-        errors?: Array<{ message: string }>;
-      };
-
-      // 429 throttle — retry once after backoff
-      if (response.status === 429 && attempt < 1) {
-        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
-        continue;
-      }
-
-      if (!response.ok || !data.success) {
-        const msg = data.errors?.[0]?.message ?? `D1 HTTP ${response.status}`;
-        throw new D1Error(msg, response.status, data.errors);
-      }
-
-      return data;
-    }
-
-    // Unreachable, but TypeScript needs it
-    throw new D1Error("D1 request failed after retries");
-  }
-}
-
-// ── Singleton factory ──────────────────────────────────────────
+export {
+  type D1BatchStatement,
+  D1Client,
+  type D1Config,
+  D1Error,
+  type D1Meta,
+  type D1QueryResult,
+  TEST_DATABASE_ID,
+} from "@pika/core/infra/d1";
 
 let _client: D1Client | null = null;
 
-/**
- * Get or create the D1 client singleton.
- * Reads config from environment variables.
- */
 export function getD1Client(): D1Client {
   if (!_client) {
     _client = new D1Client({
@@ -163,42 +36,16 @@ export function getD1Client(): D1Client {
   return _client;
 }
 
-/** Reset singleton (for testing). */
 export function resetD1Client(): void {
   _client = null;
 }
 
-// ── Test Isolation ────────────────────────────────────────────
-
-/** Known test database ID — must match pika-db-test in Cloudflare. */
-export const TEST_DATABASE_ID = "f52931ad-9c96-4d04-9d0a-3098a800ce5e";
-
-/**
- * Assert that the current D1 client points to the test database.
- * Implements 2-layer verification:
- *   1. Env binding check — CF_D1_DATABASE_ID must match TEST_DATABASE_ID
- *   2. Marker table check — _test_marker table must exist in DB
- *
- * Call this in E2E test setup to prevent accidental production writes.
- * @throws Error if any check fails
- */
 export async function assertTestDatabase(client?: D1Client): Promise<void> {
-  // Layer 1: Env binding check
   const dbId = process.env.CF_D1_DATABASE_ID;
-  if (dbId !== TEST_DATABASE_ID) {
-    throw new Error(
-      `D1 isolation FAILED: CF_D1_DATABASE_ID="${dbId}" does not match test DB "${TEST_DATABASE_ID}"`,
-    );
-  }
-
-  // Layer 2: Marker table check
-  const db = client ?? getD1Client();
-  const result = await db.query<{ name: string }>(
-    "SELECT name FROM sqlite_master WHERE type='table' AND name='_test_marker'",
-  );
-  if (result.results.length === 0) {
-    throw new Error(
-      "D1 isolation FAILED: _test_marker table not found — this may not be the test database",
-    );
-  }
+  // Defer client construction when env binding will fail anyway, so the
+  // env-mismatch error surfaces (instead of a missing-config error from
+  // getD1Client()).
+  const db =
+    client ?? (dbId === TEST_DATABASE_ID ? getD1Client() : ({} as D1Client));
+  await coreAssertTestDatabase(db, dbId);
 }
