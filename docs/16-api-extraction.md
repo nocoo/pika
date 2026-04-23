@@ -178,13 +178,24 @@ pika.hexly.ai → Caddy
 - 冒烟实测：`PORT=17999 bun run --cwd packages/api dev` → `curl /live` 返回 200 + `{status:"ok",component:"api",...}`，未知路径 404
 - 备注：默认端口 7023 可能与本机其他服务冲突（实测哥机器上 7023 已被 node 占用），运行时可用 `PORT=...` 覆盖；P3 落地 dev 脚本时再决定终选端口
 
-### P1. Auth middleware（契约先行）
+### P1. Auth middleware（契约先行）✅ (commits ff2442b + 49e7343, 2026-04-24)
 - `packages/api/src/middleware/auth.ts`：
   - cookie 解码：cookie 名由 `packages/core/src/infra/authjs-cookie.ts::resolveSessionCookieName()` 计算（该函数封装现有 `shouldUseSecureCookies()` 逻辑，web 也改为从这里 import），salt 与命中的 cookie 名一致。禁止按 `req.protocol` / `x-forwarded-proto` 推断
   - Bearer `pk_` → Worker `/auth/me`
   - E2E bypass：`E2E_SKIP_AUTH=true` 且 `NODE_ENV === 'development'` 时，读 `X-E2E-User` header → userId（沿用 web 侧 `worker-proxy.ts` / `cli-auth.ts` 现有更窄的门槛，不放宽到 preview/test）
 - 共享环境变量：`NEXTAUTH_SECRET`、`NODE_ENV`、`AUTH_URL`、`USE_SECURE_COOKIES`（web 和 api 共用同一份值；不新增独立 cookie 名 env）
 - 单测：合法 cookie / 过期 cookie / 缺 cookie / bearer 正常 / bearer 404 / E2E header（NODE_ENV=development）/ 非 development 时无视 E2E bypass
+
+**完成状态**：
+- `packages/core/src/infra/authjs-cookie.ts` + 9 个单测落地，web `auth.ts` 改为从 `@pika/core` 导入 `shouldUseSecureCookies`（完全去掉重复逻辑）
+- `packages/api/src/middleware/auth.ts` 实现 `resolveUser()` + `requireUser()`：
+  - 顺序：E2E bypass → Auth.js cookie（两种名都试，salt = 命中的 cookie 名）→ Bearer `pk_*` → Worker `/auth/me`
+  - 依赖通过 `AuthMiddlewareDeps` 注入（`getSecret` / `getWorkerUrl` / `getEnv` / `fetch`），生产默认从 `process.env` 读
+  - secret 兼容 `NEXTAUTH_SECRET` / `AUTH_SECRET`
+- 21 个单测：合法/过期/缺失/格式错乱 cookie、payload 无 userId、salt mismatch、secret 缺失、bearer 200/404/throw/无 userId、WORKER_URL 缺失、非 pk_ bearer、E2E header 命中/缺省、E2E 在生产/未开启时被忽略、默认值取自 `process.env`、`AUTH_SECRET` fallback、默认 fetch 走全局
+- 覆盖率：`packages/api/src/middleware/auth.ts` 100% line/function（branch 97.7%），仓库整体覆盖率门槛通过
+- 新增依赖：`@auth/core@^0.41.0`（与 web 内嵌版本对齐），用于 `decode/encode` JWE
+
 
 ### P2. 共享包边界（关键，不再叫「基础设施下沉」）
 
