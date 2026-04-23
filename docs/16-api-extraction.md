@@ -166,10 +166,17 @@ pika.hexly.ai → Caddy
   /*           → web:7022 （UI）
 ```
 
-### P0. 骨架
+### P0. 骨架 ✅ (commit 235657b, 2026-04-24)
 - 新建 packages/api，空 Hono app + `/live`
 - workspace / tsc / biome / vitest 接入；本地 7023 起
 - **不**改 `next.config.ts`；冒烟通过直接 `curl localhost:7023/live`
+
+**完成状态**：
+- `packages/api/{package.json,tsconfig.json,src/{app,server,index}.ts,src/routes/live.ts}` 落地
+- 根 `tsconfig.json` references 加 `packages/api`
+- 4 个单测全绿（`app.test.ts` 2 + `routes/live.test.ts` 2），整体覆盖率维持 98% 以上
+- 冒烟实测：`PORT=17999 bun run --cwd packages/api dev` → `curl /live` 返回 200 + `{status:"ok",component:"api",...}`，未知路径 404
+- 备注：默认端口 7023 可能与本机其他服务冲突（实测哥机器上 7023 已被 node 占用），运行时可用 `PORT=...` 覆盖；P3 落地 dev 脚本时再决定终选端口
 
 ### P1. Auth middleware（契约先行）
 - `packages/api/src/middleware/auth.ts`：
