@@ -203,7 +203,7 @@ pika.hexly.ai → Caddy
 - 测试数量：21 → 22；`bun run --cwd packages/core build` / `bun run --cwd packages/api build` 都绿；1685 个单测全绿
 
 
-### P2. 共享包边界（关键，不再叫「基础设施下沉」）
+### P2. 共享包边界（关键，不再叫「基础设施下沉」）✅ (commits 574976c + 7530f08, 2026-04-24)
 
 `d1.ts`、`r2.ts`、`worker-client.ts` 不能搬走后只在 api 里——web 仍有真实依赖：
 - `auth.ts` 通过 `D1AuthAdapter` 用 `d1.ts`（NextAuth users/accounts）
@@ -235,10 +235,17 @@ pika.hexly.ai → Caddy
 - web package 仍保留 `moduleResolution: bundler`，无 `.js` 扩展名（参见 CLAUDE.md retrospective）
 
 P2 的 commits：
-1. 加 `packages/core/src/infra/` 目录和 barrel，package.json exports 扩展，tsconfig paths 扩展
-2. 把 `d1.ts` / `r2.ts` / `worker-client.ts` / `authjs-cookie.ts`（从 `auth.ts` 抽）+ 测试搬到 `packages/core/src/infra/`
-3. web 改 import（`@pika/core/infra/*`）；跑 L1+L2 确认无回归
+1. ✅ `574976c` — 加 `packages/core/src/infra/` 目录、barrel 与 `authjs-cookie` 导出，`packages/core/package.json` 扩展 exports map（根/web tsconfig 的 `@pika/core/*` 通配 paths 已经覆盖 `@pika/core/infra/*`，无需新增 path 映射）
+2. ✅ `7530f08` — 把 `d1.ts` / `r2.ts` / `worker-client.ts`（runtime-agnostic 的 class + Config + helper）+ class 行为单测搬到 `packages/core/src/infra/`；web `lib/*.ts` 改为薄 wrapper：`export * from "@pika/core/infra/<x>"` + `getXxxClient()` 单例（读 `process.env`）+ env-reading `assertTestDatabase()` / `assertTestBucket()` wrapper
+3. ✅ web 改 import：app/lib 仍走 `@/lib/*` / `./*` 不动（wrapper 透明保留 surface）；`bun run build`（含 `next build`）+ vitest（68 files / 1693 tests / 覆盖率门槛通过）+ biome 全绿
 4. （此时 api 还未引用，自然兼容）
+
+**完成状态**：
+- core 新增依赖：`@aws-sdk/client-s3`、`@aws-sdk/s3-request-presigner`（r2.ts 直接需要）
+- 设计取舍：core 不包含任何 singleton，所有 helper / assertion 显式接收参数（`assertTestDatabase(client, databaseId)`、`assertTestBucket(bucket)`）；`process.env` 读取一律放在 web wrapper 层。这样 api / cli / worker 后续要复用 core 的 class 时不必拖 `process.env` 形状的耦合
+- class 行为单测落在 `packages/core/src/infra/*.test.ts`（92 个测试：d1=20 / r2=31 / worker-client=41）；web `lib/*.test.ts` 只保留 wrapper 行为（singleton / env-reading assertion，14 个）
+- 覆盖率：vitest 配置 `packages/core/src/**` 不计入 coverage 门槛，但测试仍执行；web wrapper 的 `r2.ts` branch 覆盖 50% 是 `process.env.X ?? ""` 的 nullish-fallback，无需补
+- `bun run --cwd packages/core build` / `bun run --cwd packages/api build` / `bun run --cwd packages/web lint` / `bun run build`（含 `next build`）全绿
 
 ### P3. 按域迁移（每域一个 commit，共 8 个）
 
