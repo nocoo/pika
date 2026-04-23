@@ -178,9 +178,9 @@ pika.hexly.ai → Caddy
 - 冒烟实测：`PORT=17999 bun run --cwd packages/api dev` → `curl /live` 返回 200 + `{status:"ok",component:"api",...}`，未知路径 404
 - 备注：默认端口 7023 可能与本机其他服务冲突（实测哥机器上 7023 已被 node 占用），运行时可用 `PORT=...` 覆盖；P3 落地 dev 脚本时再决定终选端口
 
-### P1. Auth middleware（契约先行）✅ (commits ff2442b + 49e7343, 2026-04-24)
+### P1. Auth middleware（契约先行）✅ (commits ff2442b + 49e7343 + 7d568fb + 3718fc8, 2026-04-24)
 - `packages/api/src/middleware/auth.ts`：
-  - cookie 解码：cookie 名由 `packages/core/src/infra/authjs-cookie.ts::resolveSessionCookieName()` 计算（该函数封装现有 `shouldUseSecureCookies()` 逻辑，web 也改为从这里 import），salt 与命中的 cookie 名一致。禁止按 `req.protocol` / `x-forwarded-proto` 推断
+  - cookie 解码：遍历 `packages/core/src/infra/authjs-cookie.ts::SESSION_COOKIE_NAMES`（`__Secure-authjs.session-token` + `authjs.session-token` 两种变体），salt = 命中的 cookie 名。这样反向代理环境下的 prefix 不一致也能正确解码。`resolveSessionCookieName()` 仅供 web 写 cookie 时单点选择使用；api 解码侧不依赖单点结果。禁止按 `req.protocol` / `x-forwarded-proto` 推断
   - Bearer `pk_` → Worker `/auth/me`
   - E2E bypass：`E2E_SKIP_AUTH=true` 且 `NODE_ENV === 'development'` 时，读 `X-E2E-User` header → userId（沿用 web 侧 `worker-proxy.ts` / `cli-auth.ts` 现有更窄的门槛，不放宽到 preview/test）
 - 共享环境变量：`NEXTAUTH_SECRET`、`NODE_ENV`、`AUTH_URL`、`USE_SECURE_COOKIES`（web 和 api 共用同一份值；不新增独立 cookie 名 env）
@@ -196,7 +196,7 @@ pika.hexly.ai → Caddy
 - 覆盖率：`packages/api/src/middleware/auth.ts` 100% line/function（branch 97.7%），仓库整体覆盖率门槛通过
 - 新增依赖：`@auth/core@^0.41.0`（与 web 内嵌版本对齐），用于 `decode/encode` JWE
 
-**Follow-up fix (commit pending, 2026-04-24)** — 解决 P1 落地后发现的 3 个问题：
+**Follow-up fix (commit 3718fc8, 2026-04-24)** — 解决 P1 落地后发现的 3 个问题：
 - HIGH 1：`@pika/core` build 因 `authjs-cookie.ts` 引用 `NodeJS.ProcessEnv` / `process.env` 而失败。core 不引入 Node typings，helper 改写为 runtime-agnostic：导出 `AuthCookieEnv` 显式接收 env bag，不再默认读 `process.env`。web `lib/auth.ts` 改为显式传 `process.env`
 - HIGH 2：`packages/api` build 因 tsconfig 未排除测试 + 测试中 `fetchSpy.mock.calls[0]` tuple 解构不安全而失败。`packages/api/tsconfig.json` 加 `"exclude": ["src/**/*.test.ts"]`（与 core 对齐）；测试中改用 `const call = fetchSpy.mock.calls[0]; expect(call).toBeDefined(); const [url, init] = call as [URL, RequestInit];`。`packages/api` 增 `@types/node` devDependency 用于生产代码 `process.env` 类型
 - MEDIUM 3：`decodeFromCookies()` 注释要求 cookie 在场但解码失败时**不要 fallthrough 到 bearer**，但旧实现 return null → resolveUser 继续走 bearer 分支。改为返回 `CookieDecodeResult` 三态判别联合（`ok` / `invalid` / `absent`）；`resolveUser` 仅在 `absent` 时尝试 bearer。新增测试：`cookie 非法 + Bearer pk_legit` → 401 且 fetchSpy 未被调用
