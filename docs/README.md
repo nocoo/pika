@@ -19,3 +19,4 @@
 | 13 | [Pika CLI CRUD](./13-pika-cli-crud.md) | CLI read/update/delete operations — sessions, projects, search, tags commands |
 | 14 | [CLI Advanced CRUD & Filtering](./14-cli-advanced-crud.md) | Trash management, advanced filters (tokens/duration), session editing |
 | 15 | [L2 & L3 E2E Implementation](./15-l2-l3-e2e-implementation.md) | API E2E (L2) + Playwright BDD (L3) design — S-tier quality upgrade |
+| 16 | [API Layer Extraction](./16-api-extraction.md) | Extract packages/api (Hono) from web — thin web for vite migration, auth stays in web |
