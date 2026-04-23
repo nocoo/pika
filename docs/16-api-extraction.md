@@ -174,7 +174,7 @@ pika.hexly.ai → Caddy
 **完成状态**：
 - `packages/api/{package.json,tsconfig.json,src/{app,server,index}.ts,src/routes/live.ts}` 落地
 - 根 `tsconfig.json` references 加 `packages/api`
-- 4 个单测全绿（`app.test.ts` 2 + `routes/live.test.ts` 2），整体覆盖率维持 98% 以上
+- 4 个单测全绿（`app.test.ts` 2 + `routes/live.test.ts` 2）；`server.ts`（Bun.serve 入口）已在 `vitest.config.ts` coverage exclude 中和其他 entrypoint 一并排除，仓库整体覆盖率门槛照常通过
 - 冒烟实测：`PORT=17999 bun run --cwd packages/api dev` → `curl /live` 返回 200 + `{status:"ok",component:"api",...}`，未知路径 404
 - 备注：默认端口 7023 可能与本机其他服务冲突（实测哥机器上 7023 已被 node 占用），运行时可用 `PORT=...` 覆盖；P3 落地 dev 脚本时再决定终选端口
 

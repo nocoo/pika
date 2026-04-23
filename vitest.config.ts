@@ -14,6 +14,7 @@ export default defineConfig({
         "**/bin.ts",
         "**/cli.ts",
         "**/index.ts",
+        "**/server.ts",
         "**/types.ts",
         // Exclude command files (they contain defineCommand run functions which are CLI entry points)
         "**/commands/*.ts",
