@@ -12,7 +12,7 @@ import { getD1Client } from "./d1";
 
 /** Determine whether to use __Secure- prefixed cookies. */
 export function shouldUseSecureCookies(): boolean {
-  return sharedShouldUseSecureCookies();
+  return sharedShouldUseSecureCookies(process.env);
 }
 
 /** Persist user ID into the JWT token. */

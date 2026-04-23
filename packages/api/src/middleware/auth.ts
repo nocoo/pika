@@ -9,49 +9,67 @@ export type AuthVariables = {
   userId: string;
 };
 
+export type AuthEnv = {
+  NODE_ENV?: string;
+  E2E_SKIP_AUTH?: string;
+  NEXTAUTH_SECRET?: string;
+  AUTH_SECRET?: string;
+  WORKER_URL?: string;
+};
+
 export type AuthMiddlewareDeps = {
   /** Returns the AUTH/NEXTAUTH session secret used to decrypt the cookie JWE. */
   getSecret?: () => string | undefined;
   /** Returns the Worker base URL for bearer pk_* validation. */
   getWorkerUrl?: () => string | undefined;
   /** Read NODE_ENV / E2E_SKIP_AUTH at request time. */
-  getEnv?: () => NodeJS.ProcessEnv;
+  getEnv?: () => AuthEnv;
   /** Override fetch (test injection). */
   fetch?: typeof fetch;
 };
 
-function defaultSecret() {
-  return process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET ?? undefined;
+function defaultEnv(): AuthEnv {
+  return process.env as AuthEnv;
 }
-function defaultWorkerUrl() {
-  return process.env.WORKER_URL;
+function defaultSecret(): string | undefined {
+  const env = defaultEnv();
+  return env.NEXTAUTH_SECRET ?? env.AUTH_SECRET ?? undefined;
+}
+function defaultWorkerUrl(): string | undefined {
+  return defaultEnv().WORKER_URL;
 }
 
-function isE2EBypassEnabled(env: NodeJS.ProcessEnv): boolean {
+function isE2EBypassEnabled(env: AuthEnv): boolean {
   return env.E2E_SKIP_AUTH === "true" && env.NODE_ENV === "development";
 }
+
+type CookieDecodeResult =
+  | { kind: "ok"; userId: string }
+  | { kind: "invalid" } // cookie present but failed to decode → reject (do NOT fall through to bearer)
+  | { kind: "absent" }; // no session cookie at all → may try bearer
 
 async function decodeFromCookies(
   c: Context,
   secret: string,
-): Promise<string | null> {
-  // Try every known cookie name; salt MUST equal the cookie name that
-  // produced the value (Auth.js v5 derives the encryption key from salt).
+): Promise<CookieDecodeResult> {
+  // Salt MUST equal the cookie name that produced the value (Auth.js v5
+  // derives the encryption key from salt). Try every known cookie name.
+  let sawCookie = false;
   for (const name of SESSION_COOKIE_NAMES) {
     const token = getCookie(c, name);
     if (!token) continue;
+    sawCookie = true;
     try {
       const payload = await decode({ token, salt: name, secret });
       const userId = payload?.userId;
       if (typeof userId === "string" && userId.length > 0) {
-        return userId;
+        return { kind: "ok", userId };
       }
     } catch {
-      // Try next cookie variant; do NOT fall through to bearer here, since
-      // a present-but-invalid cookie is a real signal of a stale/forged session.
+      // try next variant
     }
   }
-  return null;
+  return sawCookie ? { kind: "invalid" } : { kind: "absent" };
 }
 
 async function resolveBearerUser(
@@ -77,13 +95,15 @@ async function resolveBearerUser(
  * Order:
  *   1. E2E bypass (E2E_SKIP_AUTH=true && NODE_ENV=development) → X-E2E-User header
  *   2. Auth.js session cookie (JWE) → token.userId
- *   3. Bearer pk_* → Worker /auth/me
+ *      - If a session cookie is present but invalid (forged/expired/wrong salt),
+ *        reject immediately. Do NOT fall through to bearer auth.
+ *   3. Bearer pk_* → Worker /auth/me (only when no session cookie was sent)
  */
 export async function resolveUser(
   c: Context,
   deps: AuthMiddlewareDeps = {},
 ): Promise<string | null> {
-  const env = (deps.getEnv ?? (() => process.env))();
+  const env = (deps.getEnv ?? defaultEnv)();
   const fetchImpl = deps.fetch ?? fetch;
 
   if (isE2EBypassEnabled(env)) {
@@ -93,8 +113,9 @@ export async function resolveUser(
 
   const secret = (deps.getSecret ?? defaultSecret)();
   if (secret) {
-    const cookieUser = await decodeFromCookies(c, secret);
-    if (cookieUser) return cookieUser;
+    const cookieResult = await decodeFromCookies(c, secret);
+    if (cookieResult.kind === "ok") return cookieResult.userId;
+    if (cookieResult.kind === "invalid") return null;
   }
 
   const authHeader = c.req.header("Authorization");

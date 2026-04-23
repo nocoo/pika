@@ -196,6 +196,12 @@ pika.hexly.ai → Caddy
 - 覆盖率：`packages/api/src/middleware/auth.ts` 100% line/function（branch 97.7%），仓库整体覆盖率门槛通过
 - 新增依赖：`@auth/core@^0.41.0`（与 web 内嵌版本对齐），用于 `decode/encode` JWE
 
+**Follow-up fix (commit pending, 2026-04-24)** — 解决 P1 落地后发现的 3 个问题：
+- HIGH 1：`@pika/core` build 因 `authjs-cookie.ts` 引用 `NodeJS.ProcessEnv` / `process.env` 而失败。core 不引入 Node typings，helper 改写为 runtime-agnostic：导出 `AuthCookieEnv` 显式接收 env bag，不再默认读 `process.env`。web `lib/auth.ts` 改为显式传 `process.env`
+- HIGH 2：`packages/api` build 因 tsconfig 未排除测试 + 测试中 `fetchSpy.mock.calls[0]` tuple 解构不安全而失败。`packages/api/tsconfig.json` 加 `"exclude": ["src/**/*.test.ts"]`（与 core 对齐）；测试中改用 `const call = fetchSpy.mock.calls[0]; expect(call).toBeDefined(); const [url, init] = call as [URL, RequestInit];`。`packages/api` 增 `@types/node` devDependency 用于生产代码 `process.env` 类型
+- MEDIUM 3：`decodeFromCookies()` 注释要求 cookie 在场但解码失败时**不要 fallthrough 到 bearer**，但旧实现 return null → resolveUser 继续走 bearer 分支。改为返回 `CookieDecodeResult` 三态判别联合（`ok` / `invalid` / `absent`）；`resolveUser` 仅在 `absent` 时尝试 bearer。新增测试：`cookie 非法 + Bearer pk_legit` → 401 且 fetchSpy 未被调用
+- 测试数量：21 → 22；`bun run --cwd packages/core build` / `bun run --cwd packages/api build` 都绿；1685 个单测全绿
+
 
 ### P2. 共享包边界（关键，不再叫「基础设施下沉」）
 

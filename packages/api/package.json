@@ -15,5 +15,8 @@
     "@auth/core": "^0.41.0",
     "@pika/core": "workspace:*",
     "hono": "^4.6.14"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.2"
   }
 }

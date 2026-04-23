@@ -2,6 +2,7 @@ import { encode } from "@auth/core/jwt";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  type AuthEnv,
   type AuthMiddlewareDeps,
   E2E_TEST_USER_ID,
   requireUser,
@@ -28,11 +29,11 @@ function appWith(deps: AuthMiddlewareDeps) {
   return app;
 }
 
-function envEnv(env: Partial<NodeJS.ProcessEnv>): AuthMiddlewareDeps {
+function envEnv(env: AuthEnv): AuthMiddlewareDeps {
   return {
     getSecret: () => SECRET,
     getWorkerUrl: () => "https://worker.test",
-    getEnv: () => env as NodeJS.ProcessEnv,
+    getEnv: () => env,
     fetch: () =>
       Promise.resolve(new Response(null, { status: 500 })) as Promise<Response>,
   };
@@ -97,6 +98,22 @@ describe("resolveUser — cookie auth", () => {
     expect(res.status).toBe(401);
   });
 
+  it("rejects Bearer pk_* when an invalid session cookie is also present (no fallthrough)", async () => {
+    const fetchSpy = vi.fn();
+    const app = appWith({
+      ...envEnv({ NODE_ENV: "development" }),
+      fetch: fetchSpy as unknown as typeof fetch,
+    });
+    const res = await app.request("/me", {
+      headers: {
+        cookie: `${INSECURE}=not-a-real-jwe-token`,
+        Authorization: "Bearer pk_legit",
+      },
+    });
+    expect(res.status).toBe(401);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it("returns 401 when secret is unset", async () => {
     const app = appWith({
       ...envEnv({ NODE_ENV: "development" }),
@@ -126,9 +143,11 @@ describe("resolveUser — bearer pk_*", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ userId: "pk-user" });
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchSpy.mock.calls[0];
-    expect((url as URL).toString()).toBe("https://worker.test/auth/me");
-    expect((init as RequestInit).headers).toMatchObject({
+    const call = fetchSpy.mock.calls[0];
+    expect(call).toBeDefined();
+    const [url, init] = call as [URL, RequestInit];
+    expect(url.toString()).toBe("https://worker.test/auth/me");
+    expect(init.headers).toMatchObject({
       Authorization: "Bearer pk_abc123",
     });
   });
@@ -283,8 +302,10 @@ describe("requireUser — defaults", () => {
       });
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({ userId: "default-pk" });
-      const [url] = fetchSpy.mock.calls[0];
-      expect((url as URL).toString()).toBe("https://worker.test/auth/me");
+      const call = fetchSpy.mock.calls[0];
+      expect(call).toBeDefined();
+      const [url] = call as [URL];
+      expect(url.toString()).toBe("https://worker.test/auth/me");
     } finally {
       globalThis.fetch = originalFetch;
     }
