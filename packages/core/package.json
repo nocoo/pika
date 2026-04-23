@@ -5,6 +5,20 @@
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    },
+    "./infra": {
+      "import": "./src/infra/index.ts",
+      "types": "./src/infra/index.ts"
+    },
+    "./infra/authjs-cookie": {
+      "import": "./src/infra/authjs-cookie.ts",
+      "types": "./src/infra/authjs-cookie.ts"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "lint": "tsc --noEmit"
