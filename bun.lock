@@ -19,6 +19,7 @@
       "name": "@pika/api",
       "version": "0.6.2",
       "dependencies": {
+        "@auth/core": "^0.41.0",
         "@pika/core": "workspace:*",
         "hono": "^4.6.14",
       },
