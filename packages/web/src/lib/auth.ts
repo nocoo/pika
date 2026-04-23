@@ -1,3 +1,4 @@
+import { shouldUseSecureCookies as sharedShouldUseSecureCookies } from "@pika/core";
 import type { Session, User } from "next-auth";
 import NextAuth from "next-auth";
 import type { JWT } from "next-auth/jwt";
@@ -11,11 +12,7 @@ import { getD1Client } from "./d1";
 
 /** Determine whether to use __Secure- prefixed cookies. */
 export function shouldUseSecureCookies(): boolean {
-  return (
-    process.env.NODE_ENV === "production" ||
-    process.env.AUTH_URL?.startsWith("https://") === true ||
-    process.env.USE_SECURE_COOKIES === "true"
-  );
+  return sharedShouldUseSecureCookies();
 }
 
 /** Persist user ID into the JWT token. */

@@ -26,6 +26,11 @@ export {
   SCHEMA_VERSION,
 } from "./constants";
 export {
+  resolveSessionCookieName,
+  SESSION_COOKIE_NAMES,
+  shouldUseSecureCookies,
+} from "./infra/authjs-cookie";
+export {
   generateTitle,
   getFirstUserMessage,
 } from "./title";
