@@ -14,13 +14,13 @@ tagsRoute.post("/", workerPostHandler("/tags"));
 tagsRoute.patch(
   "/:tagId",
   workerPatchHandler(
-    (c) => `/tags/${encodeURIComponent(c.req.param("tagId"))}`,
+    (c) => `/tags/${encodeURIComponent(c.req.param("tagId") ?? "")}`,
   ),
 );
 
 tagsRoute.delete(
   "/:tagId",
   workerDeleteHandler(
-    (c) => `/tags/${encodeURIComponent(c.req.param("tagId"))}`,
+    (c) => `/tags/${encodeURIComponent(c.req.param("tagId") ?? "")}`,
   ),
 );

@@ -94,6 +94,46 @@ describe("POST /ingest/presign", () => {
 // ── /confirm-raw ──────────────────────────────────────────────
 
 describe("POST /ingest/confirm-raw", () => {
+  const validBody = '{"sessionKey":"s","rawHash":"deadbeef","rawSize":42}';
+
+  it("returns 400 on invalid JSON", async () => {
+    const proxy = vi.fn();
+    const app = makeApp({ proxy, getProxyConfig: () => cfg });
+    const res = await app.request("/ingest/confirm-raw", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "not-json",
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid JSON body" });
+    expect(proxy).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 on missing rawSize", async () => {
+    const proxy = vi.fn();
+    const app = makeApp({ proxy, getProxyConfig: () => cfg });
+    const res = await app.request("/ingest/confirm-raw", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: '{"sessionKey":"s","rawHash":"deadbeef"}',
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toContain("rawSize");
+    expect(proxy).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 on non-hex rawHash", async () => {
+    const proxy = vi.fn();
+    const app = makeApp({ proxy, getProxyConfig: () => cfg });
+    const res = await app.request("/ingest/confirm-raw", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: '{"sessionKey":"s","rawHash":"zzzzzzzz","rawSize":1}',
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toContain("hex");
+  });
+
   it("forwards body to worker and returns its response", async () => {
     const proxy = vi.fn().mockResolvedValue<ProxyResult>({
       status: 200,
@@ -103,7 +143,7 @@ describe("POST /ingest/confirm-raw", () => {
     const res = await app.request("/ingest/confirm-raw", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: '{"sessionKey":"s","rawHash":"deadbeef","rawSize":42}',
+      body: validBody,
     });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ confirmed: true });
@@ -111,7 +151,7 @@ describe("POST /ingest/confirm-raw", () => {
       method: "POST",
       path: "/ingest/confirm-raw",
       userId: "user-1",
-      body: '{"sessionKey":"s","rawHash":"deadbeef","rawSize":42}',
+      body: validBody,
       contentType: "application/json",
     });
   });
@@ -123,7 +163,8 @@ describe("POST /ingest/confirm-raw", () => {
     const app = makeApp({ proxy, getProxyConfig: () => cfg });
     const res = await app.request("/ingest/confirm-raw", {
       method: "POST",
-      body: "{}",
+      headers: { "Content-Type": "application/json" },
+      body: validBody,
     });
     expect(res.status).toBe(204);
     expect(await res.text()).toBe("");
@@ -138,7 +179,8 @@ describe("POST /ingest/confirm-raw", () => {
     });
     const res = await app.request("/ingest/confirm-raw", {
       method: "POST",
-      body: "{}",
+      headers: { "Content-Type": "application/json" },
+      body: validBody,
     });
     expect(res.status).toBe(500);
     expect((await res.json()).error).toContain("WORKER_URL");
@@ -153,7 +195,8 @@ describe("POST /ingest/confirm-raw", () => {
     });
     const res = await app.request("/ingest/confirm-raw", {
       method: "POST",
-      body: "{}",
+      headers: { "Content-Type": "application/json" },
+      body: validBody,
     });
     expect(res.status).toBe(500);
     expect((await res.json()).error).toBe("config error");

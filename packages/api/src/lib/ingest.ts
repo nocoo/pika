@@ -119,6 +119,53 @@ export function validatePresignRequest(
   return { valid: true, sessionKey: obj.sessionKey, rawHash: obj.rawHash };
 }
 
+// ── Confirm-raw request validation ─────────────────────────────
+
+export interface ConfirmRawValidationOk {
+  valid: true;
+  sessionKey: string;
+  rawHash: string;
+  rawSize: number;
+}
+export interface ConfirmRawValidationErr {
+  valid: false;
+  error: string;
+}
+
+export function validateConfirmRawRequest(
+  body: unknown,
+): ConfirmRawValidationOk | ConfirmRawValidationErr {
+  if (!body || typeof body !== "object") {
+    return { valid: false, error: "Request body must be a JSON object" };
+  }
+  const obj = body as Record<string, unknown>;
+  if (typeof obj.sessionKey !== "string" || !obj.sessionKey) {
+    return { valid: false, error: "sessionKey (non-empty string) is required" };
+  }
+  if (typeof obj.rawHash !== "string" || !obj.rawHash) {
+    return { valid: false, error: "rawHash (non-empty string) is required" };
+  }
+  if (!/^[0-9a-f]{8,128}$/i.test(obj.rawHash)) {
+    return {
+      valid: false,
+      error: "rawHash must be a hex string (8-128 chars)",
+    };
+  }
+  if (
+    typeof obj.rawSize !== "number" ||
+    obj.rawSize <= 0 ||
+    !Number.isInteger(obj.rawSize)
+  ) {
+    return { valid: false, error: "rawSize (positive integer) is required" };
+  }
+  return {
+    valid: true,
+    sessionKey: obj.sessionKey,
+    rawHash: obj.rawHash,
+    rawSize: obj.rawSize,
+  };
+}
+
 // ── R2 key builder ─────────────────────────────────────────────
 
 export function buildRawR2Key(

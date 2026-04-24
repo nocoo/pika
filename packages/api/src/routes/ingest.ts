@@ -17,6 +17,7 @@ import {
   type ProxyConfig,
   type ProxyResult,
   parseContentPath,
+  validateConfirmRawRequest,
   validatePresignRequest,
 } from "../lib/ingest";
 import type { AuthVariables } from "../middleware/auth";
@@ -92,7 +93,15 @@ export function createIngestRoute(
 
   route.post("/confirm-raw", async (c) => {
     const userId = c.get("userId");
-    const raw = await c.req.text();
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+    const v = validateConfirmRawRequest(body);
+    if (!v.valid) return c.json({ error: v.error }, 400);
+
     let cfg: ProxyConfig;
     try {
       cfg = getCfg();
@@ -106,7 +115,11 @@ export function createIngestRoute(
       method: "POST",
       path: "/ingest/confirm-raw",
       userId,
-      body: raw,
+      body: JSON.stringify({
+        sessionKey: v.sessionKey,
+        rawHash: v.rawHash,
+        rawSize: v.rawSize,
+      }),
       contentType: "application/json",
     });
     return pipeResult(result);

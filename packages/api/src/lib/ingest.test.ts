@@ -4,6 +4,7 @@ import {
   getProxyConfig,
   parseContentPath,
   proxyToWorker,
+  validateConfirmRawRequest,
   validatePresignRequest,
 } from "./ingest";
 
@@ -146,6 +147,59 @@ describe("validatePresignRequest", () => {
     expect(
       validatePresignRequest({ sessionKey: "s", rawHash: "deadbeef" }),
     ).toEqual({ valid: true, sessionKey: "s", rawHash: "deadbeef" });
+  });
+});
+
+describe("validateConfirmRawRequest", () => {
+  it("rejects non-object body", () => {
+    expect(validateConfirmRawRequest(null).valid).toBe(false);
+    expect(validateConfirmRawRequest(42).valid).toBe(false);
+  });
+  it("requires sessionKey", () => {
+    expect(
+      validateConfirmRawRequest({ rawHash: "deadbeef", rawSize: 1 }).valid,
+    ).toBe(false);
+  });
+  it("requires rawHash", () => {
+    expect(
+      validateConfirmRawRequest({ sessionKey: "s", rawSize: 1 }).valid,
+    ).toBe(false);
+  });
+  it("rejects non-hex rawHash", () => {
+    const r = validateConfirmRawRequest({
+      sessionKey: "s",
+      rawHash: "zzzz",
+      rawSize: 1,
+    });
+    expect(r).toEqual({ valid: false, error: expect.stringContaining("hex") });
+  });
+  it("requires positive integer rawSize", () => {
+    const cases = [
+      { sessionKey: "s", rawHash: "deadbeef" }, // missing
+      { sessionKey: "s", rawHash: "deadbeef", rawSize: 0 },
+      { sessionKey: "s", rawHash: "deadbeef", rawSize: -1 },
+      { sessionKey: "s", rawHash: "deadbeef", rawSize: 1.5 },
+      { sessionKey: "s", rawHash: "deadbeef", rawSize: "42" },
+    ];
+    for (const body of cases) {
+      const r = validateConfirmRawRequest(body);
+      expect(r.valid).toBe(false);
+      if (!r.valid) expect(r.error).toContain("rawSize");
+    }
+  });
+  it("accepts valid input", () => {
+    expect(
+      validateConfirmRawRequest({
+        sessionKey: "s",
+        rawHash: "deadbeef",
+        rawSize: 42,
+      }),
+    ).toEqual({
+      valid: true,
+      sessionKey: "s",
+      rawHash: "deadbeef",
+      rawSize: 42,
+    });
   });
 });
 

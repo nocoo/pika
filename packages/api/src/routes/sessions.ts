@@ -21,7 +21,7 @@ sessionsRoute.post(
 const idPath =
   (suffix = "") =>
   (c: import("hono").Context) =>
-    `/sessions/${encodeURIComponent(c.req.param("id"))}${suffix}`;
+    `/sessions/${encodeURIComponent(c.req.param("id") ?? "")}${suffix}`;
 
 sessionsRoute.get("/:id", workerGetHandler(idPath()));
 sessionsRoute.patch("/:id", workerPatchHandler(idPath()));

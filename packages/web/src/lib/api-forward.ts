@@ -81,17 +81,22 @@ export function createForwardHandler(
   return async (request: Request): Promise<NextResponse> => {
     const upstream = buildUpstreamUrl(request);
     try {
-      const init: RequestInit = {
-        method,
-        headers: forwardHeaders(request),
-      };
+      const headers = forwardHeaders(request);
       if (hasBody) {
         const ct = request.headers.get("content-type");
-        if (ct) (init.headers as Record<string, string>)["content-type"] = ct;
-        init.body = await request.arrayBuffer();
-        // duplex required for streaming bodies on Node 18+; arrayBuffer is fine
-        // without it but we keep the path explicit.
+        if (ct) headers["content-type"] = ct;
+        const cl = request.headers.get("content-length");
+        if (cl) headers["content-length"] = cl;
       }
+      // Stream the request body straight through; ingest/content uploads can
+      // be large, so we never buffer via arrayBuffer(). `duplex: "half"` is
+      // required by Node/Bun fetch when sending a ReadableStream body.
+      const init: RequestInit & { duplex?: "half" } = {
+        method,
+        headers,
+        body: hasBody ? request.body : undefined,
+        duplex: hasBody && request.body ? "half" : undefined,
+      };
       const res = await fetch(upstream, init);
       return passResponse(res);
     } catch (err) {

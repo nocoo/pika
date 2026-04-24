@@ -20,7 +20,9 @@ export interface AppDeps {
   authDeps?: AuthMiddlewareDeps;
 }
 
-export function createApp(deps: AppDeps = {}): Hono {
+export function createApp(
+  deps: AppDeps = {},
+): Hono<{ Variables: AuthVariables }> {
   const app = new Hono<{ Variables: AuthVariables }>();
 
   // Public routes (no auth)
