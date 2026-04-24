@@ -7,6 +7,8 @@
   ],
   "scripts": {
     "dev": "bun run --cwd packages/web dev",
+    "dev:api": "bun run --cwd packages/api dev",
+    "dev:all": "bun scripts/dev-all.ts",
     "build": "bun run --filter '*' build",
     "test": "vitest run",
     "test:watch": "vitest",
