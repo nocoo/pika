@@ -17,6 +17,7 @@ import {
   del,
   cleanupTestData,
   ensureTestUser,
+  rawRequest,
 } from "./helpers";
 
 describe("Tags CRUD API", () => {
@@ -89,13 +90,11 @@ describe("Tags CRUD API", () => {
     });
 
     it("returns 400 for invalid JSON body", async () => {
-      const res = await fetch(
-        `${process.env.E2E_BASE_URL ?? "http://localhost:17022"}/api/tags`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: "not json",
-        },
+      const res = await rawRequest(
+        "POST",
+        "/api/tags",
+        "not json",
+        { "Content-Type": "application/json" },
       );
       expect(res.status).toBe(400);
     });

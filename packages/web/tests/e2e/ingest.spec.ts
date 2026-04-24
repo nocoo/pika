@@ -10,27 +10,12 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import { cleanupTestData, ensureTestUser, testId } from "./helpers";
-
-// ── Raw fetch helper (bypasses request() JSON.stringify) ────────
-
-function getBaseUrl(): string {
-  return process.env.E2E_BASE_URL ?? "http://localhost:17022";
-}
-
-async function rawRequest(
-  method: string,
-  path: string,
-  body: BodyInit | null,
-  headers: Record<string, string>,
-): Promise<Response> {
-  const url = new URL(path, getBaseUrl());
-  return fetch(url.toString(), {
-    method,
-    headers,
-    body,
-  });
-}
+import {
+  cleanupTestData,
+  ensureTestUser,
+  rawRequest,
+  testId,
+} from "./helpers";
 
 /**
  * Gzip compress a string using Node's zlib.

@@ -1,5 +1,5 @@
 /**
- * E2E global setup — verifies Worker health and starts Next.js dev server.
+ * E2E global setup — verifies Worker health, starts Next.js + api dev servers.
  *
  * E2E tests run against the production Worker and D1 database, but all
  * test data is isolated by user_id = 'e2e-test-user-id'. This avoids the
@@ -12,12 +12,16 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const NEXT_PORT = 17022;
+const API_PORT = 17023;
 const WEB_DIR = resolve(__dirname, "../..");
+const API_DIR = resolve(WEB_DIR, "../api");
 const NEXT_BASE_URL = `http://localhost:${NEXT_PORT}`;
+const API_BASE_URL = `http://localhost:${API_PORT}`;
 const MAX_WAIT_MS = 60_000;
 const POLL_INTERVAL_MS = 500;
 
 let nextProcess: ChildProcess | undefined;
+let apiProcess: ChildProcess | undefined;
 
 /** Parse .env.test and return as Record */
 function loadEnvFile(filePath: string): Record<string, string> {
@@ -132,8 +136,51 @@ export async function setup() {
     console.log(`[E2E] Next.js ready on ${NEXT_BASE_URL}`);
   }
 
+  // ── Start api (Hono on Bun) ──────────────────────────────────
+
+  const apiUrl = `${API_BASE_URL}/live`;
+  const apiRunning = await isPortInUse(apiUrl);
+
+  if (apiRunning) {
+    console.log(`[E2E] api already running on port ${API_PORT}, reusing.`);
+  } else {
+    console.log(`[E2E] Starting api dev server on port ${API_PORT}...`);
+
+    const apiEnv = {
+      ...process.env,
+      ...testEnv,
+      PORT: String(API_PORT),
+      NODE_ENV: "development" as const,
+      E2E_SKIP_AUTH: "true",
+    };
+
+    apiProcess = spawn("bun", ["run", "src/server.ts"], {
+      cwd: API_DIR,
+      env: apiEnv,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    apiProcess.stdout!.on("data", (data: Buffer) => {
+      const msg = data.toString().trim();
+      if (msg) console.log(`[E2E api] ${msg}`);
+    });
+    apiProcess.stderr!.on("data", (data: Buffer) => {
+      const msg = data.toString().trim();
+      if (msg) console.error(`[E2E api] ${msg}`);
+    });
+
+    apiProcess.on("error", (err) => {
+      console.error("[E2E] Failed to start api:", err);
+    });
+
+    await waitForServer(apiUrl, "api");
+    console.log(`[E2E] api ready on ${API_BASE_URL}`);
+  }
+
   // Export for test files
   process.env.E2E_BASE_URL = NEXT_BASE_URL;
+  process.env.E2E_WEB_BASE_URL = NEXT_BASE_URL;
+  process.env.E2E_API_BASE_URL = API_BASE_URL;
 }
 
 export async function teardown() {
@@ -144,5 +191,13 @@ export async function teardown() {
     if (!nextProcess.killed) nextProcess.kill("SIGKILL");
     nextProcess = undefined;
     console.log("[E2E] Next.js stopped.");
+  }
+  if (apiProcess) {
+    console.log("[E2E] Stopping api dev server...");
+    apiProcess.kill("SIGTERM");
+    await new Promise((r) => setTimeout(r, 1000));
+    if (!apiProcess.killed) apiProcess.kill("SIGKILL");
+    apiProcess = undefined;
+    console.log("[E2E] api stopped.");
   }
 }

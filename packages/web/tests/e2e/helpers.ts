@@ -1,15 +1,76 @@
 /**
  * E2E test helpers — HTTP client, seed data, cleanup utilities.
  *
- * All requests go through the real Next.js dev server (port 17022)
- * with E2E_SKIP_AUTH=true for automatic auth bypass.
+ * Path routing:
+ * - /api/auth/**  → web (E2E_WEB_BASE_URL, default :17022) — NextAuth + CLI auth
+ * - /api/**       → api (E2E_API_BASE_URL, default :17023), `/api` prefix stripped
+ * - everything else → web (UI)
+ *
+ * Auth injection:
+ * - api requests get `X-E2E-User: e2e-test-user-id` automatically; api
+ *   middleware honours it iff `E2E_SKIP_AUTH=true && NODE_ENV=development`.
+ * - web requests rely on the existing `E2E_SKIP_AUTH` shortcut in
+ *   worker-proxy / cli-auth (until web business routes are deleted in P5).
  */
 
-// ── HTTP Client ─────────────────────────────────────────────────
+// ── Target routing ──────────────────────────────────────────────
 
-function getBaseUrl(): string {
-  return process.env.E2E_BASE_URL ?? "http://localhost:17022";
+export type Target = "web" | "api";
+
+const DEFAULT_WEB_BASE = "http://localhost:17022";
+const DEFAULT_API_BASE = "http://localhost:17023";
+
+function getWebBaseUrl(): string {
+  return (
+    process.env.E2E_WEB_BASE_URL ?? process.env.E2E_BASE_URL ?? DEFAULT_WEB_BASE
+  );
 }
+
+function getApiBaseUrl(): string {
+  return process.env.E2E_API_BASE_URL ?? DEFAULT_API_BASE;
+}
+
+/**
+ * Public path prefixes that have been migrated to the api server.
+ *
+ * Each P3 domain commit appends its prefix here. Anything not listed (and
+ * not under `/api/auth/**`) continues to route to web — keeping cutover
+ * granular and reversible. After P5 cleanup the only web-served `/api/`
+ * paths are `/api/auth/**`.
+ */
+const MIGRATED_API_PREFIXES: ReadonlyArray<string> = [
+  // P3.1
+  "/api/live",
+];
+
+/** Decide which server an api path belongs to. Exposed for spec-level overrides. */
+export function resolveTarget(path: string): Target {
+  if (path.startsWith("/api/auth/") || path === "/api/auth") return "web";
+  for (const prefix of MIGRATED_API_PREFIXES) {
+    if (path === prefix || path.startsWith(`${prefix}/`)) return "api";
+  }
+  return "web";
+}
+
+/** Translate a public path into the upstream URL (api strips `/api` prefix). */
+export function resolveUpstreamUrl(path: string, target?: Target): URL {
+  const t = target ?? resolveTarget(path);
+  if (t === "api") {
+    const apiPath = path.startsWith("/api/") ? path.slice(4) : path;
+    return new URL(apiPath, getApiBaseUrl());
+  }
+  return new URL(path, getWebBaseUrl());
+}
+
+/** Auth headers injected per-target. */
+export function buildAuthHeaders(target: Target): Record<string, string> {
+  if (target === "api") {
+    return { "X-E2E-User": E2E_USER.userId };
+  }
+  return {};
+}
+
+// ── HTTP Client ─────────────────────────────────────────────────
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -17,18 +78,18 @@ interface RequestOptions {
   body?: unknown;
   params?: Record<string, string>;
   headers?: Record<string, string>;
+  /** Force a specific upstream; defaults to path-based routing. */
+  target?: Target;
 }
 
-/**
- * Make an HTTP request to the E2E server.
- * Returns the raw Response for status/header assertions.
- */
+/** JSON request — auto routes by path, auto injects X-E2E-User on api. */
 export async function request(
   method: HttpMethod,
   path: string,
   options: RequestOptions = {},
 ): Promise<Response> {
-  const url = new URL(path, getBaseUrl());
+  const target = options.target ?? resolveTarget(path);
+  const url = resolveUpstreamUrl(path, target);
 
   if (options.params) {
     for (const [key, value] of Object.entries(options.params)) {
@@ -38,16 +99,37 @@ export async function request(
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    ...buildAuthHeaders(target),
     ...options.headers,
   };
 
   const init: RequestInit = { method, headers };
-
   if (options.body !== undefined) {
     init.body = JSON.stringify(options.body);
   }
 
   return fetch(url.toString(), init);
+}
+
+/**
+ * Raw-body request — for non-JSON bodies (gzip, octet-stream, etc).
+ * Same routing + auth-header rules as `request()`; caller controls Content-Type.
+ */
+export async function rawRequest(
+  method: HttpMethod,
+  path: string,
+  body: BodyInit | null,
+  headers: Record<string, string> = {},
+  target?: Target,
+): Promise<Response> {
+  const t = target ?? resolveTarget(path);
+  const url = resolveUpstreamUrl(path, t);
+
+  return fetch(url.toString(), {
+    method,
+    headers: { ...buildAuthHeaders(t), ...headers },
+    body,
+  });
 }
 
 /** Shorthand: GET request, returns parsed JSON and status. */
