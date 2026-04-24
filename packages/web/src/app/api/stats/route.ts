@@ -1,8 +1,12 @@
 /**
- * GET /api/stats — dashboard statistics.
+ * GET /api/stats — forwards to api.
  *
- * Proxies to Worker GET /stats.
+ * Stage-a transition (docs/16): browsers hit same-origin /api/stats and
+ * web forwards to api on API_INTERNAL_URL (defaults to localhost:7023).
  */
-import { createWorkerGetRoute } from "@/lib/worker-proxy";
+import { forwardGet } from "@/lib/api-forward";
 
-export const GET = createWorkerGetRoute("/stats");
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export const GET = forwardGet;

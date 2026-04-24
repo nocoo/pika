@@ -6,6 +6,7 @@ import {
 } from "./middleware/auth";
 import { createLiveRoute, liveRoute as defaultLiveRoute } from "./routes/live";
 import { searchRoute } from "./routes/search";
+import { statsRoute } from "./routes/stats";
 
 export interface AppDeps {
   liveRoute?: Hono;
@@ -26,6 +27,10 @@ export function createApp(deps: AppDeps = {}): Hono {
   app.use("/search/*", auth);
   app.use("/search", auth);
   app.route("/search", searchRoute);
+
+  app.use("/stats/*", auth);
+  app.use("/stats", auth);
+  app.route("/stats", statsRoute);
 
   return app;
 }
