@@ -185,7 +185,7 @@ export function Sidebar() {
           /* -- Collapsed (icon-only) view -- */
           <div className="flex h-screen w-[var(--sidebar-collapsed)] flex-col items-center">
             {/* Logo */}
-            <div className="flex h-14 w-full items-center justify-center">
+            <div className="flex h-14 w-full items-center justify-start pl-6 pr-3">
               <Image src="/logo-24.png" alt="Pika" width={24} height={24} />
             </div>
 
