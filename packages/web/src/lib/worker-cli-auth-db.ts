@@ -11,8 +11,24 @@
  * already stored it during generation.
  */
 
+import { WorkerClient, WorkerError } from "@pika/core/infra/worker-client";
 import type { CliAuthDb } from "./cli-auth";
-import { getWorkerClient, WorkerError } from "./worker-client";
+
+let _client: WorkerClient | null = null;
+function getWorkerClient(): WorkerClient {
+  if (_client) return _client;
+  const workerUrl = process.env.WORKER_URL;
+  const workerSecret = process.env.WORKER_SECRET;
+  if (!workerUrl) throw new Error("WORKER_URL is required");
+  if (!workerSecret) throw new Error("WORKER_SECRET is required");
+  _client = new WorkerClient({ workerUrl, workerSecret });
+  return _client;
+}
+
+/** Test-only: reset the cached singleton between tests. */
+export function resetWorkerClient(): void {
+  _client = null;
+}
 
 export class WorkerCliAuthDb implements CliAuthDb {
   private lastGeneratedKey: string | null = null;

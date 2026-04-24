@@ -2,9 +2,13 @@
  * WorkerCliAuthDb tests.
  */
 
+import { WorkerError } from "@pika/core/infra/worker-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { generateCliKeyViaWorker, WorkerCliAuthDb } from "./worker-cli-auth-db";
-import { resetWorkerClient, WorkerError } from "./worker-client";
+import {
+  generateCliKeyViaWorker,
+  resetWorkerClient,
+  WorkerCliAuthDb,
+} from "./worker-cli-auth-db";
 
 // Mock fetch globally
 const mockFetch = vi.fn();
