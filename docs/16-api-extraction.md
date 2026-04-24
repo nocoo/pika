@@ -285,13 +285,13 @@ web 侧 `src/app/api/<domain>/**/route.ts` 全改为 `forwardGet/forwardPost/...
 - 服务端 hop（RSC、server action、route handler 转发）使用 `API_INTERNAL_URL` 直连 api：7023
 - 验收：浏览器 Network 面板 host 始终是 web 的域；api host 只在服务端日志里出现
 
-### P5. 清理
-- 删除 web 内业务 `src/app/api/**/route.ts`，仅保留 `auth/[...nextauth]`、`auth/cli`
-- 删除 `worker-proxy.ts`（`resolveUserForWorker` 被 api middleware 取代）
-- web 的 `lib/{d1,r2,worker-client}.ts` 已在 P2 搬到 core，此处不再处理
-- 更新 `docs/01-architecture.md`、`docs/05-dashboard.md`、`docs/11-unified-worker-api.md`
-- 更新 `docs/09-quality-upgrade-6d.md`（端口表加 api）
-- CI 增加 api build/test job
+### P5. 清理 ✅ (commits 见 P5.1/P5.2/P5.3, 2026-04-24/25)
+- ✅ 删除 web 内业务 `src/app/api/**/route.ts`，仅保留 `auth/[...nextauth]`、`auth/cli`（P3 域迁移过程中已逐域替换为 forwarder；non-auth handlers 全部走 `createForwardHandler`）
+- ✅ 删除 `worker-proxy.ts`（`resolveUserForWorker` 被 api middleware 取代）— P5.1
+- ✅ web 的 `lib/{ingest,r2,worker-client}.ts` + 测试删除，`worker-cli-auth-db` 改用 `@pika/core/infra/worker-client` — P5.1
+- ✅ 更新 `docs/01-architecture.md`、`docs/05-dashboard.md`、`docs/11-unified-worker-api.md` — P5.2 (commit `c876502`)
+- ✅ 更新 `docs/09-quality-upgrade-6d.md`（端口表加 api）+ `CLAUDE.md` Ports 行
+- ✅ CI 增加 api build/test job — P5.3 (commit `eb230c0`)
 
 ## L2 测试认证方案（解决回归风险）
 

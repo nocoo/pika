@@ -35,7 +35,7 @@
 | G2: Security | gitleaks + osv-scanner | pre-push | Zero findings |
 | D1: Isolation | D1-test + R2-test + _test_marker | E2E setup | 2-layer verify |
 
-**Ports**: dev=7022, API E2E=17022, BDD E2E=27040
+**Ports**: web dev=7022 / E2E=17022 · api dev=7023 / E2E=17023 · BDD E2E=27040
 **Current Tier**: B+ (L1 + G1 + G2 + D1, L2 pending)
 
 ## Key Commands

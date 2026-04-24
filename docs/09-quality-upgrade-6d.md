@@ -58,12 +58,22 @@ Pika currently implements a partial quality stack:
 
 ### L2: API E2E Architecture
 
+**Service ports** (post docs/16 web→api split):
+
+| Service | Dev | E2E | Notes |
+|---------|-----|-----|-------|
+| web (Next.js) | 7022 | 17022 | Same-origin `/api/*` host; forwards to api |
+| api (Hono on Bun) | 7023 | 17023 | Owns auth + route logic; talks to Worker |
+| L3 Playwright | — | 27040 | Reserved (Phase 2) |
+
+E2E setup boots both web (:17022) and api (:17023); helpers continue to hit `/api/*` on web so the same-origin contract is exercised end-to-end.
+
 ```
 packages/web/tests/
 ├── e2e/
-│   ├── setup.ts          # Start Next.js dev server on :17022, wait for ready
-│   ├── teardown.ts        # Kill server, cleanup
-│   ├── helpers.ts         # HTTP client, auth bypass, D1 seed/reset
+│   ├── setup.ts          # Start web on :17022 + api on :17023, wait for ready
+│   ├── teardown.ts        # Kill both servers, cleanup
+│   ├── helpers.ts         # HTTP client (web base URL), auth bypass, D1 seed/reset
 │   ├── sessions.spec.ts   # GET /api/sessions — list, filter, pagination
 │   ├── session-detail.spec.ts  # GET /api/sessions/{id}
 │   ├── search.spec.ts     # GET /api/search — FTS queries
@@ -75,7 +85,7 @@ packages/web/tests/
 ├── vitest.e2e.config.ts   # Separate vitest config for E2E
 ```
 
-- **Auth bypass**: `E2E_SKIP_AUTH=1` + `NODE_ENV=development` (already designed in doc 06)
+- **Auth bypass**: `E2E_SKIP_AUTH=1` + `NODE_ENV=development` (now resolved in api's `requireUser` middleware via `X-E2E-User`; web forwarders pass the header through)
 - **Database**: Points to D1-test via `CF_D1_DATABASE_ID_TEST` env var
 - **Isolation**: Each test file seeds its own data, teardown truncates tables
 
