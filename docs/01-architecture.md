@@ -14,6 +14,7 @@ Pika is a SaaS for replaying and searching coding agent sessions. Users install 
 | Language | TypeScript (strict) | Full-stack consistency |
 | CLI | `citty` + `consola` | Lightweight, tree-shakeable, proven in pew |
 | Web | Next.js 16 (App Router) on Railway | SSR, mature ecosystem, Docker deploy |
+| API | Hono on Bun, Railway service | Pure HTTP layer split out of web (docs/16); same-origin via Caddy |
 | UI | Tailwind v4 + shadcn/ui + Radix | Shared dashboard theme with pew |
 | Auth | NextAuth v5 (Google OAuth, JWT) | Battle-tested, D1 adapter |
 | Database | Cloudflare D1 (SQLite) | Metadata + chunked FTS5 index |
@@ -26,10 +27,11 @@ Pika is a SaaS for replaying and searching coding agent sessions. Users install 
 ```
 pika/
 ├── packages/
-│   ├── core/           # Shared types, constants, validators
+│   ├── core/           # Shared types, constants, validators, runtime-agnostic infra (worker-client, authjs-cookie)
 │   ├── cli/            # CLI (@nocoo/pika, published to npm)
-│   ├── web/            # Dashboard (Next.js on Railway)
-│   └── worker/         # Cloudflare Worker (pika-ingest)
+│   ├── web/            # Dashboard (Next.js on Railway) — pages, NextAuth, /api/* forwarders
+│   ├── api/            # HTTP layer (Hono on Bun, Railway service) — routes split out of web (docs/16)
+│   └── worker/         # Cloudflare Worker (pika-ingest) — D1/R2 access
 ├── scripts/
 │   └── migrations/     # D1 SQL migration files
 ├── docs/               # Numbered design documents
@@ -42,9 +44,10 @@ pika/
 
 | Package | npm Name | Published | Purpose |
 |---------|----------|-----------|---------|
-| `packages/core` | `@pika/core` | No (private) | Shared TS types, constants, validation |
+| `packages/core` | `@pika/core` | No (private) | Shared TS types, constants, validation, runtime-agnostic infra (WorkerClient, authjs-cookie) |
 | `packages/cli` | `@nocoo/pika` | Yes (npm) | CLI for parsing + uploading sessions |
-| `packages/web` | `@pika/web` | No (private) | Dashboard (Next.js) |
+| `packages/web` | `@pika/web` | No (private) | Dashboard (Next.js) — pages, NextAuth, thin `/api/*` forwarders to api |
+| `packages/api` | `@pika/api` | No (private) | HTTP layer (Hono on Bun) — auth middleware + route handlers, talks to Worker |
 | `packages/worker` | `@pika/worker` | No (private) | Cloudflare Worker for D1/R2 writes |
 
 ## Data Flow
@@ -69,13 +72,23 @@ DB sources (DbDriver):                 │
   cursors.json (sync state)             │
                                         ▼
                                ┌─────────────────┐
-                               │  Next.js API     │
+                               │  Next.js (web)   │
                                │  (Railway)       │
                                │                  │
-                               │  Auth + Validate │
-                               │  + Proxy         │
+                               │  NextAuth + RSC  │
+                               │  /api/* forward  │  same-origin via Caddy in prod;
+                               │                  │  forwards to api on API_INTERNAL_URL
                                └────────┬─────────┘
-                                        │ WORKER_SECRET auth
+                                        │ cookie / Authorization / X-E2E-User
+                                        ▼
+                               ┌─────────────────┐
+                               │  api (Hono/Bun)  │
+                               │  (Railway)       │
+                               │                  │
+                               │  requireUser     │
+                               │  + route logic   │
+                               └────────┬─────────┘
+                                        │ WORKER_SECRET + X-User-Id
                                         ▼
                                ┌─────────────────┐     ┌──────────┐
                                │  CF Worker       │────►│ D1       │
@@ -98,14 +111,18 @@ DB sources (DbDriver):                 │
 
 ### Dashboard (Web)
 1. User clicks "Sign in with Google"
-2. NextAuth v5 handles Google OAuth flow
+2. NextAuth v5 (in `packages/web`) handles Google OAuth flow
 3. JWT session stored in cookie
-4. API routes validate JWT on each request
+4. Browser hits same-origin `/api/*`; web's thin route handlers forward to api with `cookie` / `Authorization` / `X-E2E-User` passed through
+5. api's `requireUser` middleware (`packages/api/src/middleware/auth.ts`) resolves the user via:
+   - `cookie` → decode NextAuth JWT via `@pika/core/infra/authjs-cookie`
+   - `Authorization: Bearer pk_...` → Worker `/auth/me` lookup
+   - `X-E2E-User` → dev/E2E bypass (only when explicitly enabled)
 
 ### CLI
 1. `pika login` starts a local HTTP server on a random port
 2. Opens browser to `{apiUrl}/api/auth/cli?callback=http://127.0.0.1:{port}/callback`
-3. Server-side: if user is authenticated, generates/retrieves `api_key` (`pk_` + 32 hex)
+3. Server-side: if user is authenticated, generates/retrieves `api_key` (`pk_` + 32 hex) via Worker `/auth/cli-key`
 4. Redirects back to CLI's local server with `api_key` in query params
 5. CLI saves `api_key` to `~/.config/pika/config.json`
 6. All subsequent CLI requests use `Authorization: Bearer pk_...`
@@ -113,7 +130,8 @@ DB sources (DbDriver):                 │
 ### Security constraints
 - CLI callback URL must be `127.0.0.1` (server-validated)
 - Login timeout: 120 seconds
-- WORKER_SECRET shared secret between Next.js and CF Worker
+- WORKER_SECRET shared secret between api/Next.js and CF Worker
+- Web → api forwarders preserve, but never forge, auth headers; api is the single trust boundary that resolves a user identity
 
 ## Key Design Decisions
 

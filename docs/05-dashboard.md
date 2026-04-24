@@ -4,6 +4,8 @@
 
 The Pika dashboard is a Next.js 16 (App Router) web application deployed on Railway. It provides session browsing, full-text search, session replay, and usage statistics.
 
+As of docs/16, all `/api/*` route handlers in web are thin forwarders that proxy the request to the api service (Hono on Bun, port 7023 dev / set via `API_INTERNAL_URL` in prod). Auth, validation, and Worker calls live in `packages/api`. Web still owns NextAuth (OAuth + JWT session) and the `/api/auth/cli` browser flow because those depend on NextAuth cookies.
+
 ## Tech Stack
 
 | Component | Choice |
@@ -14,8 +16,9 @@ The Pika dashboard is a Next.js 16 (App Router) web application deployed on Rail
 | UI Components | shadcn/ui + Radix UI |
 | Charts | Recharts |
 | Auth | NextAuth v5 (Google OAuth, JWT strategy) |
-| D1 Access | D1 REST API (read) via `lib/d1.ts` singleton |
-| R2 Access | `@aws-sdk/client-s3` for presigned URLs |
+| API access | Same-origin `/api/*` → api service via `lib/api-forward.ts` |
+| D1 Access (web) | Only NextAuth's `D1AuthAdapter` (`lib/d1.ts`) for users/accounts persistence |
+| R2 Access | Handled by api/worker (web no longer signs URLs directly) |
 | Deployment | Docker (Bun build, Node.js runtime) on Railway |
 
 ## Route Structure
@@ -122,15 +125,19 @@ LIMIT 50
 
 ## API Routes
 
+All `/api/*` routes (except `/api/auth/*`) are now thin forwarders defined via `createForwardHandler` in `packages/web/src/lib/api-forward.ts`. They forward method, query string, and a small allowlist of headers (`cookie`, `authorization`, `x-e2e-user`, plus ingest-specific `x-content-hash`, `x-parser-revision`, `x-schema-version`, `x-raw-hash`, `content-encoding`) and stream the request body straight through (`duplex: "half"`) to avoid buffering large content uploads.
+
+The api service (`packages/api`, Hono on Bun) owns the actual logic: auth via `requireUser` middleware, validation, and Worker calls. See `docs/16-api-extraction.md` for the migration plan.
+
 ### Ingest (write path)
 
 | Route | Method | Auth | Description |
 |-------|--------|------|-------------|
-| `/api/ingest/sessions` | POST | Bearer `pk_...` | Batch session metadata upsert |
-| `/api/ingest/content/{key}/canonical` | PUT | Bearer `pk_...` | Upload canonical conversation (gzip) to R2 |
-| `/api/ingest/content/{key}/raw` | PUT | Bearer `pk_...` | Upload raw source payload (gzip) to R2 |
-
-Both routes validate the Bearer token against `users.api_key`, then proxy to the CF Worker with `WORKER_SECRET`.
+| `/api/ingest/sessions` | POST | Bearer `pk_...` | Batch session metadata upsert (forwards to api → Worker) |
+| `/api/ingest/presign` | POST | Bearer `pk_...` | Presign R2 upload URL (forwards to api → Worker) |
+| `/api/ingest/confirm-raw` | POST | Bearer `pk_...` | Confirm raw upload (validation in api, then forwards to Worker) |
+| `/api/ingest/content/{key}/canonical` | PUT | Bearer `pk_...` | Stream gzip canonical conversation (forwards to api → R2) |
+| `/api/ingest/content/{key}/raw` | PUT | Bearer `pk_...` | Stream gzip raw source payload (forwards to api → R2) |
 
 ### Queries (read path)
 
@@ -172,35 +179,11 @@ packages/web/src/components/
 
 ## D1 Read Access
 
-Dashboard reads from D1 via REST API (not native binding, since Next.js runs on Railway, not Cloudflare):
-
-```typescript
-// packages/web/src/lib/d1.ts
-class D1Client {
-  private accountId: string;
-  private databaseId: string;
-  private apiToken: string;
-
-  async query<T>(sql: string, params?: unknown[]): Promise<T[]> {
-    const res = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${this.accountId}/d1/database/${this.databaseId}/query`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.apiToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ sql, params }),
-      }
-    );
-    // parse response...
-  }
-}
-```
+Dashboard data reads no longer hit D1 directly from web. Web forwards `/api/*` to the api service, which calls the Worker (or D1 over HTTP for the few endpoints still using `lib/d1.ts`). The only direct D1 consumer in web is NextAuth's `D1AuthAdapter` (users/accounts persistence during OAuth sign-in), which keeps `lib/d1.ts` and `CF_D1_*` env vars alive (see `docs/11-unified-worker-api.md`).
 
 ## Deployment
 
 - **Dockerfile**: Multi-stage (Bun build -> Node.js 22-slim runtime)
-- **Platform**: Railway (Docker builder)
+- **Platform**: Railway (Docker builder) — web and api are separate Railway services; same-origin via Caddy in prod
 - **Output**: `next.config.ts` with `output: "standalone"`
-- **Environment variables**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_SECRET`, `CF_ACCOUNT_ID`, `CF_D1_DATABASE_ID`, `CF_D1_API_TOKEN`, `CF_R2_*`, `WORKER_SECRET`, `WORKER_URL`
+- **Environment variables**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_SECRET`, `CF_ACCOUNT_ID`, `CF_D1_DATABASE_ID`, `CF_D1_API_TOKEN` (all four for D1AuthAdapter only), `API_INTERNAL_URL` (web → api), `WORKER_SECRET`, `WORKER_URL` (api → Worker; api also needs the same NextAuth + D1 vars to validate cookies and read users)

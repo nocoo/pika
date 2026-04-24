@@ -7,35 +7,23 @@ Consolidate all D1/R2 operations through the Cloudflare Worker, eliminating dire
 ## Current Architecture
 
 ```
-CLI ──► Next.js API ──► Worker ──► D1/R2   (writes)
-             │
-             └──────────► D1 HTTP API      (reads)
+CLI ──► web (Next.js) ──► api (Hono) ──► Worker ──► D1/R2   (writes + reads)
+                                  │
+                                  └─────────────► D1 HTTP   (NextAuth D1AuthAdapter only,
+                                                             via lib/d1.ts in web for
+                                                             user/account persistence)
 ```
 
-**Problems:**
-1. Two auth mechanisms: WORKER_SECRET (worker) + CF_D1_API_TOKEN (D1 direct)
-2. Two code paths: `lib/ingest.ts` (proxy) vs `lib/d1.ts` (direct)
-3. D1 HTTP API rate limits (100 req/s) vs Worker D1 bindings (no limit)
-4. Cannot easily add caching/rate-limiting at the data layer
-
-## Target Architecture
-
-```
-CLI ──► Next.js API ──► Worker ──► D1/R2   (all operations)
-```
-
-**Benefits:**
-1. Single auth: WORKER_SECRET for all D1/R2 access
-2. Single code path: all queries via Worker
-3. Native D1 bindings: no HTTP API rate limits
-4. Centralized caching, rate-limiting, observability
+Web's `/api/*` route handlers are now thin forwarders (`lib/api-forward.ts`) that pass cookie/Authorization/X-E2E-User through to api. The api service owns `requireUser` middleware and all WorkerClient calls. See `docs/16-api-extraction.md`.
 
 ## API Key Authentication
 
 ### Current Auth Flow (Web-to-Worker)
 
 ```
-Next.js API (validates JWT) ──► Worker (validates WORKER_SECRET + X-User-Id)
+web (validates JWT cookie via /api/* forward)
+  └─► api (requireUser: cookie | Bearer pk_ | X-E2E-User)
+        └─► Worker (validates WORKER_SECRET + X-User-Id)
 ```
 
 ### Current CLI Auth (unchanged)
