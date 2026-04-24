@@ -1,8 +1,14 @@
 import { Hono } from "hono";
-import { liveRoute } from "./routes/live";
+import { createLiveRoute, liveRoute as defaultLiveRoute } from "./routes/live";
 
-export function createApp(): Hono {
+export interface AppDeps {
+  liveRoute?: Hono;
+}
+
+export function createApp(deps: AppDeps = {}): Hono {
   const app = new Hono();
-  app.route("/live", liveRoute);
+  app.route("/live", deps.liveRoute ?? defaultLiveRoute);
   return app;
 }
+
+export { createLiveRoute };

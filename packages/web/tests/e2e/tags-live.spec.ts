@@ -190,15 +190,17 @@ describe("Tags CRUD API", () => {
 // ── GET /api/live ───────────────────────────────────────────
 
 describe("Live Health Check API", () => {
-  it("returns ok with version and D1 latency", async () => {
+  it("returns ok with version and database connectivity", async () => {
     const { status, data } = await get<{
       status: string;
       version: string;
-      d1: { latencyMs: number };
+      component: string;
+      database: { connected: boolean };
     }>("/api/live");
     expect(status).toBe(200);
     expect(data.status).toBe("ok");
     expect(data.version).toBeTruthy();
-    expect(data.d1.latencyMs).toBeGreaterThanOrEqual(0);
+    expect(data.component).toBe("api");
+    expect(data.database.connected).toBe(true);
   });
 });
