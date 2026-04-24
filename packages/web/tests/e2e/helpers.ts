@@ -41,6 +41,8 @@ function getApiBaseUrl(): string {
 const MIGRATED_API_PREFIXES: ReadonlyArray<string> = [
   // P3.1
   "/api/live",
+  // P3.2
+  "/api/search",
 ];
 
 /** Decide which server an api path belongs to. Exposed for spec-level overrides. */

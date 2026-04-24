@@ -1,8 +1,12 @@
 /**
- * GET /api/search — full-text search sessions.
+ * GET /api/search — forwards to api.
  *
- * Proxies to Worker GET /search.
+ * Stage-a transition (docs/16): browsers hit same-origin /api/search and
+ * web forwards to api on API_INTERNAL_URL (defaults to localhost:7023).
  */
-import { createWorkerGetRoute } from "@/lib/worker-proxy";
+import { forwardGet } from "@/lib/api-forward";
 
-export const GET = createWorkerGetRoute("/search");
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export const GET = forwardGet;
