@@ -53,6 +53,9 @@ const MIGRATED_API_PREFIXES: ReadonlyArray<string> = [
   // batch/filters are routed; /sessions/:id/* still hits web until P3.7)
   "/api/sessions/batch",
   "/api/sessions/filters",
+  // P3.7 — :id family migrated; widen the prefix to cover everything
+  // under /api/sessions (including the bare list endpoint).
+  "/api/sessions",
 ];
 
 /** Decide which server an api path belongs to. Exposed for spec-level overrides. */
