@@ -49,6 +49,10 @@ const MIGRATED_API_PREFIXES: ReadonlyArray<string> = [
   "/api/projects",
   // P3.5
   "/api/tags",
+  // P3.6 — list family only (the bare /sessions list + sub-paths
+  // batch/filters are routed; /sessions/:id/* still hits web until P3.7)
+  "/api/sessions/batch",
+  "/api/sessions/filters",
 ];
 
 /** Decide which server an api path belongs to. Exposed for spec-level overrides. */

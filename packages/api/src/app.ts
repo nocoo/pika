@@ -7,6 +7,7 @@ import {
 import { createLiveRoute, liveRoute as defaultLiveRoute } from "./routes/live";
 import { projectsRoute } from "./routes/projects";
 import { searchRoute } from "./routes/search";
+import { sessionsRoute } from "./routes/sessions";
 import { statsRoute } from "./routes/stats";
 import { tagsRoute } from "./routes/tags";
 
@@ -41,6 +42,10 @@ export function createApp(deps: AppDeps = {}): Hono {
   app.use("/tags/*", auth);
   app.use("/tags", auth);
   app.route("/tags", tagsRoute);
+
+  app.use("/sessions/*", auth);
+  app.use("/sessions", auth);
+  app.route("/sessions", sessionsRoute);
 
   return app;
 }

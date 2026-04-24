@@ -1,10 +1,9 @@
 /**
- * POST /api/sessions/batch — batch operations on sessions.
- *
- * Proxies to Worker POST /sessions/batch.
+ * POST /api/sessions/batch — forwards to api.
  */
-import { createWorkerPostRoute } from "@/lib/worker-proxy";
+import { forwardPost } from "@/lib/api-forward";
 
-export const POST = createWorkerPostRoute("/sessions/batch", {
-  successStatus: 200,
-});
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export const POST = forwardPost;

@@ -1,8 +1,9 @@
 /**
- * GET /api/sessions/filters — get available filter values.
- *
- * Proxies to Worker GET /sessions/filters.
+ * GET /api/sessions/filters — forwards to api.
  */
-import { createWorkerGetRoute } from "@/lib/worker-proxy";
+import { forwardGet } from "@/lib/api-forward";
 
-export const GET = createWorkerGetRoute("/sessions/filters");
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export const GET = forwardGet;
