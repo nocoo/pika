@@ -157,14 +157,18 @@ cutover 不依赖 `next.config.ts` 的 `rewrites()`。原因：Next 的数组形
 
 `next.config.ts` rewrites **不**用于 dev 同源模拟（与 cutover 同理：filesystem 优先于 array rewrites，handler 还在就会被劫持，行为与生产 Caddy 不一致）。dev 也走 Caddy 或等价反代。
 
-### Caddy 路由（生产唯一切流点）
+### Caddy 路由（dev 同源切流；prod 终态走 Vite + CF Workers）
+
+> 说明：Caddy **仅作 dev 反代**。生产形态分两阶段：（i）暂态 Railway 双服务，web 通过 `API_INTERNAL_URL` 内网调 api；（ii）终态 Vite + Cloudflare Workers 单 Worker 内路由，无 Caddy。
 
 ```
-pika.hexly.ai → Caddy
-  /api/auth/*  → web:7022 （NextAuth + CLI auth）
-  /api/*       → api:7023 （业务）
+*.dev.hexly.ai → Caddy（dev only）
+  /api/auth/*  → web:7022 （NextAuth + CLI auth，host-only cookie 必须留在 web 域）
+  /api/*       → web:7022 → api:7023 （web forwarder 内部 fetch，仍走同一个 dev 进程对）
   /*           → web:7022 （UI）
 ```
+
+dev 同时起两个进程：`bun run dev:all`。
 
 ### P0. 骨架 ✅ (commit 235657b, 2026-04-24)
 - 新建 packages/api，空 Hono app + `/live`
@@ -278,12 +282,24 @@ web 侧 `src/app/api/<domain>/**/route.ts` 全改为 `forwardGet/forwardPost/...
 3. **web 侧 `route.ts` 改为 fetch 转发**到 api（保留 handler，透传 Cookie/Authorization/X-E2E-User）
 4. L1 跑通 → L2 跑通 → commit
 
-### P4. 收敛服务端 hop（不改浏览器行为）
-**浏览器永远打同源 `/api/*`**，这是 host-only cookie 的前置条件，不能破坏。生产由 Caddy `/api/*` → api 做切流，dev 由 Caddy 或等价机制做同样事；cutover 完成以后：
+### P4. 收敛服务端 hop（不改浏览器行为）✅ (commits P4.1 `6c92638` + P4.2 `d70dec5` + P4.3 本 commit, 2026-04-25)
 
-- 浏览器端 `fetch('/api/...')` 保持原样，**不引入** `PUBLIC_API_BASE`
-- 服务端 hop（RSC、server action、route handler 转发）使用 `API_INTERNAL_URL` 直连 api：7023
-- 验收：浏览器 Network 面板 host 始终是 web 的域；api host 只在服务端日志里出现
+**浏览器永远打同源 `/api/*`**，这是 host-only cookie 的前置条件，不能破坏。当下的形态：
+
+- **dev**：Caddy 把 `*.dev.hexly.ai` 反代到 `localhost:7022`（web，next dev）；服务端 hop（web 的 `/api/*` route handler → api）走 `API_INTERNAL_URL`，默认 `http://localhost:7023`。dev 同时起两个进程：`bun run dev:all`（见 `scripts/dev-all.ts`）。
+- **prod（暂态）**：Railway 部署 web 与 api 两个独立服务，web 通过 `API_INTERNAL_URL` 直接 fetch 到 api 的内网地址；浏览器看到的仍然是同源 `/api/*`。
+- **prod（终态，未来）**：迁移到 **Vite + Cloudflare Workers**——web 和 api 合并到 CF Workers 上，路由通过 Worker `fetch` handler 内分发，不再需要 Caddy 反代。Caddy 仅是 dev 同源模拟器，**不会上生产**。这是独立的下一阶段工程，不在本 doc 范围。
+
+**已完成**：
+- ✅ P4.1：`packages/web/src/app/api/live/route.ts` 收敛到 `forwardGet`，删除自定 503 envelope（api `/live` 已经返回同 shape）
+- ✅ P4.2：根 `package.json` 加 `dev:all` / `dev:api`；新增 `scripts/dev-all.ts`，并发起 web+api、prefix 着色输出、SIGINT 级联终止
+- ✅ P4.3：本节文档 ↑
+
+**验收**：
+- 浏览器 Network 面板 host 始终是 web 的域（同源 `/api/*`）；api host 只在服务端日志里出现
+- E2E `setup.ts` 已经同时拉起 web (:17022) + api (:17023)，本轮无需再改
+
+**未决（非阻塞）**：服务端 hop 是否进一步引入 RSC `cache: 'no-store'` fetch 或 server actions——目前 web 本身没有 RSC 直接 fetch api 的代码，全部入口都是浏览器经由 `/api/*` → web forwarder → api，所以这一节暂不展开。一旦未来 web 引入 RSC 数据预取，按 docs/16 P4 既定原则使用 `API_INTERNAL_URL`。
 
 ### P5. 清理 ✅ (commits 见 P5.1/P5.2/P5.3, 2026-04-24/25)
 - ✅ 删除 web 内业务 `src/app/api/**/route.ts`，仅保留 `auth/[...nextauth]`、`auth/cli`（P3 域迁移过程中已逐域替换为 forwarder；non-auth handlers 全部走 `createForwardHandler`）
