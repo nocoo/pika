@@ -45,6 +45,8 @@ const MIGRATED_API_PREFIXES: ReadonlyArray<string> = [
   "/api/search",
   // P3.3
   "/api/stats",
+  // P3.4
+  "/api/projects",
 ];
 
 /** Decide which server an api path belongs to. Exposed for spec-level overrides. */

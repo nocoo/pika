@@ -1,8 +1,9 @@
 /**
- * GET /api/projects/activity — get project activity heatmap.
- *
- * Proxies to Worker GET /projects/activity.
+ * GET /api/projects/activity — forwards to api.
  */
-import { createWorkerGetRoute } from "@/lib/worker-proxy";
+import { forwardGet } from "@/lib/api-forward";
 
-export const GET = createWorkerGetRoute("/projects/activity");
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export const GET = forwardGet;
