@@ -9,7 +9,17 @@
 
 import { NextResponse } from "next/server";
 
-const PASS_THROUGH_HEADERS = ["cookie", "authorization", "x-e2e-user"] as const;
+const PASS_THROUGH_HEADERS = [
+  "cookie",
+  "authorization",
+  "x-e2e-user",
+  // Ingest content upload headers (PUT /api/ingest/content/*)
+  "x-content-hash",
+  "x-parser-revision",
+  "x-schema-version",
+  "x-raw-hash",
+  "content-encoding",
+] as const;
 
 /** Default to local api dev port; prod sets API_INTERNAL_URL. */
 function getApiBaseUrl(): string {

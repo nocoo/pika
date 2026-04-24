@@ -56,6 +56,8 @@ const MIGRATED_API_PREFIXES: ReadonlyArray<string> = [
   // P3.7 — :id family migrated; widen the prefix to cover everything
   // under /api/sessions (including the bare list endpoint).
   "/api/sessions",
+  // P3.8 — ingest family (presign, confirm-raw, sessions metadata, content/*)
+  "/api/ingest",
 ];
 
 /** Decide which server an api path belongs to. Exposed for spec-level overrides. */

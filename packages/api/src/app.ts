@@ -4,6 +4,7 @@ import {
   type AuthVariables,
   requireUser,
 } from "./middleware/auth";
+import { ingestRoute } from "./routes/ingest";
 import { createLiveRoute, liveRoute as defaultLiveRoute } from "./routes/live";
 import { projectsRoute } from "./routes/projects";
 import { searchRoute } from "./routes/search";
@@ -46,6 +47,10 @@ export function createApp(deps: AppDeps = {}): Hono {
   app.use("/sessions/*", auth);
   app.use("/sessions", auth);
   app.route("/sessions", sessionsRoute);
+
+  app.use("/ingest/*", auth);
+  app.use("/ingest", auth);
+  app.route("/ingest", ingestRoute);
 
   return app;
 }

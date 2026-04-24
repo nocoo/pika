@@ -247,7 +247,20 @@ P2 的 commits：
 - 覆盖率：vitest 配置 `packages/core/src/**` 不计入 coverage 门槛，但测试仍执行；web wrapper 的 `r2.ts` branch 覆盖 50% 是 `process.env.X ?? ""` 的 nullish-fallback，无需补
 - `bun run --cwd packages/core build` / `bun run --cwd packages/api build` / `bun run --cwd packages/web lint` / `bun run build`（含 `next build`）全绿
 
-### P3. 按域迁移（每域一个 commit，共 8 个）
+### P3. 按域迁移（每域一个 commit，共 8 个）✅ (P3.1–P3.8 done, 2026-04-24)
+
+**完成状态**（按 commit 顺序）：
+1. ✅ P3.1 `live` — commit a87b1a8 (前序 prereq commits 见 #11/#12 任务)
+2. ✅ P3.2 `search` — commit `e63ce04`
+3. ✅ P3.3 `stats` — commit `cbf1819`
+4. ✅ P3.4 `projects` (+ `/activity`) — commit `c21f9ec`
+5. ✅ P3.5 `tags` (+ `/:tagId`) — commit `1330da7`
+6. ✅ P3.6 `sessions` 列表族 (`/sessions`, `/sessions/batch`, `/sessions/filters`) — commit `3424877`
+7. ✅ P3.7 `sessions/:id` 族 (`:id`, `:id/content`, `:id/star`, `:id/tags`, `:id/trash`) — commit `8101447`
+8. ✅ P3.8 `ingest` 族 (`presign`, `confirm-raw`, `sessions`, `content/:path*`) — commit pending
+
+api 单测：101 tests / 6 files，覆盖率 99.52% lines / 96.8% branches / 100% funcs（≥95% / ≥90% / ≥95% 门槛）。
+web 侧 `src/app/api/<domain>/**/route.ts` 全改为 `forwardGet/forwardPost/...` 一行转发；`packages/web/tests/e2e/helpers.ts` `MIGRATED_API_PREFIXES` 已覆盖全部八个域。
 
 顺序考虑依赖 + 风险从低到高：
 1. `live`（零依赖，先验证整条链路）
