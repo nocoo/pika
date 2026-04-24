@@ -1,15 +1,10 @@
 /**
- * Tags routes — list and create tags.
- *
- * GET /api/tags — list tags
- * POST /api/tags — create tag
- *
- * Proxies to Worker.
+ * GET/POST /api/tags — forwards to api.
  */
-import {
-  createWorkerGetRoute,
-  createWorkerPostRoute,
-} from "@/lib/worker-proxy";
+import { forwardGet, forwardPost } from "@/lib/api-forward";
 
-export const GET = createWorkerGetRoute("/tags");
-export const POST = createWorkerPostRoute("/tags");
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export const GET = forwardGet;
+export const POST = forwardPost;
