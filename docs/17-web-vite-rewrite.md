@@ -319,7 +319,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
   - **暂不**接 access-auth / api-key-auth / service binding
   - 验收：`bun run --cwd packages/web build && bun run --cwd packages/web-worker dev`（wrangler :7025）→ 浏览器看到 hello、`/api/live` 返回 `{ok:true}`
 
-- [ ] **P0.4** `chore(root): wire web + web-worker into root scripts (P0.4)`
+- [x] **P0.4** `chore(root): wire web + web-worker into root scripts (P0.4)`
   - 根 `package.json` 加 `web:dev` / `web:build` / `web-worker:dev` / `web-worker:deploy` 别名
   - `dev:all`（已有）追加 web 与 web-worker 启动
   - CI（`.github/workflows/*`）保持不动，下个 phase 再切

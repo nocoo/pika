@@ -1,13 +1,14 @@
 #!/usr/bin/env bun
 /**
- * Boot web (port 7022) + api (port 7023) concurrently for local dev.
+ * Boot the new web stack (Vite :7024 + web-worker :7025 + api :7023)
+ * concurrently for local dev. The legacy Next.js web is reachable via
+ * `bun run legacy:dev` (still needed for P3.4 parity validation).
  *
- * Used by `bun run dev:all`. Streams both children's stdout/stderr with a
- * coloured prefix and forwards SIGINT/SIGTERM so Ctrl-C cleanly tears down
- * both processes.
+ * Used by `bun run dev:all`. Streams every child's stdout/stderr with a
+ * coloured prefix and forwards SIGINT/SIGTERM so Ctrl-C cleanly tears
+ * down all processes.
  *
- * For production reverse proxy / cutover plans see docs/16-api-extraction.md
- * §P4 (currently caddy-only for local dev; prod will move to Vite + CF Workers).
+ * For production deployment see docs/17 §端口与部署 + P6 cutover.
  */
 
 import { spawn, type ChildProcess } from "node:child_process";
@@ -26,9 +27,15 @@ const ROOT = resolve(import.meta.dir, "..");
 const CHILDREN: Child[] = [
   {
     name: "web",
-    cwd: resolve(ROOT, "packages/web_legacy"),
+    cwd: resolve(ROOT, "packages/web"),
     cmd: ["bun", "run", "dev"],
     colour: "\x1b[36m", // cyan
+  },
+  {
+    name: "wkr",
+    cwd: resolve(ROOT, "packages/web-worker"),
+    cmd: ["bun", "run", "dev"],
+    colour: "\x1b[33m", // yellow
   },
   {
     name: "api",

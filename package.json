@@ -8,8 +8,12 @@
   "scripts": {
     "dev": "bun run dev:api",
     "dev:api": "bun run --cwd packages/api dev",
+    "dev:web": "bun run --cwd packages/web dev",
+    "dev:web-worker": "bun run --cwd packages/web-worker dev",
     "dev:all": "bun scripts/dev-all.ts",
     "build": "bun run --filter '!@pika/web-legacy' build",
+    "build:web": "bun run --cwd packages/web build",
+    "deploy:web-worker": "bun run --cwd packages/web-worker deploy",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
