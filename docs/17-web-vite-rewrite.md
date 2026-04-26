@@ -424,11 +424,11 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
 
 ### P5. CLI 闭环
 
-- [ ] **P5.1** `chore(cli): verify apiBaseUrl points at pika.hexly.ai (P5.1)`
+- [x] **P5.1** `chore(cli): verify apiBaseUrl points at pika.hexly.ai (P5.1)`
   - 验证 `packages/cli/src/config/manager.ts` 默认 base URL 已是 `pika.hexly.ai`（CLI 单入口契约，无需改动）
   - `login-flow.test.ts` 仅切测试 base URL，用例不动
 
-- [ ] **P5.2** `chore(web_legacy): drop worker-cli-auth-db (P5.2)`
+- [x] **P5.2** `chore(web_legacy): drop worker-cli-auth-db (P5.2)`
   - 在 P0 重命名后这些文件已在 `packages/web_legacy/src/lib/{worker-cli-auth-db,cli-auth,auth-adapter}.ts`（原 `packages/web/src/lib/`）
   - 本步骤只是确认 `packages/cli` 端**不**再调用这些代码（这些是 web 服务端 mint 路径，CLI 侧从不直接 import 它们）
   - 实际删除发生在 P6.3 的 `git rm -r packages/web_legacy`；此 commit 只做"CLI 包对 worker-cli-auth-db 调用面"的核对（应为零调用）
