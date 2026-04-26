@@ -71,38 +71,35 @@ describe("GET /api/auth/cli", () => {
     const app = makeApp({});
     const res = await app.fetch(
       new Request(
-        "https://x/api/auth/cli?callback_url=http://127.0.0.1:9000/cb&state=s",
+        "https://x/api/auth/cli?callback=http://127.0.0.1:9000/cb&state=s",
       ),
     );
     expect(res.status).toBe(401);
   });
 
-  it("missing callback_url → 400", async () => {
+  it("missing callback → 400", async () => {
     const app = makeApp({ userId: "u-1", email: "u@x.com" });
     const res = await app.fetch(new Request("https://x/api/auth/cli?state=s"));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Missing callback_url" });
+    expect(await res.json()).toEqual({ error: "Missing callback" });
   });
 
   it("missing state → 400", async () => {
     const app = makeApp({ userId: "u-1", email: "u@x.com" });
     const res = await app.fetch(
-      new Request(
-        "https://x/api/auth/cli?callback_url=http://127.0.0.1:9000/cb",
-      ),
+      new Request("https://x/api/auth/cli?callback=http://127.0.0.1:9000/cb"),
     );
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "Missing state" });
   });
 
-  it("malformed callback_url → 400", async () => {
+  it("malformed callback → 400", async () => {
     const app = makeApp({ userId: "u-1", email: "u@x.com" });
     const res = await app.fetch(
       new Request(
-        "https://x/api/auth/cli?callback_url=%E4%B8%80%E4%B8%AA%E5%9D%8F%E7%9A%84URL&state=s",
+        "https://x/api/auth/cli?callback=%E4%B8%80%E4%B8%AA%E5%9D%8F%E7%9A%84URL&state=s",
       ),
     );
-    // Some URL parsers accept fragments; assert 400 from invalid scheme/host
     expect(res.status).toBe(400);
   });
 
@@ -110,32 +107,32 @@ describe("GET /api/auth/cli", () => {
     const app = makeApp({ userId: "u-1", email: "u@x.com" });
     const res = await app.fetch(
       new Request(
-        "https://x/api/auth/cli?callback_url=https%3A%2F%2Fattacker.example%2Fcb&state=s",
+        "https://x/api/auth/cli?callback=https%3A%2F%2Fattacker.example%2Fcb&state=s",
       ),
     );
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "callback_url must be http" });
+    expect(await res.json()).toEqual({ error: "callback must be http" });
   });
 
   it("non-loopback host rejected (http://evil.example) → 400", async () => {
     const app = makeApp({ userId: "u-1", email: "u@x.com" });
     const res = await app.fetch(
       new Request(
-        "https://x/api/auth/cli?callback_url=http%3A%2F%2Fevil.example%2Fcb&state=s",
+        "https://x/api/auth/cli?callback=http%3A%2F%2Fevil.example%2Fcb&state=s",
       ),
     );
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({
-      error: "callback_url must be loopback",
+      error: "callback must be loopback",
     });
   });
 
-  it("happy path 127.0.0.1: mints token + 302 with api_key & echoed state", async () => {
+  it("happy path 127.0.0.1: mints token + 302 with api_key, email, echoed state", async () => {
     const { exec, rows } = makeExec();
     const app = makeApp({ userId: "u-1", email: "u@x.com", exec });
     const res = await app.fetch(
       new Request(
-        "https://x/api/auth/cli?callback_url=http%3A%2F%2F127.0.0.1%3A9999%2Fcb&state=xyz",
+        "https://x/api/auth/cli?callback=http%3A%2F%2F127.0.0.1%3A9999%2Fcb&state=xyz",
       ),
       { redirect: "manual" } as RequestInit,
     );
@@ -147,6 +144,7 @@ describe("GET /api/auth/cli", () => {
     expect(u.port).toBe("9999");
     expect(u.pathname).toBe("/cb");
     expect(u.searchParams.get("state")).toBe("xyz");
+    expect(u.searchParams.get("email")).toBe("u@x.com");
     const apiKey = u.searchParams.get("api_key");
     expect(apiKey).toMatch(/^pk_/);
     expect(rows).toHaveLength(1);
@@ -160,12 +158,13 @@ describe("GET /api/auth/cli", () => {
     const app = makeApp({ userId: "u-1", email: "u@x.com", exec });
     const res = await app.fetch(
       new Request(
-        "https://x/api/auth/cli?callback_url=http%3A%2F%2Flocalhost%3A8080%2Fcb&state=s",
+        "https://x/api/auth/cli?callback=http%3A%2F%2Flocalhost%3A8080%2Fcb&state=s",
       ),
     );
     expect(res.status).toBe(302);
     const u = new URL(res.headers.get("location")!);
     expect(u.hostname).toBe("localhost");
     expect(u.searchParams.get("api_key")).toMatch(/^pk_/);
+    expect(u.searchParams.get("email")).toBe("u@x.com");
   });
 });
