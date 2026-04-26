@@ -16,8 +16,8 @@
     "test:e2e": "vitest run --config packages/web_legacy/vitest.e2e.config.ts",
     "test:e2e:ci": "bun scripts/run-e2e.ts",
     "test:all": "bun run test:coverage && bun run test:e2e",
-    "lint": "tsc --noEmit && tsc --noEmit -p packages/api/tsconfig.json && tsc --noEmit -p packages/web_legacy/tsconfig.json",
-    "lint:typecheck": "tsc --noEmit && tsc --noEmit -p packages/api/tsconfig.json && tsc --noEmit -p packages/web_legacy/tsconfig.json",
+    "lint": "tsc --noEmit && tsc --noEmit -p packages/api/tsconfig.json && tsc --noEmit -p packages/web/tsconfig.json && tsc --noEmit -p packages/web-worker/tsconfig.json && tsc --noEmit -p packages/web_legacy/tsconfig.json",
+    "lint:typecheck": "tsc --noEmit && tsc --noEmit -p packages/api/tsconfig.json && tsc --noEmit -p packages/web/tsconfig.json && tsc --noEmit -p packages/web-worker/tsconfig.json && tsc --noEmit -p packages/web_legacy/tsconfig.json",
     "lint:biome": "bunx biome check packages/",
     "lint:secrets": "gitleaks detect --source . --no-git --config .gitleaks.toml",
     "lint:deps": "osv-scanner scan --lockfile=bun.lock --config .osv-scanner.toml",
@@ -27,7 +27,7 @@
     "legacy:lint": "bun run --cwd packages/web_legacy lint",
     "sync-versions": "bun scripts/sync-versions.ts --write",
     "prepare": "husky",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p packages/api/tsconfig.json && tsc --noEmit -p packages/web_legacy/tsconfig.json"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p packages/api/tsconfig.json && tsc --noEmit -p packages/web/tsconfig.json && tsc --noEmit -p packages/web-worker/tsconfig.json && tsc --noEmit -p packages/web_legacy/tsconfig.json"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.9",

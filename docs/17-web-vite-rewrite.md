@@ -311,7 +311,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
   - `src/App.tsx`：`<BrowserRouter>` + 单一路由 `/` → `<h1>Hello pika</h1>`
   - 验收：`bun run --cwd packages/web build` 产出 `packages/web-worker/dist/index.html`；`bun run --cwd packages/web dev` 起在 7024
 
-- [ ] **P0.3** `feat(web-worker): scaffold worker with assets + /api/live (P0.3)`
+- [x] **P0.3** `feat(web-worker): scaffold worker with assets + /api/live (P0.3)`
   - 新建 `packages/web-worker/{package.json,tsconfig.json,wrangler.toml,src/index.ts}`
   - 依赖：`hono`、`wrangler`（dev）
   - `wrangler.toml`：见 §端口与部署 wrangler 片段（先放最小集：`[assets] directory=./dist`、`run_worker_first=["/api/*"]`、`not_found_handling="single-page-application"`、占位 `routes`）

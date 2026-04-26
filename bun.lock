@@ -68,6 +68,19 @@
         "vite": "^8.0.7",
       },
     },
+    "packages/web-worker": {
+      "name": "@pika/web-worker",
+      "version": "0.0.1",
+      "dependencies": {
+        "hono": "^4.12.14",
+      },
+      "devDependencies": {
+        "@cloudflare/workers-types": "^4.20250620.0",
+        "typescript": "^5.8.2",
+        "vitest": "^3.1.1",
+        "wrangler": "^4.21.2",
+      },
+    },
     "packages/web_legacy": {
       "name": "@pika/web-legacy",
       "version": "0.6.2",
@@ -453,6 +466,8 @@
     "@pika/web": ["@pika/web@workspace:packages/web"],
 
     "@pika/web-legacy": ["@pika/web-legacy@workspace:packages/web_legacy"],
+
+    "@pika/web-worker": ["@pika/web-worker@workspace:packages/web-worker"],
 
     "@pika/worker": ["@pika/worker@workspace:packages/worker"],
 

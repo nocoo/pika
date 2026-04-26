@@ -1,0 +1,22 @@
+{
+  "name": "@pika/web-worker",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --port 7025",
+    "deploy": "wrangler deploy",
+    "deploy:test": "wrangler deploy --env test",
+    "lint": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "hono": "^4.12.14"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250620.0",
+    "typescript": "^5.8.2",
+    "vitest": "^3.1.1",
+    "wrangler": "^4.21.2"
+  }
+}
