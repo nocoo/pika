@@ -445,7 +445,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
   - 见 §路径契约 阶段 2
   - 此 commit 与 web_legacy 不再兼容（web_legacy 仍 strip /api），所以必须紧跟 P6.2 删除
 
-- [ ] **P6.2** `chore: remove packages/web_legacy + caddy + dev-all legacy parts (P6.2)`
+- [x] **P6.2** `chore: remove packages/web_legacy + caddy + dev-all legacy parts (P6.2)`
   - `git rm -r packages/web_legacy`
   - 删 Caddy 配置中 web 部分
   - `scripts/dev-all.ts` 删 web_legacy 启动

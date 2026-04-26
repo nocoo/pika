@@ -1,4 +1,3 @@
 [test]
-# Exclude E2E tests (require vitest globalSetup for .env.test)
-# and compiled dist artifacts
-exclude = ["./packages/web_legacy/tests/e2e/", "./packages/cli/dist/"]
+# Exclude compiled dist artifacts from `bun test` discovery
+exclude = ["./packages/cli/dist/"]

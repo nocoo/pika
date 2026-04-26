@@ -20,10 +20,6 @@ export default defineConfig({
         "**/commands/*.ts",
         "**/commands/**/*.ts",
         "**/node_modules/**",
-        "packages/web_legacy/src/app/**",
-        "packages/web_legacy/src/lib/auth.ts",
-        "packages/web_legacy/src/lib/d1.ts",
-        "packages/web_legacy/src/lib/version.ts",
         // Exclude core package from CLI tests (covered by core tests)
         "packages/core/src/**",
       ],

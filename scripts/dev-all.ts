@@ -1,8 +1,7 @@
 #!/usr/bin/env bun
 /**
- * Boot the new web stack (Vite :7024 + web-worker :7025 + api :7023)
- * concurrently for local dev. The legacy Next.js web is reachable via
- * `bun run legacy:dev` (still needed for P3.4 parity validation).
+ * Boot the web stack (Vite :7024 + web-worker :7025 + api :7023)
+ * concurrently for local dev.
  *
  * Used by `bun run dev:all`. Streams every child's stdout/stderr with a
  * coloured prefix and forwards SIGINT/SIGTERM so Ctrl-C cleanly tears
