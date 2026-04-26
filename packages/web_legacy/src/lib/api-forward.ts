@@ -2,17 +2,16 @@
  * Stage-a transition helpers (docs/16): forward Next.js route handlers to api.
  *
  * Browsers continue hitting same-origin `/api/*`; web handlers fetch the
- * upstream api server and stream the response back. Auth headers (cookie,
- * Authorization, X-E2E-User) are passed through. Once Caddy routes
- * `/api/*` directly to api, these handlers can be deleted.
+ * upstream api server and stream the response back. docs/17 P3.2 收紧了
+ * api 鉴权——只信 `X-Pika-User-Id`（由这个 forwarder 用 NextAuth session
+ * 解析后注入）。cookie / Authorization 不再透传，避免把客户端凭据带到
+ * 一个不再认识它们的下游。E2E 旁路保留 `X-E2E-User`。
  */
 
 import { NextResponse } from "next/server";
+import { getSessionUser } from "./session-user";
 
 const PASS_THROUGH_HEADERS = [
-  "cookie",
-  "authorization",
-  "x-e2e-user",
   // Ingest content upload headers (PUT /api/ingest/content/*)
   "x-content-hash",
   "x-parser-revision",
@@ -82,6 +81,22 @@ export function createForwardHandler(
     const upstream = buildUpstreamUrl(request);
     try {
       const headers = forwardHeaders(request);
+
+      // docs/17 P3.2: api now trusts only X-Pika-User-Id. Translate
+      // NextAuth session → header here. E2E header passes through
+      // verbatim because api recognizes it directly under E2E_SKIP_AUTH.
+      const e2eHeader = request.headers.get("x-e2e-user");
+      if (e2eHeader) {
+        headers["x-e2e-user"] = e2eHeader;
+      } else {
+        const user = await getSessionUser();
+        if (!user?.id) {
+          return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+        headers["x-pika-user-id"] = user.id;
+        if (user.email) headers["x-pika-user-email"] = user.email;
+      }
+
       if (hasBody) {
         const ct = request.headers.get("content-type");
         if (ct) headers["content-type"] = ct;
