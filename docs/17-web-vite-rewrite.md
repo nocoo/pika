@@ -354,7 +354,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
   - L1 测试：CRUD + hash 不可逆
   - 验收：手工 `curl -X POST /api/auth/tokens` 拿到 `pk_xxx`，再 `Authorization: Bearer pk_xxx` 打 `/api/me` 通过
 
-- [ ] **P1.5** `feat(web-worker): /api/auth/cli loopback callback (P1.5)`
+- [x] **P1.5** `feat(web-worker): /api/auth/cli loopback callback (P1.5)`
   - `src/routes/auth-cli.ts` 照搬 surety；`callback_url` 校验仅放行 `http://127.0.0.1:*` / `http://localhost:*`；mint 后 302
   - L1 测试：非 loopback callback → 400；state 校验
   - 验收：本机起 `nc -l PORT` + 浏览器打 URL，loopback 收到 `?api_key=pk_xxx&state=...`
