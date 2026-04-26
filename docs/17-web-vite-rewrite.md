@@ -389,7 +389,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
   - dev：`wrangler dev --port 7023`
   - 验收：`wrangler dev` 起得来
 
-- [ ] **P3.2** `refactor(api): replace auth middleware with X-Pika-User-Id only (P3.2)`
+- [x] **P3.2** `refactor(api): replace auth middleware with X-Pika-User-Id only (P3.2)`
   - 删 `packages/api/src/middleware/auth.ts` 的 `resolveBearerUser` / cookie decode 分支
   - 新 middleware：`X-Pika-User-Id` 存在 → `c.set("userId", ...)`；E2E 旁路：`E2E_SKIP_AUTH=true && ENVIRONMENT !== "production"` → `X-E2E-User`；否则 401
   - 删 `packages/api` 对 `@auth/core` 的依赖（如还有）
