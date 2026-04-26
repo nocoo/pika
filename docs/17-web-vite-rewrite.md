@@ -327,7 +327,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
 
 ### P1. CF Access 中间件 + 身份模型
 
-- [ ] **P1.1** `feat(core): add api_tokens schema + repo (P1.1)`
+- [x] **P1.1** `feat(core): add api_tokens schema + repo (P1.1)`
   - `scripts/migrations/00X-api-tokens.sql`：建表 `api_tokens(id INTEGER PK AUTOINCREMENT, user_id TEXT NOT NULL REFERENCES users(id), email TEXT NOT NULL, token_prefix TEXT, hashed TEXT NOT NULL UNIQUE, name TEXT, created_at TEXT NOT NULL, last_used_at TEXT, expires_at TEXT)` + indexes
   - `packages/core/infra/api-tokens.ts`：runtime-agnostic repo（`createApiToken` / `findByHashed` / `listByUser` / `revoke` / `updateLastUsed`）
   - `packages/core/index.ts` 加 barrel 导出

@@ -472,3 +472,93 @@ describe("002-tags migration", () => {
     expect(tables).toEqual(["messages", "sessions", "users"]);
   });
 });
+
+// ── 006-api-tokens migration ───────────────────────────────────
+
+const MIGRATION_006_PATH = resolve(
+  import.meta.dirname,
+  "../../../scripts/migrations/006-api-tokens.sql",
+);
+
+describe("006-api-tokens migration", () => {
+  let db: Database;
+
+  beforeEach(() => {
+    db = new Database(":memory:");
+    db.run("PRAGMA journal_mode = WAL");
+    db.run("PRAGMA foreign_keys = ON");
+    db.exec(readFileSync(MIGRATION_PATH, "utf-8"));
+  });
+
+  afterEach(() => {
+    db.close();
+  });
+
+  it("applies migration without syntax errors", () => {
+    const sql = readFileSync(MIGRATION_006_PATH, "utf-8");
+    expect(() => db.exec(sql)).not.toThrow();
+  });
+
+  it("creates api_tokens table with expected columns", () => {
+    db.exec(readFileSync(MIGRATION_006_PATH, "utf-8"));
+    const cols = db
+      .prepare("PRAGMA table_info(api_tokens)")
+      .all()
+      .map((r: any) => r.name);
+    for (const c of [
+      "id",
+      "user_id",
+      "email",
+      "token_prefix",
+      "hashed",
+      "name",
+      "created_at",
+      "last_used_at",
+      "expires_at",
+    ]) {
+      expect(cols).toContain(c);
+    }
+  });
+
+  it("creates expected indexes", () => {
+    db.exec(readFileSync(MIGRATION_006_PATH, "utf-8"));
+    const idx = db
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'idx_api_tokens_%' ORDER BY name",
+      )
+      .all()
+      .map((r: any) => r.name);
+    expect(idx).toEqual(["idx_api_tokens_email", "idx_api_tokens_user"]);
+  });
+
+  it("enforces UNIQUE on hashed", () => {
+    db.exec(readFileSync(MIGRATION_006_PATH, "utf-8"));
+    db.prepare(
+      "INSERT INTO users (id, email) VALUES ('u1', 'a@test.com')",
+    ).run();
+    db.prepare(
+      `INSERT INTO api_tokens (user_id, email, hashed, created_at)
+       VALUES ('u1', 'a@test.com', 'h1', '2026-01-01T00:00:00Z')`,
+    ).run();
+    expect(() =>
+      db
+        .prepare(
+          `INSERT INTO api_tokens (user_id, email, hashed, created_at)
+           VALUES ('u1', 'a@test.com', 'h1', '2026-01-01T00:00:00Z')`,
+        )
+        .run(),
+    ).toThrow(/UNIQUE/);
+  });
+
+  it("enforces FK to users(id)", () => {
+    db.exec(readFileSync(MIGRATION_006_PATH, "utf-8"));
+    expect(() =>
+      db
+        .prepare(
+          `INSERT INTO api_tokens (user_id, email, hashed, created_at)
+           VALUES ('missing', 'x@test.com', 'h1', '2026-01-01T00:00:00Z')`,
+        )
+        .run(),
+    ).toThrow(/FOREIGN KEY/);
+  });
+});

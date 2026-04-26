@@ -26,6 +26,19 @@ export {
   SCHEMA_VERSION,
 } from "./constants";
 export {
+  type ApiTokenExecutor,
+  type ApiTokenRow,
+  type CreateApiTokenInput,
+  type CreatedApiToken,
+  createApiToken,
+  findByHashed as findApiTokenByHashed,
+  generateRawToken,
+  hashToken,
+  listByUser as listApiTokensByUser,
+  revoke as revokeApiToken,
+  updateLastUsed as updateApiTokenLastUsed,
+} from "./infra/api-tokens";
+export {
   resolveSessionCookieName,
   SESSION_COOKIE_NAMES,
   shouldUseSecureCookies,

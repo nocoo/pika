@@ -1,4 +1,17 @@
 export {
+  type ApiTokenExecutor,
+  type ApiTokenRow,
+  type CreateApiTokenInput,
+  type CreatedApiToken,
+  createApiToken,
+  findByHashed,
+  generateRawToken,
+  hashToken,
+  listByUser,
+  revoke,
+  updateLastUsed,
+} from "./api-tokens";
+export {
   type AuthCookieEnv,
   resolveSessionCookieName,
   SESSION_COOKIE_NAMES,
