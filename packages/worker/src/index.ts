@@ -34,9 +34,8 @@
  * - POST  /tags — create tag
  * - PATCH /tags/:id — update tag
  * - DELETE /tags/:id — delete tag
- * - POST  /auth/cli-key — generate CLI API key (internal only)
  *
- * Auth: WORKER_SECRET (internal) or pk_... API key (CLI direct).
+ * Auth: WORKER_SECRET only (CF Access SSO + bearer auth handled in web-worker).
  * Limit: max 50 sessions per request (METADATA_BATCH_SIZE).
  */
 
@@ -48,7 +47,7 @@ import {
   PIKA_VERSION,
   validateSessionSnapshot,
 } from "@pika/core";
-import { hashApiKey, validateAuth } from "./auth.js";
+import { validateAuth } from "./auth.js";
 import {
   handleListProjects,
   handleProjectActivity,
@@ -841,61 +840,6 @@ async function handleContentRead(
   });
 }
 
-// ── CLI Key Generation ────────────────────────────────────────────
-
-/**
- * POST /auth/cli-key — Generate a new CLI API key for authenticated user.
- *
- * ⚠️ INTERNAL ONLY: Must be called with auth.source === "internal" (WORKER_SECRET).
- * Rejects API key callers to prevent existing key holders from minting new keys.
- *
- * Called by Next.js /api/auth/cli after OAuth flow completes.
- * Generates fresh key, stores hash in users.api_key, returns plaintext key.
- */
-async function handleCliKeyGeneration(
-  userId: string,
-  authSource: "internal" | "api_key",
-  env: Env,
-): Promise<Response> {
-  // Only allow internal calls (Next.js via WORKER_SECRET)
-  if (authSource !== "internal") {
-    return Response.json(
-      { error: "Forbidden: this endpoint is internal only" },
-      { status: 403 },
-    );
-  }
-
-  // Generate pk_ + 32 hex chars
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  const hex = Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  const apiKey = `pk_${hex}`;
-
-  // Hash for storage
-  const hashedKey = await hashApiKey(apiKey);
-
-  // Store in users.api_key (existing column)
-  const result = await env.DB.prepare(
-    "UPDATE users SET api_key = ?, updated_at = datetime('now') WHERE id = ?",
-  )
-    .bind(hashedKey, userId)
-    .run();
-
-  // Verify update succeeded (user exists)
-  if (result.meta.changes === 0) {
-    return Response.json(
-      {
-        error: `User ${userId} not found. OAuth sign-in may not have persisted the user row.`,
-      },
-      { status: 404 },
-    );
-  }
-
-  // Return plaintext key (shown once to user)
-  return Response.json({ apiKey });
-}
-
 // ── Path extraction helpers ───────────────────────────────────────
 
 /**
@@ -923,22 +867,17 @@ export default {
       return handleLive(env);
     }
 
-    // 1. Auth check — accepts WORKER_SECRET or pk_... API key
-    const auth = await validateAuth(request, env.WORKER_SECRET, env.DB);
+    // 1. Auth check — WORKER_SECRET only (CF Access SSO upstream in web-worker)
+    const auth = await validateAuth(request, env.WORKER_SECRET);
     if (!auth.valid) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { userId, source: authSource } = auth;
+    const { userId } = auth;
 
     // ── GET Routes ────────────────────────────────────────────────
 
     if (request.method === "GET") {
-      // /auth/me — return authenticated user info
-      if (url.pathname === "/auth/me") {
-        return Response.json({ userId, source: authSource });
-      }
-
       // /sessions — list sessions with filters
       if (url.pathname === "/sessions") {
         return handleListSessions(userId, url.searchParams, env);
@@ -1043,11 +982,6 @@ export default {
           return Response.json({ error: "Invalid JSON body" }, { status: 400 });
         }
         return handleCreateTag(userId, body, env);
-      }
-
-      // /auth/cli-key — generate CLI API key (internal only)
-      if (url.pathname === "/auth/cli-key") {
-        return handleCliKeyGeneration(userId, authSource, env);
       }
 
       // /ingest/confirm-raw — confirm direct-to-R2 raw upload

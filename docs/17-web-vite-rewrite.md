@@ -451,7 +451,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
   - `scripts/dev-all.ts` 删 web_legacy 启动
   - 根 `package.json` 删 `legacy:*` scripts、`overrides.next`、`next-auth` / `@auth/core` 依赖
 
-- [ ] **P6.3** `feat(worker): drop /auth/me + /auth/cli-key + pk_* legacy branches (P6.3)`
+- [x] **P6.3** `feat(worker): drop /auth/me + /auth/cli-key + pk_* legacy branches (P6.3)`
   - `packages/worker/src/auth.ts` 删 `pk_*` 校验
   - `packages/worker/src/index.ts` 删 `/auth/me` 路由（line ~847）+ `/auth/cli-key` 路由（line ~1048，旧 web_legacy 内部 mint 入口；P1 之后 token mint 已转到 web-worker `/api/auth/tokens` 与 `/api/auth/cli`）
   - 验收：`grep -rn "/auth/me\|/auth/cli-key" packages/worker/src` 为空
