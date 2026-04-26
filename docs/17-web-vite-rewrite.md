@@ -367,7 +367,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
   - 验证 3 层亮度变量（L0/L1/L2）保留
   - L1 测试：`utils.cn()` snapshot
 
-- [ ] **P2.2** `feat(web): api fetch wrapper + useMe + RequireAuth (P2.2)`
+- [x] **P2.2** `feat(web): api fetch wrapper + useMe + RequireAuth (P2.2)`
   - `src/lib/api.ts`：`apiFetch` / `apiJson` / `swrFetcher` / `ApiError`，相对 `/api/*`，`credentials: include`，401 → `window.location.reload()`（CF Access 接管）
   - `src/hooks/use-me.ts`：SWR 拉 `/api/me`
   - `src/components/auth/RequireAuth.tsx`：未登录显示 loading + 触发刷新
