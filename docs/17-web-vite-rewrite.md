@@ -296,7 +296,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
 
 ### P0. 冻结 + 脚手架
 
-- [ ] **P0.1** `chore(web): rename packages/web → packages/web_legacy + freeze (P0.1)`
+- [x] **P0.1** `chore(web): rename packages/web → packages/web_legacy + freeze (P0.1)`
   - `git mv packages/web packages/web_legacy`
   - `packages/web_legacy/package.json`：`name` → `@pika/web-legacy`，加 `"private": true`
   - `packages/web_legacy/CLAUDE.md` 写一行：**FROZEN — see docs/17**

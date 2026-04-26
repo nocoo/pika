@@ -24,7 +24,7 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
-const ENV_FILE = resolve(import.meta.dir, "..", "packages/web/.env.test");
+const ENV_FILE = resolve(import.meta.dir, "..", "packages/web_legacy/.env.test");
 const REQUIRED_ENV = [
   "WORKER_URL",
   "CF_ACCOUNT_ID",
@@ -43,7 +43,7 @@ function hasInlineEnv(): boolean {
 function main(): number {
   if (!hasEnvFile() && !hasInlineEnv()) {
     console.log(
-      "⏭️  L2 API E2E skipped — no packages/web/.env.test and required env vars not set.",
+      "⏭️  L2 API E2E skipped — no packages/web_legacy/.env.test and required env vars not set.",
     );
     console.log(`   Required: ${REQUIRED_ENV.join(", ")}`);
     return 0;
@@ -52,7 +52,7 @@ function main(): number {
   console.log("🧪 Running L2 API E2E tests…");
   const result = spawnSync(
     "bunx",
-    ["vitest", "run", "--config", "packages/web/vitest.e2e.config.ts"],
+    ["vitest", "run", "--config", "packages/web_legacy/vitest.e2e.config.ts"],
     { stdio: "inherit" },
   );
   return result.status ?? 1;

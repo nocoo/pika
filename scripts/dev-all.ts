@@ -26,7 +26,7 @@ const ROOT = resolve(import.meta.dir, "..");
 const CHILDREN: Child[] = [
   {
     name: "web",
-    cwd: resolve(ROOT, "packages/web"),
+    cwd: resolve(ROOT, "packages/web_legacy"),
     cmd: ["bun", "run", "dev"],
     colour: "\x1b[36m", // cyan
   },

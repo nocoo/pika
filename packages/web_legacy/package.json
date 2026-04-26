@@ -1,5 +1,5 @@
 {
-  "name": "@pika/web",
+  "name": "@pika/web-legacy",
   "private": true,
   "version": "0.6.2",
   "type": "module",

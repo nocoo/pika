@@ -48,8 +48,8 @@
         "@aws-sdk/s3-request-presigner": "^3.1008.0",
       },
     },
-    "packages/web": {
-      "name": "@pika/web",
+    "packages/web_legacy": {
+      "name": "@pika/web-legacy",
       "version": "0.6.2",
       "dependencies": {
         "@aws-sdk/client-s3": "^3.1008.0",
@@ -400,7 +400,7 @@
 
     "@pika/core": ["@pika/core@workspace:packages/core"],
 
-    "@pika/web": ["@pika/web@workspace:packages/web"],
+    "@pika/web-legacy": ["@pika/web-legacy@workspace:packages/web_legacy"],
 
     "@pika/worker": ["@pika/worker@workspace:packages/worker"],
 
