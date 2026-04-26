@@ -24,10 +24,13 @@ service = "pika-api"
 
 # D1 binding — required by api-key-auth (api_tokens table) and resolve-user
 # (users table). Same `pika-db` shared with packages/worker.
+# remote=true: local `wrangler dev` queries the prod D1 instead of an empty
+# local SQLite, so dev sees real users / tokens. Requires `wrangler login`.
 [[d1_databases]]
 binding = "DB"
 database_name = "pika-db"
 database_id = "55bfb2fc-4085-4670-9611-da2f1eee4888"
+remote = true
 
 [assets]
 directory = "./dist"
