@@ -150,7 +150,7 @@ packages/web/src/
 
 - 三个独立 wrangler 项目（`packages/web-worker`、`packages/api`、`packages/worker`）
 - web-worker 绑公网域名（`pika.hexly.ai`），api 仅 service binding 不绑路由，worker 独立
-- dev：`bun run dev:all` 启动 vite（7024）+ web-worker（7025，wrangler dev --local）+ api（7023）；Caddy 反代 `pika.dev.hexly.ai → :7025`，`isLocalhost` 旁路 CF Access
+- dev：`bun run dev:all` 启动 vite（7022）+ web-worker（8787，wrangler dev）+ api（8788，wrangler dev，service binding 目标）；Caddy 反代 `pika.dev.hexly.ai → :7022`，`isLocalhost` 旁路 CF Access
 - 关键 env：`WORKER_SECRET`、`WORKER_URL`、CF Access 配置（仅 web-worker）
 
 ## 附录：Next.js 历史形态（归档）

@@ -12,7 +12,7 @@ const rootPkg = JSON.parse(
 // wrangler reads `[assets] directory = "./dist"` (same physical dir).
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const target = env.PIKA_WEB_WORKER_URL ?? "http://127.0.0.1:7025";
+  const target = env.PIKA_WEB_WORKER_URL ?? "http://127.0.0.1:8787";
 
   return {
     plugins: [react(), tailwindcss()],
@@ -29,7 +29,7 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
     },
     server: {
-      port: 7024,
+      port: 7022,
       allowedHosts: ["pika.dev.hexly.ai"],
       proxy: {
         // changeOrigin stays false so the original Host header

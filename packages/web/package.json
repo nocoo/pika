@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "dev": "vite --port 7024",
+    "dev": "vite --port 7022",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit",

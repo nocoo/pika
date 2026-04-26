@@ -8,7 +8,7 @@
   "scripts": {
     "build": "tsc",
     "lint": "tsc --noEmit",
-    "dev": "wrangler dev --port 7023",
+    "dev": "wrangler dev --port 8788 --inspector-port 9230",
     "dev:bun": "bun run src/server.ts",
     "start": "bun run src/server.ts"
   },

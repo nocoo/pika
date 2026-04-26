@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Boot the web stack (Vite :7024 + web-worker :7025 + api :7023)
+ * Boot the web stack (Vite :7022 + web-worker :8787 + api :8788)
  * concurrently for local dev.
  *
  * Used by `bun run dev:all`. Streams every child's stdout/stderr with a
