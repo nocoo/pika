@@ -438,7 +438,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
 
 > 顺序原则：**先把代码切到终态（P6.1–P6.3），然后 test 部署验证（P6.4），最后 prod 切流（P6.5）**。这样上线的就是终态代码，不存在"deploy 出去的不是最终代码、之后又没补一次 deploy"的脱节。
 
-- [ ] **P6.1** `feat(api,web-worker): switch /api prefix in single atomic commit (P6.1)`
+- [x] **P6.1** `feat(api,web-worker): switch /api prefix in single atomic commit (P6.1)`
   - packages/api routes 全部加 `/api` 前缀（`/search` → `/api/search`，`/live` → `/api/live`，等）
   - 同步改 packages/api 单测 path
   - 删 web-worker `proxy.ts` 中 strip `/api` 逻辑

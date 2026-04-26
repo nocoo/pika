@@ -23,7 +23,7 @@ export interface AppDeps {
 export function createApp(
   deps: AppDeps = {},
 ): Hono<{ Variables: AuthVariables }> {
-  const app = new Hono<{ Variables: AuthVariables }>();
+  const app = new Hono<{ Variables: AuthVariables }>().basePath("/api");
 
   // Public routes (no auth)
   app.route("/live", deps.liveRoute ?? defaultLiveRoute);

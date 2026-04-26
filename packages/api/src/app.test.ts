@@ -14,7 +14,7 @@ describe("createApp", () => {
       fetch: fetchSpy as unknown as typeof fetch,
     });
     const app = createApp({ liveRoute });
-    const res = await app.request("/live");
+    const res = await app.request("/api/live");
 
     expect(res.status).toBe(200);
     expect(res.headers.get("Cache-Control")).toBe("no-store");
@@ -28,7 +28,7 @@ describe("createApp", () => {
 
   it("returns 404 for unknown routes", async () => {
     const app = createApp();
-    const res = await app.request("/nonexistent");
+    const res = await app.request("/api/nonexistent");
     expect(res.status).toBe(404);
   });
 
@@ -37,7 +37,7 @@ describe("createApp", () => {
     delete process.env.WORKER_URL;
     try {
       const app = createApp();
-      const res = await app.request("/live");
+      const res = await app.request("/api/live");
       expect(res.status).toBe(503);
       const body = (await res.json()) as Record<string, unknown>;
       expect((body.database as Record<string, unknown>).error).toBe(

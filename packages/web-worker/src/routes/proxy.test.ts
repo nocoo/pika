@@ -4,22 +4,22 @@ import type { AppEnv } from "../lib/env";
 import { buildUpstreamRequest, proxyHandler } from "./proxy";
 
 describe("buildUpstreamRequest", () => {
-  it("strips /api prefix from pathname", () => {
+  it("preserves /api prefix in pathname (packages/api uses basePath('/api'))", () => {
     const upstream = buildUpstreamRequest(
       new Request("https://pika.example/api/stats?range=7d"),
       "u-1",
     );
     const u = new URL(upstream.url);
-    expect(u.pathname).toBe("/stats");
+    expect(u.pathname).toBe("/api/stats");
     expect(u.search).toBe("?range=7d");
   });
 
-  it("rewrites bare /api to /", () => {
+  it("preserves bare /api as /api", () => {
     const upstream = buildUpstreamRequest(
       new Request("https://pika.example/api"),
       "u-1",
     );
-    expect(new URL(upstream.url).pathname).toBe("/");
+    expect(new URL(upstream.url).pathname).toBe("/api");
   });
 
   it("injects X-Pika-User-Id header", () => {
@@ -99,7 +99,7 @@ describe("proxyHandler", () => {
     expect(env.API.fetch).toHaveBeenCalledOnce();
     const upstream = (env.API.fetch as ReturnType<typeof vi.fn>).mock
       .calls[0][0] as Request;
-    expect(new URL(upstream.url).pathname).toBe("/stats");
+    expect(new URL(upstream.url).pathname).toBe("/api/stats");
     expect(upstream.headers.get("X-Pika-User-Id")).toBe("u-1");
     expect(upstream.headers.get("X-Pika-User-Email")).toBe("alice@example.com");
   });
