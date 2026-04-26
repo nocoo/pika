@@ -405,7 +405,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
   - L1 测试：透传 + header 注入 + 路径 strip
   - 验收：`wrangler dev --local --service-binding API=pika-api` 联调；`curl /api/stats` 同时打通 web-worker → api
 
-- [ ] **P3.4** `chore(web_legacy): point api-forward at packages/api wrangler dev (P3.4)`
+- [x] **P3.4** `chore(web_legacy): point api-forward at packages/api wrangler dev (P3.4)`
   - `packages/web_legacy` 的 `API_INTERNAL_URL` 改指 `http://localhost:7023`（packages/api wrangler dev port）
   - 验证：web_legacy 与 web-worker 同时打 packages/api 都返回相同结果
   - 验收：legacy L2 e2e 全绿
