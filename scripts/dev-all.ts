@@ -34,6 +34,10 @@ const CHILDREN: Child[] = [
     name: "wkr",
     cwd: resolve(ROOT, "packages/web-worker"),
     cmd: ["bun", "run", "dev"],
+    // CLOUDFLARE_ACCOUNT_ID skips wrangler's interactive account picker so
+    // remote D1 binding (wrangler.toml `remote = true`) works under
+    // dev-all's piped stdio. Without it wrangler hits /memberships and dies.
+    env: { CLOUDFLARE_ACCOUNT_ID: "d51a8fde361e4be31db17d8c56737c1f" },
     colour: "\x1b[33m", // yellow
   },
   {
