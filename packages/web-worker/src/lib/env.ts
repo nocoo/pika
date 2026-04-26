@@ -1,4 +1,5 @@
 import type { ApiTokenExecutor } from "@pika/core";
+import type { UserExecutor } from "./resolve-user";
 
 export interface AppEnv {
   Bindings: {
@@ -15,5 +16,6 @@ export interface AppEnv {
     accessEmail?: string;
     userId?: string;
     apiTokenExec?: ApiTokenExecutor;
+    userExec?: UserExecutor;
   };
 }

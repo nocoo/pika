@@ -342,7 +342,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
   - L1 测试：三件套各 1 个 happy + 1 个 401
   - 验收：`bun test packages/web-worker` 全绿；`wrangler dev` 本机 `isLocalhost` 命中
 
-- [ ] **P1.3** `feat(web-worker): /api/me + email→userId idempotent upsert (P1.3)`
+- [x] **P1.3** `feat(web-worker): /api/me + email→userId idempotent upsert (P1.3)`
   - `src/lib/resolve-user.ts`：`accessEmail` → `users` 表幂等 upsert（`INSERT ... ON CONFLICT(email) DO NOTHING; SELECT id ...`，见 §身份模型 #2）
   - `src/routes/me.ts`：`GET /api/me` → `{ email, userId }`
   - middleware 末端 `c.set("userId", ...)` + `c.set("email", ...)`
