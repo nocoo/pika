@@ -5,12 +5,14 @@ import {
   LogOut,
   MessagesSquare,
   PanelLeft,
+  Search,
   Tags,
   Trash2,
 } from "lucide-react";
 import type { ElementType } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
+import { SearchDialog } from "@/components/search/search-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -135,12 +137,24 @@ export function Sidebar() {
   const { pathname } = useLocation();
   const { collapsed, toggle } = useSidebar();
   const { me } = useMe();
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const navGroups = getNavGroups();
   const allNavItems = navGroups.flatMap((g) => g.items);
 
   const userEmail = me?.email ?? "";
   const userInitial = userEmail[0]?.toUpperCase() ?? "?";
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen((prev) => !prev);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -175,6 +189,27 @@ export function Sidebar() {
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={8}>
                 Expand sidebar
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => setSearchOpen(true)}
+                  aria-label="Search (⌘K)"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors mb-2"
+                  data-testid="sidebar-search-collapsed"
+                >
+                  <Search
+                    className="h-4 w-4"
+                    aria-hidden="true"
+                    strokeWidth={1.5}
+                  />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={8}>
+                Search ⌘K
               </TooltipContent>
             </Tooltip>
 
@@ -266,6 +301,21 @@ export function Sidebar() {
               </div>
             </div>
 
+            <div className="px-3 mt-1">
+              <button
+                type="button"
+                onClick={() => setSearchOpen(true)}
+                className="flex w-full items-center gap-3 rounded-lg border border-border bg-card px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                data-testid="sidebar-search-expanded"
+              >
+                <Search className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                <span className="flex-1 text-left">Search...</span>
+                <kbd className="pointer-events-none hidden h-5 select-none items-center gap-0.5 rounded border border-border bg-muted px-1.5 font-mono text-micro font-medium text-muted-foreground sm:inline-flex">
+                  <span className="text-xs">⌘</span>K
+                </kbd>
+              </button>
+            </div>
+
             <nav className="flex-1 overflow-y-auto pt-1">
               {navGroups.map((group) => (
                 <NavGroupSection
@@ -309,6 +359,7 @@ export function Sidebar() {
           </div>
         )}
       </aside>
+      <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
     </TooltipProvider>
   );
 }
