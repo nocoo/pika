@@ -28,6 +28,25 @@ export interface SessionRow {
 
 export interface SessionListResponse {
   sessions: SessionRow[];
-  nextCursor?: string;
-  total?: number;
+  cursor?: string | null;
+  hasMore?: boolean;
+  /** Present only in offset pagination mode */
+  totalCount?: number;
+}
+
+export type SessionSort =
+  | "last_message_at"
+  | "started_at"
+  | "total_input_tokens"
+  | "total_messages"
+  | "duration_seconds";
+
+export interface SessionCardTag {
+  id: string;
+  name: string;
+  color: string | null;
+}
+
+export interface SessionCardData extends SessionRow {
+  tags?: SessionCardTag[];
 }

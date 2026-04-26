@@ -415,7 +415,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
 > 每域一个 commit；UI 复刻 web_legacy 同页，验收维度：组件单测 + Playwright spec 拷贝 + 视觉对照（3 层亮度 / 色板 / 排版无回归）。
 
 - [x] **P4.1** `feat(web): dashboard overview page (P4.1)`
-- [ ] **P4.2** `feat(web): sessions list + filters (P4.2)`
+- [x] **P4.2** `feat(web): sessions list + filters (P4.2)`
 - [ ] **P4.3** `feat(web): session detail with content/star/tags/trash (P4.3)`
 - [ ] **P4.4** `feat(web): search page (P4.4)`
 - [ ] **P4.5** `feat(web): tags management (P4.5)`

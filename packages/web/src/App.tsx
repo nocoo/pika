@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router";
 import { RequireAuth } from "./components/auth/RequireAuth";
 import { AppShell } from "./components/layout/app-shell";
 import { DashboardPage } from "./pages/dashboard/page";
+import { SessionsPage } from "./pages/dashboard/sessions/page";
 
 function Placeholder({ title }: { title: string }) {
   return (
@@ -19,10 +20,7 @@ export function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route
-            path="/dashboard/sessions"
-            element={<Placeholder title="Sessions" />}
-          />
+          <Route path="/dashboard/sessions" element={<SessionsPage />} />
           <Route
             path="/dashboard/projects"
             element={<Placeholder title="Projects" />}
