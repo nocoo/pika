@@ -32,9 +32,14 @@ export default defineConfig(({ mode }) => {
       port: 7024,
       allowedHosts: ["pika.dev.hexly.ai"],
       proxy: {
+        // changeOrigin stays false so the original Host header
+        // (pika.dev.hexly.ai via Caddy, or localhost:7022 direct) reaches
+        // wrangler dev. isLocalhost gates on Host, and Miniflare always
+        // populates `c.req.raw.cf` — rewriting Host to 127.0.0.1 would
+        // make the CF-edge branch reject the request.
         "/api": {
           target,
-          changeOrigin: true,
+          changeOrigin: false,
         },
       },
     },
