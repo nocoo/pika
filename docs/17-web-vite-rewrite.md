@@ -334,7 +334,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
   - L1 测试：repo 用 `bun:sqlite` migration 跑过
   - 验收：`bun test packages/core` 全绿；schema migration 在本地 D1 执行成功
 
-- [ ] **P1.2** `feat(web-worker): cf access + api-key-auth middleware (P1.2)`
+- [x] **P1.2** `feat(web-worker): cf access + api-key-auth middleware (P1.2)`
   - `src/middleware/{access-auth,api-key-auth,is-localhost}.ts` 照搬 surety 三件套；access-auth 用 `jose.createRemoteJWKSet` + 本 doc 的 `CF_ACCESS_TEAM_DOMAIN` / `CF_ACCESS_AUD`
   - api-key-auth 走 `packages/core/infra/api-tokens` repo（hash 比对 + `updateLastUsed`）
   - is-localhost：dev/E2E 旁路。**不**默认注入 `dev@local`（避免污染老 userId 分区），改为：读 `DEV_USER_EMAIL` env 或 `X-Dev-User-Email` header；缺省时返回 401 并在 console 打印提示。详见 §认证模型 → 本机 dev 身份方案

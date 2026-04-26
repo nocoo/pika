@@ -1,10 +1,15 @@
 import { Hono } from "hono";
+import type { AppEnv } from "./lib/env";
+import { accessAuth } from "./middleware/access-auth";
+import { apiKeyAuth } from "./middleware/api-key-auth";
 
-// docs/17 P0.3 — minimal scaffold. Only /api/live; everything else falls
-// through to ASSETS (SPA fallback). access-auth / api-key-auth / proxy
-// land in P1–P3.
+// docs/17 P1.2 — middleware chain: accessAuth → apiKeyAuth → 401.
+// /api/live is public; routes/me/auth-tokens/auth-cli land in P1.3–P1.5.
 
-const app = new Hono();
+const app = new Hono<AppEnv>();
+
+app.use("/api/*", accessAuth);
+app.use("/api/*", apiKeyAuth);
 
 app.get("/api/live", (c) => c.json({ ok: true }));
 

@@ -11,7 +11,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "hono": "^4.12.14"
+    "@pika/core": "*",
+    "hono": "^4.12.14",
+    "jose": "^6.2.2"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250620.0",
