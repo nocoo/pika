@@ -373,7 +373,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
   - `src/components/auth/RequireAuth.tsx`：未登录显示 loading + 触发刷新
   - L1 测试：`useMe` loading/error/ok 三态
 
-- [ ] **P2.3** `feat(web): app shell + sidebar + theme toggle (P2.3)`
+- [x] **P2.3** `feat(web): app shell + sidebar + theme toggle (P2.3)`
   - 拷贝 `components/layout/{app-shell,sidebar,sidebar-context,breadcrumbs,theme-toggle}` 并去 `"use client"`、`next/link` → `react-router Link`、`next/navigation` → `useNavigate`
   - sidebar 用 `useMe()` 渲染邮箱；登出按钮 `<a href="https://nocoo.cloudflareaccess.com/cdn-cgi/access/logout">`
   - 路由占位：`/`、`/login`（删除）、`/dashboard` 全打 placeholder

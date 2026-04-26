@@ -1,7 +1,12 @@
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv } from "vite";
+
+const rootPkg = JSON.parse(
+  readFileSync(resolve(__dirname, "../../package.json"), "utf8"),
+) as { version: string };
 
 // docs/17 §静态产物目录约定: vite writes to packages/web-worker/dist;
 // wrangler reads `[assets] directory = "./dist"` (same physical dir).
@@ -11,6 +16,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), tailwindcss()],
+    define: {
+      __APP_VERSION__: JSON.stringify(rootPkg.version),
+    },
     resolve: {
       alias: {
         "@": resolve(__dirname, "./src"),
