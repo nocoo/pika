@@ -35,4 +35,4 @@ preview_urls = false
 [env.test.vars]
 ENVIRONMENT = "test"
 E2E_SKIP_AUTH = "true"
-WORKER_URL = "https://pika-ingest.worker.hexly.ai"
+WORKER_URL = "https://pika-test.nocoo.workers.dev"
