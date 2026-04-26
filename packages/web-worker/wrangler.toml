@@ -11,12 +11,23 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 ENVIRONMENT = "development"
+# CF Access JWT verification (consumed by middleware/access-auth.ts).
+# Override per-deploy via `wrangler deploy --var` or dashboard env vars.
+CF_ACCESS_TEAM_DOMAIN = "hexly.cloudflareaccess.com"
+CF_ACCESS_AUD = ""
 
 # docs/17 P3.3 — service binding to packages/api. web-worker is the only
 # trust root: it injects X-Pika-User-Id (+ Email) on the rewritten request.
 [[services]]
 binding = "API"
 service = "pika-api"
+
+# D1 binding — required by api-key-auth (api_tokens table) and resolve-user
+# (users table). Same `pika-db` shared with packages/worker.
+[[d1_databases]]
+binding = "DB"
+database_name = "pika-db"
+database_id = "55bfb2fc-4085-4670-9611-da2f1eee4888"
 
 [assets]
 directory = "./dist"
@@ -34,10 +45,17 @@ routes = []
 [env.test.vars]
 ENVIRONMENT = "test"
 E2E_SKIP_AUTH = "true"
+CF_ACCESS_TEAM_DOMAIN = "hexly.cloudflareaccess.com"
+CF_ACCESS_AUD = ""
 
 [[env.test.services]]
 binding = "API"
 service = "pika-api-test"
+
+[[env.test.d1_databases]]
+binding = "DB"
+database_name = "pika-db"
+database_id = "55bfb2fc-4085-4670-9611-da2f1eee4888"
 
 [env.test.assets]
 directory = "./dist"
