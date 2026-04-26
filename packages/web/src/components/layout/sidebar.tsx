@@ -7,6 +7,7 @@ import {
   PanelLeft,
   Search,
   Tags,
+  Terminal,
   Trash2,
 } from "lucide-react";
 import type { ElementType } from "react";
@@ -37,6 +38,7 @@ const ICON_MAP: Record<string, ElementType> = {
   MessagesSquare,
   FolderKanban,
   Tags,
+  Terminal,
   Trash2,
 };
 

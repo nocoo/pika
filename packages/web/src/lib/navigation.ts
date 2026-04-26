@@ -50,7 +50,10 @@ export const NAV_GROUPS: NavGroupDef[] = [
   {
     label: "Settings",
     defaultOpen: false,
-    items: [{ href: "/dashboard/settings/tags", label: "Tags", icon: "Tags" }],
+    items: [
+      { href: "/dashboard/settings/tags", label: "Tags", icon: "Tags" },
+      { href: "/dashboard/settings/cli", label: "CLI", icon: "Terminal" },
+    ],
   },
 ];
 
@@ -66,6 +69,7 @@ export const ROUTE_LABELS: Record<string, string> = {
   trash: "Trash",
   settings: "Settings",
   tags: "Tags",
+  cli: "CLI",
 };
 
 export function breadcrumbsFromPathname(pathname: string) {
