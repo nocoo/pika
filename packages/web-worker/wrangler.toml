@@ -12,6 +12,12 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 ENVIRONMENT = "development"
 
+# docs/17 P3.3 — service binding to packages/api. web-worker is the only
+# trust root: it injects X-Pika-User-Id (+ Email) on the rewritten request.
+[[services]]
+binding = "API"
+service = "pika-api"
+
 [assets]
 directory = "./dist"
 binding = "ASSETS"
@@ -28,6 +34,10 @@ routes = []
 [env.test.vars]
 ENVIRONMENT = "test"
 E2E_SKIP_AUTH = "true"
+
+[[env.test.services]]
+binding = "API"
+service = "pika-api-test"
 
 [env.test.assets]
 directory = "./dist"

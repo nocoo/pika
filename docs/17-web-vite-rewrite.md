@@ -396,7 +396,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
   - L1 测试：四态（header 存在/缺失/E2E 旁路/prod 强制）
   - 验收：`bun test packages/api` 全绿
 
-- [ ] **P3.3** `feat(web-worker): /api/* proxy via service binding (P3.3)`
+- [x] **P3.3** `feat(web-worker): /api/* proxy via service binding (P3.3)`
   - `wrangler.toml` 加 `[[services]] binding=API service=pika-api`
   - `src/routes/proxy.ts`：匹配 `/api/*` 中**非内置**路径（live/me/auth/tokens/auth/cli 留 web-worker）
   - strip `/api` 前缀（与 web_legacy `api-forward.ts:38` 一致）

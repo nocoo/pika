@@ -5,6 +5,7 @@ export interface AppEnv {
   Bindings: {
     DB: D1Database;
     ASSETS: { fetch: (req: Request) => Promise<Response> };
+    API: Fetcher;
     ENVIRONMENT?: string;
     E2E_SKIP_AUTH?: string;
     CF_ACCESS_TEAM_DOMAIN?: string;
