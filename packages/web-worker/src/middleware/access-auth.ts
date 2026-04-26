@@ -45,7 +45,15 @@ export async function accessAuth(c: Context<AppEnv>, next: Next) {
     const hasBearer = (c.req.header("Authorization") ?? "").startsWith(
       "Bearer ",
     );
-    if (!hasBearer) c.set("accessAuthenticated", true);
+    if (!hasBearer) {
+      c.set("accessAuthenticated", true);
+      // Dev-only email injection so resolveUser can hydrate a real userId
+      // against prod D1 (`experimental_remote=true`). Configured via
+      // packages/web-worker/.dev.vars `DEV_USER_EMAIL=...` — never set in
+      // prod wrangler.toml; CF Access JWT is the only email source there.
+      const devEmail = c.env.DEV_USER_EMAIL;
+      if (devEmail) c.set("accessEmail", devEmail);
+    }
     return next();
   }
 

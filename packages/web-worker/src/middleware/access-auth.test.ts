@@ -58,6 +58,34 @@ describe("accessAuth", () => {
     expect(verifyMock).not.toHaveBeenCalled();
   });
 
+  it("localhost without bearer + DEV_USER_EMAIL injects accessEmail", async () => {
+    const app = makeApp({ DEV_USER_EMAIL: "architie@gmail.com" });
+    const res = await app.fetch(
+      new Request("http://localhost:7025/api/me", {
+        headers: { host: "localhost:7025" },
+      }),
+    );
+    const body = (await res.json()) as { authed: boolean; email: string };
+    expect(body.authed).toBe(true);
+    expect(body.email).toBe("architie@gmail.com");
+    expect(verifyMock).not.toHaveBeenCalled();
+  });
+
+  it("localhost with bearer ignores DEV_USER_EMAIL (apiKeyAuth owns email)", async () => {
+    const app = makeApp({ DEV_USER_EMAIL: "architie@gmail.com" });
+    const res = await app.fetch(
+      new Request("http://localhost:7025/api/me", {
+        headers: {
+          host: "localhost:7025",
+          Authorization: "Bearer pk_test",
+        },
+      }),
+    );
+    const body = (await res.json()) as { authed: boolean; email: null };
+    expect(body.authed).toBe(false);
+    expect(body.email).toBeNull();
+  });
+
   it("localhost with bearer skips dev-auth so apiKeyAuth handles it", async () => {
     const app = makeApp();
     const res = await app.fetch(
