@@ -361,7 +361,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
 
 ### P2. SPA 路由 + 共享样式
 
-- [ ] **P2.1** `feat(web): port globals.css + tailwind v4 + shadcn primitives (P2.1)`
+- [x] **P2.1** `feat(web): port globals.css + tailwind v4 + shadcn primitives (P2.1)`
   - 拷贝 `web_legacy/src/{globals.css,components.json,components/ui/*}` → `packages/web/src/`
   - 拷贝 `lib/{format,palette,calendar-helpers,navigation,utils}.ts`、`hooks/*`
   - 验证 3 层亮度变量（L0/L1/L2）保留
