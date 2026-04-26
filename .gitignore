@@ -37,3 +37,5 @@ bun.lockb
 # Config (local only)
 wrangler.toml
 !packages/worker/wrangler.toml
+!packages/web-worker/wrangler.toml
+!packages/api/wrangler.toml

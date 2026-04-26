@@ -383,7 +383,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
 
 > 范围澄清：本阶段**不**重构 packages/api 的业务 handler。`packages/api/src/routes/{stats,sessions,search,projects,tags}.ts` 当前是 `workerGetHandler/workerPostHandler` 对 `packages/worker` 的包装，本 doc 维持现状。读侧/查询侧从 worker 迁到 api 是后续独立 doc 的事。
 
-- [ ] **P3.1** `feat(api): wrangler.toml without public routes (P3.1)`
+- [x] **P3.1** `feat(api): wrangler.toml without public routes (P3.1)`
   - `packages/api/wrangler.toml` 见 §端口与部署 片段：**不绑** `routes` / `custom_domain`，仅作为 service binding 目标
   - `[env.test]` 同样不绑（顶层无 routes，无继承风险）
   - dev：`wrangler dev --port 7023`

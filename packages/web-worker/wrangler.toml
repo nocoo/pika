@@ -1,0 +1,36 @@
+# docs/17 §端口与部署: pika-web (assets + /api).
+# Phase P0.3 — minimal scaffold: assets + /api/live only.
+# CF Access vars, D1 binding, service binding to pika-api added in later phases.
+
+name = "pika-web"
+main = "src/index.ts"
+compatibility_date = "2026-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+# routes intentionally omitted at P0.3; add custom_domain in P6 cutover.
+
+[vars]
+ENVIRONMENT = "development"
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+not_found_handling = "single-page-application"
+
+[env.test]
+name = "pika-web-test"
+# ⚠️ [env.test] inherits top-level routes by default; we have none so this
+# stays empty, but keep `routes = []` explicit so future edits to the prod
+# routes list don't accidentally leak into test (backy踩过的坑).
+routes = []
+
+[env.test.vars]
+ENVIRONMENT = "test"
+E2E_SKIP_AUTH = "true"
+
+[env.test.assets]
+directory = "./dist"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+not_found_handling = "single-page-application"

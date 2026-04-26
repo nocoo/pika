@@ -1,0 +1,28 @@
+# docs/17 §端口与部署: pika-api (service binding target only).
+# Phase P3.1 — no public routes; web-worker reaches us via service binding.
+# See §安全边界: this Worker is the trust root for X-Pika-User-Id (only
+# accepted from the service binding peer).
+
+name = "pika-api"
+main = "src/index.ts"
+compatibility_date = "2026-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+# 关键：不绑 routes / 不绑 custom_domain。仅作为 web-worker 的 service binding 目标存在。
+# 见 §安全边界——这是 X-Pika-User-Id 信任的唯一根。
+
+[vars]
+ENVIRONMENT = "production"
+# WORKER_URL is the internal HTTP base for packages/worker (D1/R2 data plane).
+# Set to the real URL via `wrangler deploy` env vars or `wrangler secret put`.
+WORKER_URL = "https://pika-worker.workers.dev"
+# WORKER_SECRET goes via `wrangler secret put`.
+
+[env.test]
+name = "pika-api-test"
+# routes 字段省略；顶层也没有 routes，无继承风险
+
+[env.test.vars]
+ENVIRONMENT = "test"
+E2E_SKIP_AUTH = "true"
+WORKER_URL = "https://pika-worker-test.workers.dev"
