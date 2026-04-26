@@ -349,7 +349,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
   - L1 测试：并发 10 次同 email 仅落 1 行 `users`
   - 验收：浏览器登录后 `curl /api/me` 返回 `{ email, userId }`
 
-- [ ] **P1.4** `feat(web-worker): /api/auth/tokens crud (P1.4)`
+- [x] **P1.4** `feat(web-worker): /api/auth/tokens crud (P1.4)`
   - `src/routes/auth-tokens.ts`：`GET/POST/DELETE /api/auth/tokens(/:id)` 调 `api-tokens` repo；POST 返回明文 `pk_xxx` 一次（hash 后入库）
   - L1 测试：CRUD + hash 不可逆
   - 验收：手工 `curl -X POST /api/auth/tokens` 拿到 `pk_xxx`，再 `Authorization: Bearer pk_xxx` 打 `/api/me` 通过
