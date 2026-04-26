@@ -304,7 +304,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
   - 根 `package.json` scripts：现有 `dev:web` / `build:web` / `lint:web` 等加 `legacy:` 前缀；根 `dev` / `build` 暂改成只跑 api/worker（不挂 legacy）
   - 验收：`bun install` 通过；`bun run --cwd packages/web_legacy build` 仍绿；`bun run lint` 全包绿
 
-- [ ] **P0.2** `feat(web): scaffold vite spa skeleton (P0.2)`
+- [x] **P0.2** `feat(web): scaffold vite spa skeleton (P0.2)`
   - 新建 `packages/web/{package.json,tsconfig.json,vite.config.ts,index.html,src/main.tsx,src/App.tsx}`
   - 依赖：`vite`、`@vitejs/plugin-react`、`@tailwindcss/vite`、`react@19`、`react-dom@19`、`react-router@7`、`swr`、`tailwindcss@4`、`tw-animate-css`
   - `vite.config.ts`：`build.outDir = "../web-worker/dist"`、`emptyOutDir = true`、`server.port = 7024`、`server.proxy["/api"] = "http://127.0.0.1:7025"`

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pika</title>
+    <meta name="description" content="Replay and search coding agent sessions" />
+    <script>
+      // Apply dark class before first paint to prevent FOUC
+      (function () {
+        try {
+          var s = localStorage.getItem("theme");
+          var d = window.matchMedia("(prefers-color-scheme:dark)").matches;
+          if (s === "dark" || (s !== "light" && d))
+            document.documentElement.classList.add("dark");
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body class="antialiased">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
