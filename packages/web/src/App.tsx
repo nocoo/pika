@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router";
 import { RequireAuth } from "./components/auth/RequireAuth";
 import { AppShell } from "./components/layout/app-shell";
 import { DashboardPage } from "./pages/dashboard/page";
+import { SessionDetailPage } from "./pages/dashboard/sessions/[id]/page";
 import { SessionsPage } from "./pages/dashboard/sessions/page";
 
 function Placeholder({ title }: { title: string }) {
@@ -21,6 +22,10 @@ export function App() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/dashboard/sessions" element={<SessionsPage />} />
+          <Route
+            path="/dashboard/sessions/:id"
+            element={<SessionDetailPage />}
+          />
           <Route
             path="/dashboard/projects"
             element={<Placeholder title="Projects" />}

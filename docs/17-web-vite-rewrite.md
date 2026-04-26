@@ -416,7 +416,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
 
 - [x] **P4.1** `feat(web): dashboard overview page (P4.1)`
 - [x] **P4.2** `feat(web): sessions list + filters (P4.2)`
-- [ ] **P4.3** `feat(web): session detail with content/star/tags/trash (P4.3)`
+- [x] **P4.3** `feat(web): session detail with content/star/tags/trash (P4.3)`
 - [ ] **P4.4** `feat(web): search page (P4.4)`
 - [ ] **P4.5** `feat(web): tags management (P4.5)`
 - [ ] **P4.6** `feat(web): projects + activity (P4.6)`
