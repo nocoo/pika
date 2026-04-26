@@ -1,189 +1,169 @@
 # 05 - Dashboard
 
+> **当前形态（docs/17 终态）**：Vite SPA + react-router 7 + SWR，由 `packages/web-worker` Cloudflare Worker 静态托管，所有 `/api/*` 通过 service binding 走 `packages/api`（Hono on Workers）→ `packages/worker`（D1/R2 数据面）。CF Access SSO + Bearer token 在 web-worker 完成。
+>
+> **历史形态**（Next.js 16 + NextAuth + Railway）：见末尾 [附录：Next.js 历史形态](#附录nextjs-历史形态归档)。
+
 ## Overview
 
-The Pika dashboard is a Next.js 16 (App Router) web application deployed on Railway. It provides session browsing, full-text search, session replay, and usage statistics.
+Pika dashboard 现为 SPA：
 
-As of docs/16, all `/api/*` route handlers in web are thin forwarders that proxy the request to the api service (Hono on Bun, port 7023 dev / set via `API_INTERNAL_URL` in prod). Auth, validation, and Worker calls live in `packages/api`. Web still owns NextAuth (OAuth + JWT session) and the `/api/auth/cli` browser flow because those depend on NextAuth cookies.
+- 构建：`vite build` 输出到 `packages/web-worker/dist`，由 web-worker `[assets]` 直接吐 HTML/JS/CSS
+- 数据：所有页面通过 SWR 调用同源 `/api/*`
+- 认证：CF Access SSO（生产）/ localhost 旁路（开发），用户态由 web-worker 通过 cookie + D1 lookup 解析后注入 `X-User-Id`
+- CLI loopback / token 管理：`/api/auth/cli`、`/api/auth/tokens`（web-worker 路由）
 
 ## Tech Stack
 
 | Component | Choice |
 |-----------|--------|
-| Framework | Next.js 16 (App Router, standalone output) |
-| React | React 19 |
+| Framework | Vite 8 + React 19（SPA） |
+| Router | react-router 7 |
+| Data | SWR |
 | CSS | Tailwind CSS v4 |
-| UI Components | shadcn/ui + Radix UI |
+| UI | shadcn/ui（radix-ui primitives） |
 | Charts | Recharts |
-| Auth | NextAuth v5 (Google OAuth, JWT strategy) |
-| API access | Same-origin `/api/*` → api service via `lib/api-forward.ts` |
-| D1 Access (web) | Only NextAuth's `D1AuthAdapter` (`lib/d1.ts`) for users/accounts persistence |
-| R2 Access | Handled by api/worker (web no longer signs URLs directly) |
-| Deployment | Docker (Bun build, Node.js runtime) on Railway |
+| Auth (browser) | CF Access SSO（cookie），开发用 `isLocalhost` 旁路 |
+| Auth (CLI) | API tokens（`pk_*` SHA-256 hash），由 web-worker `/api/auth/tokens` 颁发 |
+| API access | 同源 `/api/*` → web-worker → service binding → packages/api → packages/worker |
+| Deployment | 三个独立 Cloudflare Worker（web-worker / api / worker） |
 
 ## Route Structure
 
 ```
-packages/web/src/app/
-+-- login/                      # Google OAuth login page
-+-- (dashboard)/                # Authenticated layout group
-|   +-- dashboard/              # Overview: stats, activity, recent sessions
-|   +-- sessions/               # Session list with search + filters
-|   +-- sessions/[id]/          # Session replay (full conversation)
-|   +-- search/                 # Full-text search page
-|   +-- settings/               # Tags, CLI status, account settings
-+-- api/
-    +-- auth/                   # NextAuth routes + CLI OAuth callback
-    |   +-- [...nextauth]/      # NextAuth catch-all
-    |   +-- cli/                # CLI login callback handler
-    +-- ingest/
-    |   +-- sessions/           # Session metadata ingest (proxy to Worker)
-    |   +-- content/            # Content upload (proxy to R2)
-    +-- sessions/               # Session CRUD queries
-    +-- search/                 # Full-text search queries
-    +-- tags/                   # Tag CRUD
-    +-- stats/                  # Dashboard statistics
+packages/web/src/pages/
++-- login/                    # CF Access SSO 入口（仅 dev 旁路用）
++-- dashboard/
+|   +-- page.tsx              # 概览：stats, activity, recent sessions
+|   +-- sessions/             # 会话列表 + 详情
+|   +-- search/               # 全文搜索
+|   +-- projects/             # 项目维度聚合
+|   +-- settings/
+|       +-- tags/             # tag 管理
+|       +-- cli/              # CLI install / auth / token 管理
++-- App.tsx                   # react-router 主路由
 ```
 
 ## Key Pages
 
 ### Dashboard (`/dashboard`)
+- 总会话数、本周新增
+- 90 天活动热力图
+- 来源分布（Claude / Codex / Gemini / OpenCode / VSCode Copilot）
+- 最近 10 条会话 + Top 项目
+- 数据：`GET /api/stats`
 
-Overview page showing:
-- Total sessions count, sessions this week
-- Activity heatmap (sessions per day, last 90 days)
-- Source distribution pie chart (Claude, Codex, Gemini, etc.)
-- Recent sessions list (last 10)
-- Top projects by session count
+### Session List (`/dashboard/sessions`)
+- 全文搜索 + 多维过滤（来源 / 项目 / 时间 / 星标 / 标签）
+- 排序：last active / started at / token / duration
+- cursor 分页
+- 数据：`GET /api/sessions?...`
 
-**Data source**: `GET /api/stats` -> D1 aggregate queries
+### Session Detail (`/dashboard/sessions/:id`)
+- D1 metadata（即时） + R2 `canonical.json.gz`（异步）
+- 角色样式渲染、tool call 可展开、token 用量分段
+- 操作：星标、标签、回收站、标题/描述编辑
+- 数据：`GET /api/sessions/:id` + `/api/sessions/:id/content`
 
-### Session List (`/sessions`)
+### Search (`/dashboard/search`)
+- FTS5 全文检索（消息内容 + 工具上下文）
+- `snippet()` 高亮
+- 数据：`GET /api/search?q=...`
+- ⌘K 快捷键打开搜索 dialog（全局）
 
-Paginated session list with:
-- **Search bar**: Full-text search across message content
-- **Filters**: Source, project, time range, starred, tags
-- **Sort**: Last active (default), started at, token usage, duration
-- **Pagination**: Cursor-based (keyset) for performance
+### Projects (`/dashboard/projects`)
+- 项目维度聚合 + 活动热力图
+- 数据：`GET /api/projects`、`GET /api/projects/activity`
 
-Each session card shows: source icon, title/first message preview, project name, timestamp, message count, duration, token usage, tags.
+### Settings/Tags (`/dashboard/settings/tags`)
+- 标签 CRUD（带颜色选择）
+- 数据：`GET/POST /api/tags`、`PATCH/DELETE /api/tags/:id`
 
-**Data source**: `GET /api/sessions?source=...&project=...&from=...&to=...&sort=...&cursor=...`
+### Settings/CLI (`/dashboard/settings/cli`)
+- 安装命令、认证流程、API token 列表 + 撤销
+- 数据：`GET /api/auth/tokens`、`DELETE /api/auth/tokens/:id`、`/api/auth/cli`
 
-### Session Replay (`/sessions/[id]`)
+## API Routes（终态）
 
-Full conversation display:
-1. **Load metadata** from D1 (instant)
-2. **Load full content** from R2 `canonical.json.gz` (async, shows loading state)
-3. **Render messages** sequentially with:
-   - Role-based styling (user = right, assistant = left, tool = indented)
-   - Code blocks with syntax highlighting
-   - Tool calls with expandable input/output
-   - Timestamps between messages
-   - Token usage per turn (collapsible)
+所有 `/api/*` 在 `packages/web-worker` 入口分流：
 
-**Navigation**: Jump to specific message, keyboard shortcuts (j/k for next/prev)
+- `/api/auth/cli` + `/api/auth/tokens` + `/api/me`：web-worker 自己处理（cookie + D1 token CRUD）
+- 其余 `/api/*`：通过 service binding 全路径透传到 `packages/api`（Hono），再由 api 转 `packages/worker`
 
-**Data source**: `GET /api/sessions/{id}` (metadata) + R2 presigned URL (content)
+`packages/api` 用 `Hono.basePath("/api")`，所有 sub-route 自动落在 `/api/*` 下。
 
-### Search (`/search`)
-
-Full-text search across message chunks and tool context (tool names, file paths, commands):
-- Search input with instant feedback
-- Results grouped by session, showing matching chunk snippets and/or tool context
-- FTS5 `snippet()` for keyword highlighting in results
-- Searches both message content and tool metadata (e.g., "Bash npm install", "Read src/index.ts")
-- Filters: source, project, time range
-- Click result -> jump to the specific message within a session replay
-
-**Data source**: `GET /api/search?q=...&source=...&from=...&to=...`
-
-**Query implementation**:
-```sql
-SELECT mc.session_id, mc.message_id, mc.ordinal, mc.chunk_index,
-       snippet(chunks_fts, 0, '<mark>', '</mark>', '...', 64) as content_snippet,
-       snippet(chunks_fts, 1, '<mark>', '</mark>', '...', 64) as tool_snippet,
-       s.session_key, s.source, s.project_name, s.title, s.started_at
-FROM chunks_fts f
-JOIN message_chunks mc ON mc.rowid = f.rowid
-JOIN sessions s ON mc.session_id = s.id
-WHERE chunks_fts MATCH ?
-  AND mc.user_id = ?
-  AND s.source IN (?)              -- optional filter
-  AND s.last_message_at >= ?       -- optional filter
-  AND s.last_message_at <= ?       -- optional filter
-ORDER BY rank
-LIMIT 50
-```
-
-### Settings (`/settings`)
-
-- **Tags**: Create, edit, delete tags with color picker
-- **CLI Status**: Show connected device, last sync time, total sessions
-- **Account**: Email, avatar, API key management (regenerate)
-- **Data**: Export/delete account data
-
-## API Routes
-
-All `/api/*` routes (except `/api/auth/*`) are now thin forwarders defined via `createForwardHandler` in `packages/web/src/lib/api-forward.ts`. They forward method, query string, and a small allowlist of headers (`cookie`, `authorization`, `x-e2e-user`, plus ingest-specific `x-content-hash`, `x-parser-revision`, `x-schema-version`, `x-raw-hash`, `content-encoding`) and stream the request body straight through (`duplex: "half"`) to avoid buffering large content uploads.
-
-The api service (`packages/api`, Hono on Bun) owns the actual logic: auth via `requireUser` middleware, validation, and Worker calls. See `docs/16-api-extraction.md` for the migration plan.
-
-### Ingest (write path)
-
-| Route | Method | Auth | Description |
-|-------|--------|------|-------------|
-| `/api/ingest/sessions` | POST | Bearer `pk_...` | Batch session metadata upsert (forwards to api → Worker) |
-| `/api/ingest/presign` | POST | Bearer `pk_...` | Presign R2 upload URL (forwards to api → Worker) |
-| `/api/ingest/confirm-raw` | POST | Bearer `pk_...` | Confirm raw upload (validation in api, then forwards to Worker) |
-| `/api/ingest/content/{key}/canonical` | PUT | Bearer `pk_...` | Stream gzip canonical conversation (forwards to api → R2) |
-| `/api/ingest/content/{key}/raw` | PUT | Bearer `pk_...` | Stream gzip raw source payload (forwards to api → R2) |
-
-### Queries (read path)
-
-| Route | Method | Auth | Description |
-|-------|--------|------|-------------|
-| `/api/sessions` | GET | JWT cookie | List sessions with filters |
-| `/api/sessions/{id}` | GET | JWT cookie | Session metadata + R2 presigned URL |
-| `/api/search` | GET | JWT cookie | Full-text search |
-| `/api/tags` | GET/POST | JWT cookie | List/create tags |
-| `/api/tags/{id}` | PATCH/DELETE | JWT cookie | Update/delete tag |
-| `/api/sessions/{id}/tags` | POST/DELETE | JWT cookie | Add/remove tag from session |
-| `/api/sessions/{id}/star` | POST/DELETE | JWT cookie | Star/unstar session |
-| `/api/stats` | GET | JWT cookie | Dashboard statistics |
+| 路径 | Method | 处理者 | 描述 |
+|---|---|---|---|
+| `/api/me` | GET | web-worker | 当前用户（cookie → D1 users） |
+| `/api/auth/cli` | GET | web-worker | CLI loopback OAuth 换 token |
+| `/api/auth/tokens` | GET/POST/DELETE | web-worker | API token 列表 / 颁发 / 撤销 |
+| `/api/sessions` | GET | api → worker | 列表 + 过滤 |
+| `/api/sessions/:id` | GET/PATCH | api → worker | 详情 / 编辑 |
+| `/api/sessions/:id/content` | GET | api → worker | R2 canonical |
+| `/api/sessions/:id/tags` | PUT/DELETE | api → worker | tag 关联 |
+| `/api/sessions/:id/star` | PATCH | api → worker | 星标 |
+| `/api/sessions/:id/trash` | PATCH | api → worker | 软删 / 恢复 |
+| `/api/sessions/batch` | POST | api → worker | 批量操作 |
+| `/api/search` | GET | api → worker | FTS5 搜索 |
+| `/api/stats` | GET | api → worker | 仪表盘统计 |
+| `/api/projects` | GET | api → worker | 项目列表 |
+| `/api/projects/activity` | GET | api → worker | 项目活动热力图 |
+| `/api/tags` | GET/POST | api → worker | 标签 CRUD |
+| `/api/tags/:id` | PATCH/DELETE | api → worker | 标签更新 / 删除 |
+| `/api/ingest/sessions` | POST | api → worker | metadata 入库 |
+| `/api/ingest/presign` | POST | api → worker | R2 上传 presign |
+| `/api/ingest/confirm-raw` | POST | api → worker | 上传确认 |
+| `/api/ingest/content/:key/(canonical\|raw)` | PUT | api → worker | 内容流式上传 |
+| `/api/live` | GET | api | 健康检查 |
 
 ## Component Structure
 
 ```
-packages/web/src/components/
-+-- ui/                         # shadcn/ui primitives
-|   +-- button, card, input, dialog, popover, badge, ...
-+-- dashboard/
-|   +-- stats-cards.tsx         # Metric summary cards
-|   +-- activity-heatmap.tsx    # Session activity heatmap
-|   +-- source-chart.tsx        # Source distribution
-+-- sessions/
-|   +-- session-list.tsx        # Paginated session list
-|   +-- session-card.tsx        # Individual session card
-|   +-- session-filters.tsx     # Filter controls
-|   +-- session-replay.tsx      # Full conversation replay
-|   +-- message-bubble.tsx      # Individual message rendering
-|   +-- tool-call.tsx           # Tool call display (expandable)
-+-- search/
-|   +-- search-input.tsx        # Search bar with debounce
-|   +-- search-results.tsx      # Results list with highlights
-+-- layout/
-    +-- sidebar.tsx             # Navigation sidebar
-    +-- header.tsx              # Top bar with user menu
+packages/web/src/
++-- components/
+|   +-- ui/                # shadcn primitives（button/card/dialog/...）
+|   +-- layout/            # AppShell（floating L1 island）+ sidebar + header
+|   +-- sessions/          # list / card / filters / detail
+|   +-- search/            # input + results + ⌘K dialog
+|   +-- projects/          # heatmap + project cards
++-- pages/                 # 页面组件（按路由分目录）
++-- hooks/                 # useMe、useSessions、...（SWR 包装）
++-- lib/                   # api client、navigation、format、palette
 ```
 
-## D1 Read Access
+## Worker 链路
 
-Dashboard data reads no longer hit D1 directly from web. Web forwards `/api/*` to the api service, which calls the Worker (or D1 over HTTP for the few endpoints still using `lib/d1.ts`). The only direct D1 consumer in web is NextAuth's `D1AuthAdapter` (users/accounts persistence during OAuth sign-in), which keeps `lib/d1.ts` and `CF_D1_*` env vars alive (see `docs/11-unified-worker-api.md`).
+详见 docs/17 §拓扑权衡。要点：
+
+- `packages/web-worker`（CF Access + cookie + token）
+  - 持 `[assets]` 静态资产
+  - 通过 service binding `API` 调 `packages/api`
+  - `/api/auth/*` 与 `/api/me` 自己处理
+- `packages/api`（Hono.basePath("/api")）
+  - 业务 facade，负责入参校验、auth header 透传
+  - 通过 HTTP + `WORKER_SECRET` 调 `packages/worker`
+- `packages/worker`（D1/R2 数据面）
+  - 仅接受 `WORKER_SECRET` + `X-User-Id`（CF Access 上游已校验）
+  - 不再有 `/auth/me` / `/auth/cli-key` / `pk_*` 校验分支（P6.3 已删）
 
 ## Deployment
 
-- **Dockerfile**: Multi-stage (Bun build -> Node.js 22-slim runtime)
-- **Platform**: Railway (Docker builder) — web and api are separate Railway services; same-origin via Caddy in prod
-- **Output**: `next.config.ts` with `output: "standalone"`
-- **Environment variables**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_SECRET`, `CF_ACCOUNT_ID`, `CF_D1_DATABASE_ID`, `CF_D1_API_TOKEN` (all four for D1AuthAdapter only), `API_INTERNAL_URL` (web → api), `WORKER_SECRET`, `WORKER_URL` (api → Worker; api also needs the same NextAuth + D1 vars to validate cookies and read users)
+- 三个独立 wrangler 项目（`packages/web-worker`、`packages/api`、`packages/worker`）
+- web-worker 绑公网域名（`pika.hexly.ai`），api 仅 service binding 不绑路由，worker 独立
+- dev：`bun run dev:all` 启动 vite（7024）+ web-worker（7025，wrangler dev --local）+ api（7023）；Caddy 反代 `pika.dev.hexly.ai → :7025`，`isLocalhost` 旁路 CF Access
+- 关键 env：`WORKER_SECRET`、`WORKER_URL`、CF Access 配置（仅 web-worker）
+
+## 附录：Next.js 历史形态（归档）
+
+> 以下内容描述 docs/17 之前的形态，仅作历史参考；包代码已在 P6.2 删除（`packages/web_legacy`）。
+
+- 框架：Next.js 16（App Router，standalone output），React 19
+- 部署：Railway Docker（Bun build → Node 22 runtime），同源 Caddy 反代
+- 认证：NextAuth v5（Google OAuth + JWT cookie），D1AuthAdapter 直连 D1（users/accounts 表）
+- API：所有 `/api/*` 是 Next.js route handler 中的 thin forwarder，通过 `createForwardHandler` 转发到 `packages/api`（docs/16）
+- D1 直连：仅 NextAuth 的 D1AuthAdapter 通过 `lib/d1.ts` + `CF_D1_*` env vars 写 users/accounts；其它读写均经 worker
+- 端口：web dev 7022 / E2E 17022；api dev 7023 / E2E 17023
+- env：`GOOGLE_CLIENT_ID/SECRET`、`NEXTAUTH_SECRET`、`CF_ACCOUNT_ID`、`CF_D1_DATABASE_ID`、`CF_D1_API_TOKEN`、`API_INTERNAL_URL`、`WORKER_SECRET`、`WORKER_URL`
+- token 颁发：browser → `/api/auth/cli`（NextAuth cookie 校验）→ packages/worker `/auth/cli-key`（mint pk_，hash 入 `users.api_key`）；CLI bearer 用 `pk_*` 直连 worker
+
+迁移到 SPA + CF Access 的动机：去 NextAuth + Railway 双依赖、把 auth 单点收敛到 CF Access、把数据面统一在 Cloudflare 边缘。详见 docs/17。

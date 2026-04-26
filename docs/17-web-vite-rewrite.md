@@ -472,7 +472,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
   - 验证：核心页面 + CLI 端到端 OK
   - 失败回滚：`wrangler rollback` 三个 worker 上一个 prod 版本（旧版本里 packages/api 还是根挂载、web-worker 仍 strip /api、packages/worker 仍带 /auth/me + /auth/cli-key + pk_*，三者互相兼容）
 
-- [ ] **P6.6** `docs: archive next/nextauth in 05-dashboard + cross-link 16/17 (P6.6)`
+- [x] **P6.6** `docs: archive next/nextauth in 05-dashboard + cross-link 16/17 (P6.6)`
   - `docs/05-dashboard.md` 把 Next.js / NextAuth 内容归档到本 doc 的"历史形态"附录
   - `docs/16` 加 trailer 指向本 doc 终态
 

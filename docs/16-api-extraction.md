@@ -376,3 +376,15 @@ Caddy 路由分流如上，**dev 也走 Caddy / 等价反代同源模拟**，不
 2. **部署形态**：Railway 独立 service（推荐）vs web 容器多进程
 3. **`NEXTAUTH_SECRET` 共享方式**：直接环境变量 vs Secret Manager 注入
 4. **P0 时机**：本周 vs vinext 调研后
+
+---
+
+## 后续：docs/17 终态
+
+本 doc 描述的是 packages/web（Next.js）+ packages/api（独立 Hono on Bun）双向同步的中间形态。
+
+**已废止**：随 docs/17 落地，packages/web 被替换为 Vite SPA（packages/web，新内容），原 Next.js 代码（packages/web_legacy）已在 P6.2 删除。当前 `packages/api` 改为 `Hono.basePath("/api")`（P6.1），由 `packages/web-worker`（CF Access 入口）通过 service binding 调用，不再绑定公网路由；NextAuth 整体由 CF Access SSO + API token 取代。
+
+**当前形态请参考**：
+- `docs/17-web-vite-rewrite.md` — Vite + react-router 7 + 三 worker 架构总览
+- `docs/05-dashboard.md` — 当前 dashboard 形态（含 Next.js 历史形态归档）
