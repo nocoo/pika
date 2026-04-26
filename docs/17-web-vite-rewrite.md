@@ -419,7 +419,7 @@ packages/web-worker/  （Worker，对齐 surety apps/worker）
 - [x] **P4.3** `feat(web): session detail with content/star/tags/trash (P4.3)`
 - [x] **P4.4** `feat(web): search page (P4.4)`
 - [x] **P4.5** `feat(web): tags management (P4.5)`
-- [ ] **P4.6** `feat(web): projects + activity (P4.6)`
+- [x] **P4.6** `feat(web): projects + activity (P4.6)`
 - [ ] **P4.7** `feat(web): cli token management page (P4.7)`（复刻 surety `apps/web/src/app/cli/page.tsx`，仅承担列出/撤销，不承担登录）
 
 ### P5. CLI 闭环

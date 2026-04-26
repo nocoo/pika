@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router";
 import { RequireAuth } from "./components/auth/RequireAuth";
 import { AppShell } from "./components/layout/app-shell";
 import { DashboardPage } from "./pages/dashboard/page";
+import { ProjectsPage } from "./pages/dashboard/projects/page";
 import { SearchPage } from "./pages/dashboard/search/page";
 import { SessionDetailPage } from "./pages/dashboard/sessions/[id]/page";
 import { SessionsPage } from "./pages/dashboard/sessions/page";
@@ -29,10 +30,7 @@ export function App() {
             path="/dashboard/sessions/:id"
             element={<SessionDetailPage />}
           />
-          <Route
-            path="/dashboard/projects"
-            element={<Placeholder title="Projects" />}
-          />
+          <Route path="/dashboard/projects" element={<ProjectsPage />} />
           <Route
             path="/dashboard/trash"
             element={<Placeholder title="Trash" />}
