@@ -2,55 +2,70 @@
 
 ## Project Overview
 
-**Pika** is a SaaS for replaying and searching coding agent sessions. It consists of 4 packages in a Bun workspace monorepo:
+**Pika** is a SaaS for replaying and searching coding agent sessions. Single Cloudflare Worker serves SPA + `/api/*`. 4-package Bun monorepo:
 
 | Package | Purpose |
 |---------|---------|
 | `packages/core` | Shared types, constants, validators |
-| `packages/cli` | CLI tool (`@nocoo/pika`) for parsing + uploading sessions |
-| `packages/web` | Next.js 15 dashboard (Railway) |
-| `packages/worker` | Cloudflare Worker for D1/R2 writes |
+| `packages/cli` | `@nocoo/pika` — parses + uploads sessions |
+| `packages/web` | Vite + React 19 SPA (builds to `../web-worker/dist`) |
+| `packages/web-worker` | Cloudflare Worker — `[assets]` SPA + Hono `/api/*` |
+
+Full architecture: [docs/00-architecture.md](./docs/00-architecture.md).
 
 ## Tech Stack
 
 - **Runtime**: Bun
 - **Language**: TypeScript (strict)
 - **CLI**: citty + consola
-- **Web**: Next.js 15 (App Router), Tailwind v4, shadcn/ui, Recharts
-- **Auth**: NextAuth v5 (Google OAuth, JWT)
-- **DB**: Cloudflare D1 (SQLite) — metadata + chunked FTS5 index (no truncation)
-- **Storage**: Cloudflare R2 — canonical (mutable) + raw (content-addressed, immutable) conversation content (gzip)
-- **Worker**: Cloudflare Workers — idempotent versioned ingest to D1 + R2
-- **Testing**: Vitest (90% coverage), Husky hooks
-- **Test runner note**: `bun test` uses Bun's native test runner; `bunx vitest run` uses Vitest under Node. Migration tests (bun:sqlite) only run under `bun test`.
+- **Web**: Vite + React 19 + React Router, Tailwind v4, shadcn/ui, Recharts
+- **Edge**: Cloudflare Workers + Hono
+- **Auth**: Cloudflare Access SSO (browser) + `pk_*` API token (CLI)
+- **DB**: Cloudflare D1 (SQLite + FTS5) — native binding, no HTTP REST
+- **Storage**: Cloudflare R2 — canonical (mutable) + raw (content-addressed) gzip blobs
+- **Testing**: Vitest (90% coverage) + `bun test` for `bun:sqlite` migration tests
+- **CI/CD**: GitHub Actions (`nocoo/base-ci@v2026.1`) → `wrangler deploy`
 
-## Six-Dimension Quality Framework
+## Quality Framework
 
-| Dimension | What | When | Threshold |
-|-----------|------|------|-----------|
+| Dim | What | When | Threshold |
+|-----|------|------|-----------|
 | L1: UT | Business logic, parsers, validators | pre-commit | 90% coverage |
-| L2: API E2E | All REST API endpoints | pre-push | 100% endpoints |
-| L3: BDD E2E | Core user flows (Playwright) | On demand | Core flows |
-| G1: Static | tsc --noEmit + Biome lint | pre-commit | Zero errors |
+| G1: Static | tsc --noEmit (root + web + web-worker) + Biome | pre-commit / pre-push | Zero errors |
 | G2: Security | gitleaks + osv-scanner | pre-push | Zero findings |
-| D1: Isolation | D1-test + R2-test + _test_marker | E2E setup | 2-layer verify |
+| Build | `bun run build` (vite SPA → web-worker dist) | pre-push | Success |
+| CD | `wrangler deploy` + `/api/live` smoke | push to main | 200 or 401 |
 
-**Ports**: web dev=7022 / E2E=17022 · api dev=7023 / E2E=17023 · BDD E2E=27040
-**Current Tier**: B+ (L1 + G1 + G2 + D1, L2 pending)
+L2/L3 (API E2E + Playwright) currently disabled (no `test:e2e` script post single-worker pivot).
 
 ## Key Commands
 
 ```bash
-bun install                    # install dependencies
-bun test                       # run unit tests (bun native runner, includes bun:sqlite tests)
-bunx vitest run --coverage     # run tests with coverage report (vitest/node, excludes migration tests)
-bun run build                  # build all packages
-bun run lint                   # type-check all packages (root + web tsconfig)
+bun install                    # install + husky setup
+bun run dev:all                # vite :7022 + wrangler dev :8787
+bun test                       # bun native (incl. bun:sqlite migration tests)
+bunx vitest run --coverage     # node runner + coverage report
+bun run build                  # SPA → packages/web-worker/dist
+bun run lint                   # tsc --noEmit (3 tsconfigs)
 bun run lint:biome             # biome lint + format check
-bun run lint:secrets           # gitleaks secret scanning
-bun run lint:deps              # osv-scanner dependency audit
-bun run lint:all               # all lint gates (tsc + biome + gitleaks + osv-scanner)
+bun run lint:secrets           # gitleaks
+bun run lint:deps              # osv-scanner
 ```
+
+## Deploy
+
+```bash
+cd packages/web-worker
+CLOUDFLARE_ACCOUNT_ID=d51a8fde361e4be31db17d8c56737c1f bunx wrangler deploy             # prod
+CLOUDFLARE_ACCOUNT_ID=d51a8fde361e4be31db17d8c56737c1f bunx wrangler deploy --env test  # test
+```
+
+CI auto-deploys on push to `main` (`.github/workflows/ci.yml` → `Deploy Worker (production)`). Repo secret: `CLOUDFLARE_API_TOKEN`.
+
+| Env | Worker | Domain |
+|-----|--------|--------|
+| prod | `pika` | `pika.hexly.ai` + `pika-ingest.worker.hexly.ai` (legacy CLI) |
+| test | `pika-test` | `pika-test.hexly.ai` |
 
 ## Supported Sources
 
@@ -60,30 +75,28 @@ bun run lint:all               # all lint gates (tsc + biome + gitleaks + osv-sc
 - OpenCode (`~/.local/share/opencode/` — JSON + SQLite)
 - VSCode Copilot (`~/Library/Application Support/Code/User/` — CRDT JSONL)
 
-## Design Documents
-
-See `docs/README.md` for the numbered document index.
-
 ## Retrospective
 
-- **better-sqlite3 → bun:sqlite**: Bun 1.3.9 dropped `better-sqlite3` support. Migration tests now use `bun:sqlite` (Bun built-in). API is nearly identical (`prepare/all/run/exec/close`), but pragmas use `db.run("PRAGMA ...")` instead of `db.pragma("...")`. These tests are excluded from vitest (Node can't resolve `bun:sqlite`) and only run via `bun test`.
-- **Dual test runners**: `bun test` (Bun native) and `bunx vitest run` (Node/Vite) have different module resolution. Bun-specific imports (`bun:sqlite`) must be excluded from vitest config. Always verify both runners pass.
-- **git add -A atomicity trap**: When uncommitted files from multiple logical changes exist, `git add -A` stages everything. Always stage selectively (`git add <paths>`) to maintain atomic commits.
-- **Web package tsconfig independence**: Next.js tsconfig is incompatible with TypeScript project references (`composite: true`). Root lint script runs both: `tsc --noEmit && tsc --noEmit -p packages/web/tsconfig.json`.
-- **Extracting testable logic from Next.js routes**: Route handlers in App Router are hard to unit test directly. Extract pure business logic into separate `.ts` files (e.g., `cli-auth.ts`) that accept deps as params, then import in the route handler. This keeps coverage high without needing a full Next.js test environment.
-- **vi.stubEnv is vitest-only**: `vi.stubEnv()` / `vi.unstubAllEnvs()` do not exist in Bun's native test runner. For dual-runner compatibility, use direct `process.env` assignment with manual save/restore. Cast via `(process.env as Record<string, string>)[key]` to satisfy TS readonly constraint on `NODE_ENV`.
-- **Stub DB in route handlers is a false green**: A route handler with a no-op stub DB will pass all unit tests but leave the auth chain broken end-to-end. Always wire real infra (even if it's a thin HTTP client) early; stub DB should only exist in test mocks, never in production route code.
-- **Worker upsert WHERE must match design doc**: The idempotent versioned overwrite clause must check `content_hash`, `raw_hash`, `parser_revision`, and `schema_version` — not just `snapshot_at`. Using only `snapshot_at` allows stale parser output to overwrite newer canonical data.
-- **Next.js on Railway → D1 via HTTP REST API**: Since Next.js runs on Railway (not Cloudflare), it cannot use D1 bindings. Use the Cloudflare D1 REST API (`/client/v4/accounts/{id}/d1/database/{id}/query`) with `CF_ACCOUNT_ID`, `CF_D1_DATABASE_ID`, `CF_D1_API_TOKEN` env vars. The Worker uses native D1 bindings for batch writes; Next.js uses HTTP for lightweight reads/writes.
-- **No `.js` extensions in web package imports**: The web package uses `moduleResolution: "bundler"` (Next.js default). Unlike `NodeNext` resolution (used by core/cli/worker), the bundler mode does NOT resolve `.js` extensions to `.ts` files. All imports in `packages/web/src/` must use extensionless specifiers (`"./foo"` or `"@/lib/foo"`, never `"./foo.js"`). Vitest masks this bug because it resolves `.js` → `.ts` regardless, so tests pass but the Next.js build fails.
-- **CLI API URL must use real domain, never localhost**: Local dev uses Caddy reverse proxy (`*.dev.hexly.ai` → `localhost:{port}`) with mkcert TLS. Browser session cookies are bound to the real domain (e.g. `pika.dev.hexly.ai`). If CLI opens `http://localhost:7022/api/auth/cli`, `auth()` returns null because the session-token cookie doesn't exist on localhost. CLI must always use `https://{project}.dev.hexly.ai` (dev) or `https://{project}.hexly.ai` (prod).
-- **next-auth nested @auth/core version mismatch**: `next-auth@5.0.0-beta.30` bundles `@auth/core@0.41.0` as a nested dependency regardless of what's declared in package.json. Webpack resolves the nested version, not the hoisted one. The 0.41.0 version uses `oauth4webapi` v3 which forces PKCE for all providers. To pin a specific version, use root `package.json` `overrides` — workspace-level `dependencies` are not sufficient.
-- **NextResponse 204 cannot have body**: `new NextResponse(body, { status: 204 })` throws `TypeError: Invalid response status code 204` because HTTP 204 No Content forbids a body. When proxying worker responses, always check `if (result.status === 204) return new NextResponse(null, { status: 204 })` before constructing the response.
-- **VSCode Copilot completedAt can be numeric epoch**: The CRDT data for `modelState.completedAt` is sometimes a numeric epoch (ms), not an ISO string. Always normalize timestamps from external data sources — never assume string format.
-- **Barrel export omissions cause silent `undefined`**: Adding a new constant to `packages/core/src/constants.ts` but forgetting to re-export it from `packages/core/src/index.ts` results in the import resolving to `undefined` at runtime — no TypeScript error, no import error. A default parameter like `concurrency = CONTENT_UPLOAD_CONCURRENCY` silently becomes `concurrency = undefined`, causing `Array.from({ length: NaN })` to produce an empty array and zero work done. Always verify barrel exports when adding new constants.
-- **Bun built-in imports need variable indirection for tsc**: `import("bun:sqlite")` with a string literal causes TS2307 when `bun-types` is not installed. Use `const modId = "bun:sqlite"; await import(modId)` — tsc skips module resolution for non-literal dynamic import specifiers. Runtime type safety should be enforced via an interface contract (e.g. `OpenDbFn`), not the import's inferred types.
-- **SQLite UPDATE does not support table aliases**: `UPDATE sessions s SET ...` is valid in PostgreSQL/MySQL but fails in SQLite with `near "s": syntax error`. When `buildWhereClause` generates `s.column` prefixed conditions, use a subquery pattern: `UPDATE sessions SET ... WHERE id IN (SELECT s.id FROM sessions s WHERE ...)`. SELECT does support aliases, so the subquery works.
-- **Recharts spreads data props onto React elements**: Recharts `<Cell>` receives all properties from the corresponding data item as props. Using `ref` (or `key`) as a data field name collides with React reserved props, causing `Expected ref to be a function` runtime errors. Always avoid React reserved prop names (`ref`, `key`, `children`) in Recharts data objects.
-- **Unified Worker API migration (docs/11)**: All session/content D1 queries now route through Cloudflare Worker instead of D1 HTTP API. This eliminates rate limits (100 req/s) and simplifies auth to a single `WORKER_SECRET`. However, `d1.ts` and `CF_D1_*` env vars are retained because NextAuth's D1AuthAdapter still needs direct D1 access for OAuth user persistence (users/accounts tables). The Worker handles sessions/projects/tags/search/stats; D1 direct handles auth.
-- **3-layer luminance: L0 background > L1 card > L2 secondary**: The CSS variables are ordered `background < card < secondary` in luminance (dark: 7% < 10.6% < 12.2%). The content island (AppShell floating area) is L1 `bg-card`; inner panels/cards are L2 `bg-secondary` (brightest). Inverting them (island=secondary, cards=card) destroys contrast — cards blend into the container. Always reference the pew project as the canonical 3-layer implementation.
-- **Pre-push must mirror CI**: CI runs `bun run build` (including `next build`) as a pre-command that catches server/client boundary violations and bundle errors that `tsc --noEmit` misses. Without `bun run build` in pre-push, build failures only surface after push. The pre-push hook now runs: Build → L1 Tests → G1 TypeScript → G1 Biome → G2 Secrets → G2 Deps → L2 E2E.
+Patterns that re-bit us; check before re-introducing.
+
+- **better-sqlite3 → bun:sqlite**: Bun 1.3.9 dropped `better-sqlite3`. Migration tests now use `bun:sqlite` (Bun built-in). API nearly identical (`prepare/all/run/exec/close`), but pragmas use `db.run("PRAGMA ...")` instead of `db.pragma("...")`. Excluded from vitest (Node can't resolve `bun:sqlite`).
+- **Dual test runners**: `bun test` (Bun native) vs `bunx vitest run` (Node) have different module resolution. Bun-specific imports (`bun:sqlite`) excluded from vitest config. Verify both pass.
+- **git add -A atomicity trap**: Stages everything when multiple logical changes coexist. Always stage selectively.
+- **Three independent tsconfigs**: root + `packages/web` + `packages/web-worker`. Each has its own `lib`/`types` (DOM vs Workers). Lint script must run all three.
+- **Bun built-in imports need variable indirection for tsc**: `import("bun:sqlite")` literal causes TS2307 without bun-types. Use `const modId = "bun:sqlite"; await import(modId)`.
+- **vi.stubEnv is vitest-only**: Doesn't exist in Bun's runner. For dual-runner compatibility, use direct `process.env` assignment with manual save/restore. Cast via `(process.env as Record<string, string>)[key]` for `NODE_ENV`.
+- **Worker upsert WHERE must check all version fields**: `content_hash`, `raw_hash`, `parser_revision`, `schema_version` — not just `snapshot_at`. Otherwise stale parser output can overwrite newer canonical data.
+- **VSCode Copilot completedAt can be numeric epoch**: CRDT `modelState.completedAt` is sometimes ms epoch, not ISO string. Always normalize external timestamps.
+- **Barrel export omissions cause silent `undefined`**: Add a constant to `packages/core/src/constants.ts` but forget to re-export from `index.ts` → import resolves to `undefined` at runtime, no TS error. Default param `concurrency = CONST_NAME` becomes `undefined` → `Array.from({ length: NaN })` → empty work. Verify barrel exports.
+- **SQLite UPDATE does not support table aliases**: `UPDATE sessions s SET …` is PG/MySQL syntax; SQLite errors `near "s"`. When `buildWhereClause` generates `s.column` conditions, wrap in subquery: `UPDATE sessions SET … WHERE id IN (SELECT s.id FROM sessions s WHERE …)`. SELECT supports aliases.
+- **Recharts spreads data props onto React elements**: `<Cell>` receives every data prop. Using `ref`/`key`/`children` as data field name collides with React reserved props → `Expected ref to be a function`. Avoid reserved names in chart data.
+- **3-layer luminance: bg < card < secondary**: Dark mode 7% < 10.6% < 12.2%. Content island = L1 `bg-card`; inner panels = L2 `bg-secondary` (brightest). Inverting destroys contrast — panels blend into container.
+- **Pre-push must mirror CI**: CI runs `bun run build` to catch issues `tsc --noEmit` misses. Pre-push hook does Build → L1 → G1 (tsc + Biome) → G2 (gitleaks + osv).
+- **CF Access bypass is path-level, not bearer-aware**: `/api/ingest/*` MUST have a CF Access bypass policy or CLI gets 302 HTML and `response.json()` crashes. Bearer token in header doesn't make CF Access let traffic through.
+- **CF_ACCESS_TEAM_DOMAIN must be exact**: jose's `jwtVerify` silently catches errors in `accessAuth` middleware → falls through to `apiKeyAuth` → terminal 401 → SPA reloads → infinite redirect loop. Wrong team domain = wrong issuer claim. Set in `wrangler.toml` top-level AND `[env.test.vars]`.
+- **URL-encode the colon in sessionKey**: CLI builds `claude:abc → claude%3Aabc` for the upload URL. Worker route `PUT /content/*` must `decodeURIComponent` each segment before hitting D1, otherwise lookup is `claude%3Aabc` → 404.
+- **wrangler `--env=""`**: Without it, scoped CF API tokens missing `Memberships:Read` fail when wrangler calls `/memberships` to auto-pick an account. `--env=""` explicitly targets the top-level config.
+- **Killing wrangler dev needs process group**: workerd is a grandchild; SIGTERM to wrangler doesn't reap it before timeout → next `dev:all` hits EADDRINUSE on 8787 + inspector. `dev-all.ts` uses `detached: true` + `process.kill(-pid, signal)`.
+- **D1 prod migrations are manual**: `wrangler d1 execute pika-db --remote --file=scripts/migrations/00X.sql`. New table = silent 500 in prod until applied. The `api_tokens` HTTP 500 incident burned us once.
+- **`run_worker_first` for `[assets]`**: `wrangler.toml` `[assets]` needs `run_worker_first = ["/api/*"]` so Hono handlers preempt the static file matcher; `not_found_handling = "single-page-application"` makes deep links resolve to `index.html`.
+- **CLI domain must match cookie scope**: Browser CF Access cookie is bound to `pika.hexly.ai`. CLI must hit `https://pika.hexly.ai`, not `localhost:7022` (in dev: real `https://pika.dev.hexly.ai` via reverse proxy + mkcert TLS).
