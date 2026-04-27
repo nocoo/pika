@@ -178,7 +178,10 @@ export function createIngestApp(deps: PresignDeps = {}): Hono<AppEnv> {
 
     const fullPath = new URL(c.req.url).pathname;
     const after = fullPath.replace(/^.*\/content\//, "");
-    const segments = after.split("/").filter(Boolean);
+    const segments = after
+      .split("/")
+      .filter(Boolean)
+      .map((s) => decodeURIComponent(s));
     const parsed = parseContentPath(segments);
     if ("error" in parsed) return c.json({ error: parsed.error }, 400);
 
