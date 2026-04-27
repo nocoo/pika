@@ -17,6 +17,13 @@ compatibility_flags = ["nodejs_compat"]
 pattern = "pika.hexly.ai"
 custom_domain = true
 
+# Legacy CLI domain — older @nocoo/pika releases hard-code
+# pika-ingest.worker.hexly.ai as the API base. Keep this route on the
+# merged worker so old binaries continue to upload sessions.
+[[routes]]
+pattern = "pika-ingest.worker.hexly.ai"
+custom_domain = true
+
 [vars]
 ENVIRONMENT = "production"
 # CF Access JWT verification (consumed by middleware/access-auth.ts).
