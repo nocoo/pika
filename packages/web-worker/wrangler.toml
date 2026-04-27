@@ -1,29 +1,29 @@
-# docs/17 §端口与部署: pika-web (assets + /api).
-# Phase P0.3 — minimal scaffold: assets + /api/live only.
-# CF Access vars, D1 binding, service binding to pika-api added in later phases.
+# docs/17 single-worker pivot — pika (web + api + worker merged).
+#
+# Two deployments:
+#   - prod:   name = "pika"        custom_domain pika.hexly.ai
+#   - test:   name = "pika-test"   custom_domain pika-test.hexly.ai
+#
+# The merged worker serves SPA assets (run_worker_first on /api/*) and
+# handles every /api/* surface in-process via Hono subapps in src/api/.
+# No service binding to packages/api; no WORKER_SECRET.
 
-name = "pika-web"
+name = "pika"
 main = "src/index.ts"
 compatibility_date = "2026-04-01"
 compatibility_flags = ["nodejs_compat"]
 
-# routes intentionally omitted at P0.3; add custom_domain in P6 cutover.
+[[routes]]
+pattern = "pika.hexly.ai"
+custom_domain = true
 
 [vars]
-ENVIRONMENT = "development"
+ENVIRONMENT = "production"
 # CF Access JWT verification (consumed by middleware/access-auth.ts).
-# Override per-deploy via `wrangler deploy --var` or dashboard env vars.
 CF_ACCESS_TEAM_DOMAIN = "hexly.cloudflareaccess.com"
 CF_ACCESS_AUD = "fbbaaf21dcbbae0d677207bd16798d64458336069f105669a55d449362e08862"
 
-# docs/17 P3.3 — service binding to packages/api. web-worker is the only
-# trust root: it injects X-Pika-User-Id (+ Email) on the rewritten request.
-[[services]]
-binding = "API"
-service = "pika-api"
-
-# D1 binding — required by api-key-auth (api_tokens table) and resolve-user
-# (users table). Same `pika-db` shared with packages/worker.
+# D1 binding — sessions metadata + auth (api_tokens, users).
 # remote=true: local `wrangler dev` queries the prod D1 instead of an empty
 # local SQLite, so dev sees real users / tokens. Requires `wrangler login`.
 [[d1_databases]]
@@ -32,18 +32,24 @@ database_name = "pika-db"
 database_id = "55bfb2fc-4085-4670-9611-da2f1eee4888"
 remote = true
 
+# R2 binding — canonical (mutable) + raw (content-addressed) session blobs.
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "pika"
+
 [assets]
 directory = "./dist"
 binding = "ASSETS"
 run_worker_first = ["/api/*"]
 not_found_handling = "single-page-application"
 
+# ── Test environment (e2e + staging) ───────────────────────────
+
 [env.test]
-name = "pika-web-test"
-# ⚠️ [env.test] inherits top-level routes by default; we have none so this
-# stays empty, but keep `routes = []` explicit so future edits to the prod
-# routes list don't accidentally leak into test (backy踩过的坑).
-routes = []
+name = "pika-test"
+# ⚠️ [env.test] inherits top-level routes by default; we want a separate
+# custom_domain so override explicitly.
+routes = [{ pattern = "pika-test.hexly.ai", custom_domain = true }]
 
 [env.test.vars]
 ENVIRONMENT = "test"
@@ -51,15 +57,15 @@ E2E_SKIP_AUTH = "true"
 CF_ACCESS_TEAM_DOMAIN = "hexly.cloudflareaccess.com"
 CF_ACCESS_AUD = "fbbaaf21dcbbae0d677207bd16798d64458336069f105669a55d449362e08862"
 
-[[env.test.services]]
-binding = "API"
-service = "pika-api-test"
-
 [[env.test.d1_databases]]
 binding = "DB"
 database_name = "pika-db-test"
 database_id = "f52931ad-9c96-4d04-9d0a-3098a800ce5e"
 preview_database_id = "f52931ad-9c96-4d04-9d0a-3098a800ce5e"
+
+[[env.test.r2_buckets]]
+binding = "BUCKET"
+bucket_name = "pika-test"
 
 [env.test.assets]
 directory = "./dist"
