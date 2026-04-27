@@ -53,7 +53,7 @@ describe("PUT /content/* URL decoding", () => {
         },
         body: new Uint8Array(10),
       },
-      { DB: fakeDb, BUCKET: {} } as AppEnv["Bindings"],
+      { DB: fakeDb, BUCKET: {} } as unknown as AppEnv["Bindings"],
     );
 
     expect(res.status).toBe(404);
