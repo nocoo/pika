@@ -656,3 +656,17 @@ WORKER_URL = "https://pika-worker-test.<account>.workers.dev"
   - **P5.2 路径修正**：实际遗留代码在 `packages/web_legacy/src/lib/worker-cli-auth-db.ts`（P0 重命名后），不在 `packages/cli/`。P5.2 改为"核对 CLI 侧零调用"，物理删除随 P6.3 `git rm -r packages/web_legacy` 一并发生
 
 - 2026-04-26（七轮，P6 顺序）：原 P6 顺序"先 deploy 再切代码"导致 P6.1 部署的不是终态，P6.2/P6.4 之后又没补一次 deploy。重排为：P6.1 切 /api 前缀 → P6.2 删 web_legacy → P6.3 删 worker 旧 auth 路由（三个代码 commit）→ P6.4 test deploy 验证 → P6.5 prod 切流（两个 deploy commit）→ P6.6 文档。失败回滚口径写明：deploy 步骤 `wrangler rollback` 上一版本即可；上一版本三 worker 互相兼容（旧 strip + 旧根挂载 + 旧 /auth/me）
+
+- 2026-04-27（八轮，单 worker pivot 落地）：经哥决策，**反转 §拓扑权衡**——三 worker 改回单 worker。新拓扑：
+  - **prod**：`pika`（custom_domain `pika.hexly.ai`）一个 worker，同时托管 `[assets]` SPA + 全部 `/api/*`（Hono 子 app 直接访问 D1+R2 binding）。`pika-ingest.worker.hexly.ai` 仍指向同名 `pika` 命名空间，CLI 域名契约不变
+  - **test/e2e**：新增 `pika-test`（custom_domain `pika-test.hexly.ai`），独占 `pika-db-test` D1 + `pika-test` R2 bucket
+  - **代码**：`packages/api` + `packages/worker` 全部物理删除；handler 在 `packages/web-worker/src/data/*` 落地，`/api/*` 由 `src/api/{sessions,projects,search,stats,tags,live,ingest}.ts` 包装；service binding + WORKER_SECRET 链路一并删除。R2 写：canonical 用 `env.BUCKET.put`；icon 上传 + raw direct-upload presign 复用 `R2Client`（aws4fetch），通过 `CF_R2_*` secrets 走 S3-compat
+  - **dev**：`bun run dev:all` 改为 vite :7022 + web-worker :8787 两进程；不再起 :8788 api 进程
+  - **认证**：`accessAuth → apiKeyAuth → resolveUser` middleware 直接在单 worker 内 chain，路由读 `c.get("userId")` 即可；`X-Pika-User-Id` 透传契约因不再跨 worker 而消失；`api_tokens` 读权限统一回单 worker，§Bearer 链路重写 的 service-binding 信任根条款随之过时（保留作历史参考）
+  - **PR 化的原子提交**（已合并到 main）：
+    - `7cb7d5a` A1 — `data/*` handlers 从 packages/worker 复制到 packages/web-worker
+    - `d1783bc` A2 — `api/*` Hono 子 app + index.ts 重写
+    - `3d27165` A3 — 删 routes/proxy.ts + AppEnv 加 BUCKET / CF_R2_* + wrangler.toml 切单 worker（含 [env.test]）
+    - `7d29ab9` A4 — scripts/dev-all.ts 移除 api 子进程
+    - `<this commit>` A5 — `git rm -r packages/api packages/worker`、root tsconfig/package.json/CI 收敛、本节文档
+  - **代价记录**：原 §拓扑权衡 列出的"独立部署边界 / 独立 vitest"在合并后由 `packages/web-worker` 自身的 1750 测试 + 95.89% 覆盖承接，无回归

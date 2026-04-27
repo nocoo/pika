@@ -18,19 +18,3 @@ jobs:
       enable-l2: "true"
       l2-command: "bun run test:e2e:ci"
     secrets: inherit
-
-  api:
-    name: api (test + build + lint)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-      - run: bun install --frozen-lockfile
-      - name: api lint (tsc --noEmit)
-        run: bun run --cwd packages/api lint
-      - name: api build (tsc)
-        run: bun run --cwd packages/api build
-      - name: api tests (vitest)
-        run: bunx vitest run packages/api

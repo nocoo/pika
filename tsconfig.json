@@ -20,9 +20,7 @@
   },
   "references": [
     { "path": "packages/core" },
-    { "path": "packages/cli" },
-    { "path": "packages/worker" },
-    { "path": "packages/api" }
+    { "path": "packages/cli" }
   ],
   "include": [],
   "exclude": ["node_modules", "dist", ".next"]

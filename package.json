@@ -6,8 +6,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "bun run dev:api",
-    "dev:api": "bun run --cwd packages/api dev",
+    "dev": "bun run dev:web-worker",
     "dev:web": "bun run --cwd packages/web dev",
     "dev:web-worker": "bun run --cwd packages/web-worker dev",
     "dev:all": "bun scripts/dev-all.ts",
@@ -17,15 +16,15 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "lint": "tsc --noEmit && tsc --noEmit -p packages/api/tsconfig.json && tsc --noEmit -p packages/web/tsconfig.json && tsc --noEmit -p packages/web-worker/tsconfig.json",
-    "lint:typecheck": "tsc --noEmit && tsc --noEmit -p packages/api/tsconfig.json && tsc --noEmit -p packages/web/tsconfig.json && tsc --noEmit -p packages/web-worker/tsconfig.json",
+    "lint": "tsc --noEmit && tsc --noEmit -p packages/web/tsconfig.json && tsc --noEmit -p packages/web-worker/tsconfig.json",
+    "lint:typecheck": "tsc --noEmit && tsc --noEmit -p packages/web/tsconfig.json && tsc --noEmit -p packages/web-worker/tsconfig.json",
     "lint:biome": "bunx biome check packages/",
     "lint:secrets": "gitleaks detect --source . --no-git --config .gitleaks.toml",
     "lint:deps": "osv-scanner scan --lockfile=bun.lock --config .osv-scanner.toml",
     "lint:all": "bun run lint && bunx biome check packages/ && bun run lint:secrets && bun run lint:deps",
     "sync-versions": "bun scripts/sync-versions.ts --write",
     "prepare": "husky",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p packages/api/tsconfig.json && tsc --noEmit -p packages/web/tsconfig.json && tsc --noEmit -p packages/web-worker/tsconfig.json"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p packages/web/tsconfig.json && tsc --noEmit -p packages/web-worker/tsconfig.json"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.9",
