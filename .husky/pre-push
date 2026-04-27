@@ -48,12 +48,8 @@ if [ $DEPS_EXIT -ne 0 ]; then
   exit 1
 fi
 
-# L2: API E2E Tests
-bun run test:e2e 2>&1
-E2E_EXIT=$?
-if [ $E2E_EXIT -ne 0 ]; then
-  echo "❌ pre-push FAILED: E2E API tests failed."
-  exit 1
-fi
+# L2: API E2E Tests — disabled after single-worker pivot (no test:e2e
+# script in monorepo). To restore, add a script that hits deployed
+# pika-test.hexly.ai (or local wrangler dev) and re-enable here.
 
-echo "✅ pre-push passed: Build + L1 + L2 + G1 (tsc + Biome) + G2 (gitleaks + osv-scanner)"
+echo "✅ pre-push passed: Build + L1 + G1 (tsc + Biome) + G2 (gitleaks + osv-scanner)"

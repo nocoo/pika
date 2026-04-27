@@ -15,6 +15,5 @@ jobs:
       test-command: "bun run test:coverage"
       typecheck-command: "bun run lint:typecheck"
       lint-command: "bun run lint:biome"
-      enable-l2: "true"
-      l2-command: "bun run test:e2e:ci"
+      enable-l2: "false"
     secrets: inherit
