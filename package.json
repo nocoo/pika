@@ -37,7 +37,8 @@
     "undici": "^7.24.0",
     "cookie": ">=0.7.0",
     "picomatch": ">=4.0.4",
-    "fast-xml-parser": ">=5.5.9"
+    "fast-xml-parser": ">=5.7.0",
+    "postcss": ">=8.5.10"
   },
   "dependencies": {
     "vite": "^8.0.7"
