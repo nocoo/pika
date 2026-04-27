@@ -49,7 +49,7 @@ export const NAV_GROUPS: NavGroupDef[] = [
   },
   {
     label: "Settings",
-    defaultOpen: false,
+    defaultOpen: true,
     items: [
       { href: "/dashboard/settings/tags", label: "Tags", icon: "Tags" },
       { href: "/dashboard/settings/cli", label: "CLI", icon: "Terminal" },

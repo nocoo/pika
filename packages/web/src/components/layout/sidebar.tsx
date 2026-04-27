@@ -145,6 +145,7 @@ export function Sidebar() {
   const allNavItems = navGroups.flatMap((g) => g.items);
 
   const userEmail = me?.email ?? "";
+  const userHandle = userEmail ? `@${userEmail.split("@")[0]}` : "";
   const userInitial = userEmail[0]?.toUpperCase() ?? "?";
 
   useEffect(() => {
@@ -338,7 +339,7 @@ export function Sidebar() {
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">
-                    {userEmail || "Signed out"}
+                    {userHandle || "Signed out"}
                   </p>
                 </div>
                 <Tooltip>
