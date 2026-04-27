@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 /**
- * Boot the web stack (Vite :7022 + web-worker :8787 + api :8788)
- * concurrently for local dev.
+ * Boot the web stack (Vite :7022 + web-worker :8787) concurrently for local
+ * dev. Single-worker pivot: /api/* is served in-process by web-worker, no
+ * separate packages/api process.
  *
  * Used by `bun run dev:all`. Streams every child's stdout/stderr with a
  * coloured prefix and forwards SIGINT/SIGTERM so Ctrl-C cleanly tears
@@ -40,12 +41,6 @@ const CHILDREN: Child[] = [
     env: { CLOUDFLARE_ACCOUNT_ID: "d51a8fde361e4be31db17d8c56737c1f" },
     colour: "\x1b[33m", // yellow
   },
-  {
-    name: "api",
-    cwd: resolve(ROOT, "packages/api"),
-    cmd: ["bun", "run", "dev"],
-    colour: "\x1b[35m", // magenta
-  },
 ];
 
 const RESET = "\x1b[0m";
@@ -80,7 +75,7 @@ let shuttingDown = false;
 
 // wrangler spawns workerd as a grandchild process. SIGTERM to the wrangler
 // node process doesn't always reap workerd before our 1.5s timeout, so the
-// next `dev:all` run hits EADDRINUSE on inspector + 8787/8788 ports.
+// next `dev:all` run hits EADDRINUSE on inspector + 8787 ports.
 // Killing the whole process group (PGID = -pid, only valid for detached
 // children) takes workerd down with the parent.
 function killGroup(p: ChildProcess, signal: NodeJS.Signals): void {
