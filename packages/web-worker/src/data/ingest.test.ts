@@ -44,7 +44,7 @@ const validPayload: IngestSessionPayload = {
   sessions: [validSession],
 };
 
-function makeRequest(
+function _makeRequest(
   url: string,
   options?: {
     method?: string;

@@ -48,7 +48,6 @@ function mockEnv(dbOpts?: Parameters<typeof mockD1>[0]): Env {
   return {
     DB: mockD1(dbOpts),
     BUCKET: {} as R2Bucket,
-    WORKER_SECRET: "test-secret",
   };
 }
 
@@ -208,7 +207,7 @@ describe("handleUpdateTag", () => {
       }),
       run: vi.fn().mockResolvedValue({ meta: { changes: 1 } }),
     }));
-    const env = { DB: db, BUCKET: {} as R2Bucket, WORKER_SECRET: "test" };
+    const env = { DB: db, BUCKET: {} as R2Bucket };
 
     const res = await handleUpdateTag(
       "user-1",
@@ -237,7 +236,7 @@ describe("handleUpdateTag", () => {
       first: vi.fn().mockResolvedValue(updatedTag), // fetch updated tag (no findTagByName for color-only update)
       run: vi.fn().mockResolvedValue({ meta: { changes: 1 } }),
     }));
-    const env = { DB: db, BUCKET: {} as R2Bucket, WORKER_SECRET: "test" };
+    const env = { DB: db, BUCKET: {} as R2Bucket };
 
     const res = await handleUpdateTag(
       "user-1",
@@ -266,7 +265,7 @@ describe("handleUpdateTag", () => {
       first: vi.fn().mockResolvedValue(updatedTag), // fetch updated tag
       run: vi.fn().mockResolvedValue({ meta: { changes: 1 } }),
     }));
-    const env = { DB: db, BUCKET: {} as R2Bucket, WORKER_SECRET: "test" };
+    const env = { DB: db, BUCKET: {} as R2Bucket };
 
     const res = await handleUpdateTag("user-1", "tag-1", { color: null }, env);
 
@@ -446,7 +445,7 @@ describe("handleAddSessionTag", () => {
         .mockResolvedValueOnce({ id: "tag-1" }),
       run: vi.fn().mockResolvedValue({ meta: { changes: 1 } }),
     }));
-    const env = { DB: db, BUCKET: {} as R2Bucket, WORKER_SECRET: "test" };
+    const env = { DB: db, BUCKET: {} as R2Bucket };
 
     const res = await handleAddSessionTag(
       "user-1",
@@ -484,7 +483,7 @@ describe("handleAddSessionTag", () => {
       run: runMock,
     });
 
-    const env = { DB: db, BUCKET: {} as R2Bucket, WORKER_SECRET: "test" };
+    const env = { DB: db, BUCKET: {} as R2Bucket };
 
     const res = await handleAddSessionTag(
       "user-1",
@@ -529,7 +528,7 @@ describe("handleAddSessionTag", () => {
         .mockResolvedValueOnce(null), // findTagByName returns null
       run: vi.fn().mockResolvedValue({ meta: { changes: 1 } }),
     }));
-    const env = { DB: db, BUCKET: {} as R2Bucket, WORKER_SECRET: "test" };
+    const env = { DB: db, BUCKET: {} as R2Bucket };
 
     const res = await handleAddSessionTag(
       "user-1",
@@ -591,7 +590,7 @@ describe("handleAddSessionTag", () => {
         run: vi.fn().mockResolvedValue({ meta: { changes: 1 } }),
       };
     });
-    const env = { DB: db, BUCKET: {} as R2Bucket, WORKER_SECRET: "test" };
+    const env = { DB: db, BUCKET: {} as R2Bucket };
 
     const res = await handleAddSessionTag(
       "user-1",

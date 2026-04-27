@@ -67,7 +67,6 @@ function mockEnv(
   return {
     DB: mockD1(dbOpts),
     BUCKET: mockR2(r2Opts),
-    WORKER_SECRET: "test-secret",
   };
 }
 
@@ -112,7 +111,7 @@ describe("handleListSessions", () => {
     stmt.all.mockResolvedValue({ results: sessions });
     stmt.first.mockResolvedValue({ count: 1 });
 
-    const env = { DB: db, BUCKET: mockR2(), WORKER_SECRET: "test" };
+    const env = { DB: db, BUCKET: mockR2() };
 
     const params = new URLSearchParams({ page: "1", limit: "10" });
     const res = await handleListSessions("user-1", params, env);
@@ -477,7 +476,7 @@ describe("handleUpdateSession", () => {
       updated_at: "2026-04-08T10:00:00Z",
     });
 
-    const env = { DB: db, BUCKET: mockR2(), WORKER_SECRET: "test" };
+    const env = { DB: db, BUCKET: mockR2() };
 
     const res = await handleUpdateSession(
       "user-1",
@@ -501,7 +500,7 @@ describe("handleUpdateSession", () => {
       updated_at: "2026-04-08T10:00:00Z",
     });
 
-    const env = { DB: db, BUCKET: mockR2(), WORKER_SECRET: "test" };
+    const env = { DB: db, BUCKET: mockR2() };
 
     const res = await handleUpdateSession(
       "user-1",
@@ -525,7 +524,7 @@ describe("handleUpdateSession", () => {
       updated_at: "2026-04-08T10:00:00Z",
     });
 
-    const env = { DB: db, BUCKET: mockR2(), WORKER_SECRET: "test" };
+    const env = { DB: db, BUCKET: mockR2() };
 
     const res = await handleUpdateSession(
       "user-1",
@@ -621,7 +620,7 @@ describe("handleFilters", () => {
         results: [{ project_ref: "pika", project_name: "Pika" }],
       });
 
-    const env = { DB: db, BUCKET: mockR2(), WORKER_SECRET: "test" };
+    const env = { DB: db, BUCKET: mockR2() };
 
     const res = await handleFilters("user-1", env);
 
@@ -1022,7 +1021,7 @@ describe("handleConfirmRaw", () => {
     const bucket = {
       head: vi.fn().mockResolvedValue(null),
     } as unknown as R2Bucket;
-    const env = { DB: db, BUCKET: bucket, WORKER_SECRET: "test" };
+    const env = { DB: db, BUCKET: bucket };
 
     const res = await handleConfirmRaw(
       "user-1",
@@ -1040,7 +1039,7 @@ describe("handleConfirmRaw", () => {
     const bucket = {
       head: vi.fn().mockResolvedValue({ size: 1000 }),
     } as unknown as R2Bucket;
-    const env = { DB: db, BUCKET: bucket, WORKER_SECRET: "test" };
+    const env = { DB: db, BUCKET: bucket };
 
     const res = await handleConfirmRaw(
       "user-1",
@@ -1058,7 +1057,7 @@ describe("handleConfirmRaw", () => {
     const bucket = {
       head: vi.fn().mockResolvedValue({ size: 1000 }),
     } as unknown as R2Bucket;
-    const env = { DB: db, BUCKET: bucket, WORKER_SECRET: "test" };
+    const env = { DB: db, BUCKET: bucket };
 
     const res = await handleConfirmRaw(
       "user-1",

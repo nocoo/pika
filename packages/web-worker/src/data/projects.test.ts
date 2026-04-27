@@ -40,7 +40,6 @@ function mockEnv(dbOpts?: Parameters<typeof mockD1>[0]): Env {
   return {
     DB: mockD1(dbOpts),
     BUCKET: {} as R2Bucket,
-    WORKER_SECRET: "test-secret",
   };
 }
 

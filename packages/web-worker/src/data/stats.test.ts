@@ -48,7 +48,6 @@ function mockEnv(opts?: {
       prepare: vi.fn().mockReturnValue(preparedStmt),
     } as unknown as D1Database,
     BUCKET: {} as R2Bucket,
-    WORKER_SECRET: "test-secret",
   };
 }
 
