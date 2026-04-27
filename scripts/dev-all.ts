@@ -78,11 +78,25 @@ function pipeStream(
 const procs: ChildProcess[] = [];
 let shuttingDown = false;
 
+// wrangler spawns workerd as a grandchild process. SIGTERM to the wrangler
+// node process doesn't always reap workerd before our 1.5s timeout, so the
+// next `dev:all` run hits EADDRINUSE on inspector + 8787/8788 ports.
+// Killing the whole process group (PGID = -pid, only valid for detached
+// children) takes workerd down with the parent.
+function killGroup(p: ChildProcess, signal: NodeJS.Signals): void {
+  if (p.killed || p.pid == null) return;
+  try {
+    process.kill(-p.pid, signal);
+  } catch {
+    p.kill(signal);
+  }
+}
+
 function shutdown(signal: NodeJS.Signals, exitCode: number): void {
   if (shuttingDown) return;
   shuttingDown = true;
   for (const p of procs) {
-    if (!p.killed) p.kill(signal);
+    killGroup(p, signal);
   }
   setTimeout(() => process.exit(exitCode), 1500).unref();
 }
@@ -92,6 +106,8 @@ for (const child of CHILDREN) {
     cwd: child.cwd,
     env: { ...process.env, ...(child.env ?? {}) },
     stdio: ["ignore", "pipe", "pipe"],
+    // own process group so killGroup can reap workerd grandchildren
+    detached: true,
   });
   procs.push(proc);
 
