@@ -27,7 +27,7 @@ custom_domain = true
 [vars]
 ENVIRONMENT = "production"
 # CF Access JWT verification (consumed by middleware/access-auth.ts).
-CF_ACCESS_TEAM_DOMAIN = "hexly.cloudflareaccess.com"
+CF_ACCESS_TEAM_DOMAIN = "nocoo.cloudflareaccess.com"
 CF_ACCESS_AUD = "fbbaaf21dcbbae0d677207bd16798d64458336069f105669a55d449362e08862"
 
 # D1 binding — sessions metadata + auth (api_tokens, users).
@@ -61,7 +61,7 @@ routes = [{ pattern = "pika-test.hexly.ai", custom_domain = true }]
 [env.test.vars]
 ENVIRONMENT = "test"
 E2E_SKIP_AUTH = "true"
-CF_ACCESS_TEAM_DOMAIN = "hexly.cloudflareaccess.com"
+CF_ACCESS_TEAM_DOMAIN = "nocoo.cloudflareaccess.com"
 CF_ACCESS_AUD = "fbbaaf21dcbbae0d677207bd16798d64458336069f105669a55d449362e08862"
 
 [[env.test.d1_databases]]
