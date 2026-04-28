@@ -41,7 +41,7 @@
     "postcss": ">=8.5.10"
   },
   "dependencies": {
-    "vite": "^8.0.7"
+    "vite": "8.0.10"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json}": [
