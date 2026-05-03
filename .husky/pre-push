@@ -1,6 +1,28 @@
 #!/usr/bin/env sh
+. "$(dirname "$0")/../scripts/ensure-tools.sh"
 
-# Build: full monorepo build (mirrors CI pre-command)
+# ── parallel stage helpers ──────────────────────────────────────
+STAGE_DIR=$(mktemp -d)
+trap 'rm -rf "$STAGE_DIR"' EXIT
+
+run_bg() {
+  local name="$1"; shift
+  "$@" >"$STAGE_DIR/$name.log" 2>&1 &
+  echo $! > "$STAGE_DIR/$name.pid"
+}
+
+wait_stage() {
+  local name="$1"
+  local pid
+  pid=$(cat "$STAGE_DIR/$name.pid")
+  if ! wait "$pid"; then
+    echo "❌ pre-push FAILED: $name"
+    cat "$STAGE_DIR/$name.log"
+    exit 1
+  fi
+}
+
+# ── Build (sequential — L2 needs built assets) ─────────────────
 bun run build 2>&1
 BUILD_EXIT=$?
 if [ $BUILD_EXIT -ne 0 ]; then
@@ -8,48 +30,13 @@ if [ $BUILD_EXIT -ne 0 ]; then
   exit 1
 fi
 
-# L1: Unit Tests ≥90% coverage
-bun run test:coverage 2>&1
-TEST_EXIT=$?
-if [ $TEST_EXIT -ne 0 ]; then
-  echo "❌ pre-push FAILED: Unit tests or coverage threshold (90%) not met."
-  exit 1
-fi
+# ── L2: Worker E2E + G2: Security (parallel) ───────────────────
+run_bg "l2-e2e" bun run test:e2e
+run_bg "g2-secrets" bun run lint:secrets
+run_bg "g2-deps" bun run lint:deps
 
-# G1: TypeScript type check
-bun run lint 2>&1
-LINT_EXIT=$?
-if [ $LINT_EXIT -ne 0 ]; then
-  echo "❌ pre-push FAILED: TypeScript type check errors."
-  exit 1
-fi
+wait_stage "l2-e2e"
+wait_stage "g2-secrets"
+wait_stage "g2-deps"
 
-# G1: Biome lint + format
-bunx biome check packages/ 2>&1
-BIOME_EXIT=$?
-if [ $BIOME_EXIT -ne 0 ]; then
-  echo "❌ pre-push FAILED: Biome lint/format violations found."
-  exit 1
-fi
-
-# G2: Secret scanning
-bun run lint:secrets 2>&1
-SECRETS_EXIT=$?
-if [ $SECRETS_EXIT -ne 0 ]; then
-  echo "❌ pre-push FAILED: Secrets detected by gitleaks."
-  exit 1
-fi
-
-# G2: Dependency audit
-bun run lint:deps 2>&1
-DEPS_EXIT=$?
-if [ $DEPS_EXIT -ne 0 ]; then
-  echo "❌ pre-push FAILED: Known vulnerabilities detected by osv-scanner."
-  exit 1
-fi
-
-# L2: API E2E Tests — disabled after single-worker pivot (no test:e2e
-# script in monorepo). To restore, add a script that hits deployed
-# pika-test.hexly.ai (or local wrangler dev) and re-enable here.
-
-echo "✅ pre-push passed: Build + L1 + G1 (tsc + Biome) + G2 (gitleaks + osv-scanner)"
+echo "✅ pre-push passed: Build + L2 (E2E) + G2 (gitleaks + osv-scanner)"

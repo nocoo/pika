@@ -1,19 +1,39 @@
 #!/usr/bin/env sh
+. "$(dirname "$0")/../scripts/ensure-tools.sh"
 
-# L1: Unit Tests ≥90% coverage
-bun run test:coverage 2>&1
-TEST_EXIT=$?
-if [ $TEST_EXIT -ne 0 ]; then
-  echo "❌ pre-commit FAILED: Unit tests or coverage threshold (90%) not met."
-  exit 1
-fi
+# ── parallel stage helpers ──────────────────────────────────────
+STAGE_DIR=$(mktemp -d)
+trap 'rm -rf "$STAGE_DIR"' EXIT
 
-# G1: Biome lint + format
-bunx biome check packages/ 2>&1
-BIOME_EXIT=$?
-if [ $BIOME_EXIT -ne 0 ]; then
-  echo "❌ pre-commit FAILED: Biome lint/format violations found."
-  exit 1
-fi
+run_bg() {
+  local name="$1"; shift
+  "$@" >"$STAGE_DIR/$name.log" 2>&1 &
+  echo $! > "$STAGE_DIR/$name.pid"
+}
 
-echo "✅ pre-commit passed: L1 (UT ≥90%) + G1 (Biome)"
+wait_stage() {
+  local name="$1"
+  local pid
+  pid=$(cat "$STAGE_DIR/$name.pid")
+  if ! wait "$pid"; then
+    echo "❌ pre-commit FAILED: $name"
+    cat "$STAGE_DIR/$name.log"
+    exit 1
+  fi
+}
+
+# ── L1: Unit Tests ≥90% coverage ───────────────────────────────
+run_bg "l1-coverage" bun run test:coverage
+
+# ── G1: TypeScript + lint-staged (Biome) + gitleaks staged ─────
+run_bg "g1-typecheck" bun run lint
+run_bg "g1-lint-staged" bunx lint-staged
+run_bg "g1-gitleaks" gitleaks protect --staged --no-banner
+
+# ── wait all ────────────────────────────────────────────────────
+wait_stage "l1-coverage"
+wait_stage "g1-typecheck"
+wait_stage "g1-lint-staged"
+wait_stage "g1-gitleaks"
+
+echo "✅ pre-commit passed: L1 (coverage ≥90%) + G1 (tsc + lint-staged + gitleaks)"
