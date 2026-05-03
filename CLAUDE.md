@@ -31,12 +31,11 @@ Full architecture: [docs/00-architecture.md](./docs/00-architecture.md).
 | Dim | What | When | Threshold |
 |-----|------|------|-----------|
 | L1: UT | Business logic, parsers, validators | pre-commit | 90% coverage |
-| G1: Static | tsc --noEmit (root + web + web-worker) + Biome | pre-commit / pre-push | Zero errors |
+| L2: E2E | Worker API endpoints via local wrangler dev | pre-push / CI | All pass |
+| G1: Static | tsc --noEmit (root + web + web-worker) + lint-staged (Biome) + gitleaks staged | pre-commit | Zero errors |
 | G2: Security | gitleaks + osv-scanner | pre-push | Zero findings |
 | Build | `bun run build` (vite SPA → web-worker dist) | pre-push | Success |
 | CD | `wrangler deploy` + `/api/live` smoke | push to main | 200 or 401 |
-
-L2/L3 (API E2E + Playwright) currently disabled (no `test:e2e` script post single-worker pivot).
 
 ## Key Commands
 
@@ -45,6 +44,7 @@ bun install                    # install + husky setup
 bun run dev:all                # vite :7022 + wrangler dev :8787
 bun test                       # bun native (incl. bun:sqlite migration tests)
 bunx vitest run --coverage     # node runner + coverage report
+bun run test:e2e               # L2 worker E2E (local wrangler :17022)
 bun run build                  # SPA → packages/web-worker/dist
 bun run lint                   # tsc --noEmit (3 tsconfigs)
 bun run lint:biome             # biome lint + format check
@@ -56,8 +56,7 @@ bun run lint:deps              # osv-scanner
 
 ```bash
 cd packages/web-worker
-CLOUDFLARE_ACCOUNT_ID=d51a8fde361e4be31db17d8c56737c1f bunx wrangler deploy             # prod
-CLOUDFLARE_ACCOUNT_ID=d51a8fde361e4be31db17d8c56737c1f bunx wrangler deploy --env test  # test
+CLOUDFLARE_ACCOUNT_ID=d51a8fde361e4be31db17d8c56737c1f bunx wrangler deploy
 ```
 
 CI auto-deploys on push to `main` (`.github/workflows/ci.yml` → `Deploy Worker (production)`). Repo secret: `CLOUDFLARE_API_TOKEN`.
@@ -65,7 +64,6 @@ CI auto-deploys on push to `main` (`.github/workflows/ci.yml` → `Deploy Worker
 | Env | Worker | Domain |
 |-----|--------|--------|
 | prod | `pika` | `pika.hexly.ai` + `pika-ingest.worker.hexly.ai` (legacy CLI) |
-| test | `pika-test` | `pika-test.hexly.ai` |
 
 ## Supported Sources
 
