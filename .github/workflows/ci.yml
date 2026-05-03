@@ -17,3 +17,14 @@ jobs:
       lint-command: "bun run lint:biome"
       enable-l2: "false"
     secrets: inherit
+
+  l2-e2e:
+    name: "L2 Worker E2E"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - run: bun run test:e2e
