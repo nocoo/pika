@@ -76,6 +76,18 @@ describe("apiKeyAuth", () => {
     expect(res.status).toBe(200);
   });
 
+  it("E2E_SKIP_AUTH sets accessEmail from DEV_USER_EMAIL", async () => {
+    const app = makeApp({
+      ENVIRONMENT: "test",
+      E2E_SKIP_AUTH: "true",
+      DEV_USER_EMAIL: "e2e@test.local",
+    });
+    const res = await app.fetch(new Request("https://pika.hexly.ai/api/me"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toEqual({ email: "e2e@test.local", userId: null });
+  });
+
   it("E2E_SKIP_AUTH does NOT bypass in production", async () => {
     const app = makeApp({
       ENVIRONMENT: "production",

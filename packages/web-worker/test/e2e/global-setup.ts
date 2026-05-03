@@ -1,5 +1,11 @@
-import { execSync, spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { type ChildProcess, execSync, spawn } from "node:child_process";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { resolve } from "node:path";
 
 const PORT = 17022;
@@ -8,49 +14,56 @@ const WORKER_ROOT = resolve(__dirname, "../..");
 const MIGRATIONS_DIR = resolve(WORKER_ROOT, "../../scripts/migrations");
 const DEV_VARS_PATH = resolve(WORKER_ROOT, ".dev.vars.e2e");
 
+const TEST_USER_ID = "e2e-test-user-001";
+const TEST_USER_EMAIL = "e2e@test.local";
+
 let wranglerProcess: ChildProcess | null = null;
 
 export async function setup() {
-  // Layer 1: env guard
   if (process.env.CI && process.env.SKIP_E2E === "true") {
     throw new Error("E2E tests skipped via SKIP_E2E=true");
   }
 
-  // Layer 2: clean persist dir
+  // Clean persist dir
   if (existsSync(PERSIST_DIR)) {
     rmSync(PERSIST_DIR, { recursive: true });
   }
   mkdirSync(PERSIST_DIR, { recursive: true });
 
-  // Layer 3: apply migrations to local D1
+  // Apply migrations using --file (supports multi-statement SQL)
   const migrationFiles = readdirSync(MIGRATIONS_DIR)
     .filter((f) => /^\d{3}-.+\.sql$/.test(f))
     .sort();
 
   for (const file of migrationFiles) {
-    const sql = readFileSync(resolve(MIGRATIONS_DIR, file), "utf-8");
+    const filePath = resolve(MIGRATIONS_DIR, file);
     execSync(
-      `npx wrangler d1 execute pika-db --local --persist-to=${PERSIST_DIR} --command="${sql.replace(/"/g, '\\"').replace(/\n/g, " ")}"`,
+      `npx wrangler d1 execute pika-db --local --persist-to=${PERSIST_DIR} --file=${filePath}`,
       { cwd: WORKER_ROOT, stdio: "pipe" },
     );
   }
 
-  // Layer 4: apply test marker
-  const markerSql = readFileSync(
-    resolve(__dirname, "fixtures/test_marker.sql"),
-    "utf-8",
-  );
+  // Apply test marker
+  const markerPath = resolve(__dirname, "fixtures/test_marker.sql");
   execSync(
-    `npx wrangler d1 execute pika-db --local --persist-to=${PERSIST_DIR} --command="${markerSql.replace(/"/g, '\\"').replace(/\n/g, " ")}"`,
+    `npx wrangler d1 execute pika-db --local --persist-to=${PERSIST_DIR} --file=${markerPath}`,
     { cwd: WORKER_ROOT, stdio: "pipe" },
   );
 
-  // Layer 5: write .dev.vars for local wrangler
+  // Seed test user
+  const seedSql = `INSERT OR REPLACE INTO users (id, email, name) VALUES ('${TEST_USER_ID}', '${TEST_USER_EMAIL}', 'E2E Test User');`;
+  execSync(
+    `npx wrangler d1 execute pika-db --local --persist-to=${PERSIST_DIR} --command="${seedSql}"`,
+    { cwd: WORKER_ROOT, stdio: "pipe" },
+  );
+
+  // Write .dev.vars for local wrangler
   writeFileSync(
     DEV_VARS_PATH,
     [
       "ENVIRONMENT=test",
       "E2E_SKIP_AUTH=true",
+      `DEV_USER_EMAIL=${TEST_USER_EMAIL}`,
     ].join("\n"),
   );
 
@@ -58,12 +71,15 @@ export async function setup() {
   wranglerProcess = spawn(
     "npx",
     [
-      "wrangler", "dev",
-      "--port", String(PORT),
+      "wrangler",
+      "dev",
+      "--port",
+      String(PORT),
       "--local",
       `--persist-to=${PERSIST_DIR}`,
-      `--var=ENVIRONMENT:test`,
-      `--var=E2E_SKIP_AUTH:true`,
+      "--var=ENVIRONMENT:test",
+      "--var=E2E_SKIP_AUTH:true",
+      `--var=DEV_USER_EMAIL:${TEST_USER_EMAIL}`,
     ],
     {
       cwd: WORKER_ROOT,
@@ -72,7 +88,6 @@ export async function setup() {
     },
   );
 
-  // Wait for ready
   await waitForReady(wranglerProcess, PORT);
 }
 
@@ -81,7 +96,6 @@ export async function teardown() {
     wranglerProcess.kill("SIGTERM");
     wranglerProcess = null;
   }
-  // Clean up .dev.vars.e2e
   if (existsSync(DEV_VARS_PATH)) {
     rmSync(DEV_VARS_PATH);
   }
@@ -91,23 +105,34 @@ async function waitForReady(proc: ChildProcess, port: number): Promise<void> {
   const timeoutMs = 30_000;
   const start = Date.now();
 
-  return new Promise<void>((resolve, reject) => {
+  return new Promise<void>((resolvePromise, reject) => {
     let output = "";
+    let settled = false;
 
     const onData = (chunk: Buffer) => {
       output += chunk.toString();
-      if (output.includes("Ready on") || output.includes(`localhost:${port}`)) {
+      if (
+        !settled &&
+        (output.includes("Ready on") || output.includes(`localhost:${port}`))
+      ) {
+        settled = true;
         cleanup();
-        resolve();
+        resolvePromise();
       }
     };
 
     const onError = (err: Error) => {
+      if (settled) return;
+      settled = true;
       cleanup();
-      reject(new Error(`Wrangler failed to start: ${err.message}\n${output}`));
+      reject(
+        new Error(`Wrangler failed to start: ${err.message}\n${output}`),
+      );
     };
 
     const onExit = (code: number | null) => {
+      if (settled) return;
+      settled = true;
       cleanup();
       reject(new Error(`Wrangler exited with code ${code}\n${output}`));
     };
@@ -118,20 +143,21 @@ async function waitForReady(proc: ChildProcess, port: number): Promise<void> {
     proc.on("exit", onExit);
 
     const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
       cleanup();
-      reject(new Error(`Wrangler did not become ready within ${timeoutMs}ms\n${output}`));
+      reject(
+        new Error(
+          `Wrangler did not become ready within ${timeoutMs}ms\n${output}`,
+        ),
+      );
     }, timeoutMs);
 
-    function cleanup() {
-      clearTimeout(timer);
-      proc.stdout?.off("data", onData);
-      proc.stderr?.off("data", onData);
-      proc.off("error", onError);
-      proc.off("exit", onExit);
-    }
-
-    // Also poll the port in case we miss the log line
     const poll = setInterval(async () => {
+      if (settled) {
+        clearInterval(poll);
+        return;
+      }
       if (Date.now() - start > timeoutMs) {
         clearInterval(poll);
         return;
@@ -139,13 +165,24 @@ async function waitForReady(proc: ChildProcess, port: number): Promise<void> {
       try {
         const res = await fetch(`http://localhost:${port}/api/live`);
         if (res.ok) {
+          if (settled) return;
+          settled = true;
           clearInterval(poll);
           cleanup();
-          resolve();
+          resolvePromise();
         }
       } catch {
         // not ready yet
       }
     }, 500);
+
+    function cleanup() {
+      clearTimeout(timer);
+      clearInterval(poll);
+      proc.stdout?.off("data", onData);
+      proc.stderr?.off("data", onData);
+      proc.off("error", onError);
+      proc.off("exit", onExit);
+    }
   });
 }

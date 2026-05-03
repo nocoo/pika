@@ -28,6 +28,9 @@ export async function apiKeyAuth(c: Context<AppEnv>, next: Next) {
   if (PUBLIC_PATHS.has(c.req.path)) return next();
 
   if (c.env?.E2E_SKIP_AUTH === "true" && c.env?.ENVIRONMENT !== "production") {
+    c.set("accessAuthenticated", true);
+    const devEmail = c.env?.DEV_USER_EMAIL;
+    if (devEmail) c.set("accessEmail", devEmail);
     return next();
   }
 
