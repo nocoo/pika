@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { assertTestBucket, R2Client, TEST_BUCKET_NAME } from "./r2";
+import { R2Client } from "./r2";
 
 vi.mock("@aws-sdk/client-s3", () => {
   const sendFn = vi.fn();
@@ -303,21 +303,5 @@ describe("R2Client.getObject", () => {
     __mockSend.mockRejectedValueOnce(new Error("NetworkError"));
     const client = new R2Client(cfg);
     await expect(client.getObject("some/key")).rejects.toThrow("NetworkError");
-  });
-});
-
-describe("assertTestBucket", () => {
-  it("passes when bucket matches test bucket", () => {
-    expect(() => assertTestBucket(TEST_BUCKET_NAME)).not.toThrow();
-  });
-
-  it("throws when bucket does not match", () => {
-    expect(() => assertTestBucket("pika-production")).toThrow(
-      "R2 isolation FAILED",
-    );
-  });
-
-  it("throws when bucket is undefined", () => {
-    expect(() => assertTestBucket(undefined)).toThrow("R2 isolation FAILED");
   });
 });

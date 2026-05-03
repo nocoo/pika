@@ -138,19 +138,3 @@ export class R2Client {
     }
   }
 }
-
-/** Known test bucket name — must match pika-test in Cloudflare R2. */
-export const TEST_BUCKET_NAME = "pika-test";
-
-/**
- * Assert that the supplied bucket name matches the known test bucket.
- *
- * @throws Error if the bucket does not match
- */
-export function assertTestBucket(bucket: string | undefined): void {
-  if (bucket !== TEST_BUCKET_NAME) {
-    throw new Error(
-      `R2 isolation FAILED: bucket="${bucket}" does not match test bucket "${TEST_BUCKET_NAME}"`,
-    );
-  }
-}

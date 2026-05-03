@@ -2,7 +2,6 @@
 #
 # Two deployments:
 #   - prod:   name = "pika"        custom_domain pika.hexly.ai
-#   - test:   name = "pika-test"   custom_domain pika-test.hexly.ai
 #
 # The merged worker serves SPA assets (run_worker_first on /api/*) and
 # handles every /api/* surface in-process via Hono subapps in src/api/.
@@ -50,32 +49,3 @@ binding = "ASSETS"
 run_worker_first = ["/api/*"]
 not_found_handling = "single-page-application"
 
-# ── Test environment (e2e + staging) ───────────────────────────
-
-[env.test]
-name = "pika-test"
-# ⚠️ [env.test] inherits top-level routes by default; we want a separate
-# custom_domain so override explicitly.
-routes = [{ pattern = "pika-test.hexly.ai", custom_domain = true }]
-
-[env.test.vars]
-ENVIRONMENT = "test"
-E2E_SKIP_AUTH = "true"
-CF_ACCESS_TEAM_DOMAIN = "nocoo.cloudflareaccess.com"
-CF_ACCESS_AUD = "fbbaaf21dcbbae0d677207bd16798d64458336069f105669a55d449362e08862"
-
-[[env.test.d1_databases]]
-binding = "DB"
-database_name = "pika-db-test"
-database_id = "f52931ad-9c96-4d04-9d0a-3098a800ce5e"
-preview_database_id = "f52931ad-9c96-4d04-9d0a-3098a800ce5e"
-
-[[env.test.r2_buckets]]
-binding = "BUCKET"
-bucket_name = "pika-test"
-
-[env.test.assets]
-directory = "./dist"
-binding = "ASSETS"
-run_worker_first = ["/api/*"]
-not_found_handling = "single-page-application"

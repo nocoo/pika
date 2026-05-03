@@ -1,9 +1,8 @@
 /**
  * Cloudflare D1 HTTP API client.
  *
- * Runtime-agnostic: the caller supplies config + (optionally) the D1
- * client to assertTestDatabase. The web/Next.js layer wraps these with
- * a singleton factory that pulls config from process.env.
+ * Runtime-agnostic: the caller supplies config. The web/Next.js layer wraps
+ * these with a singleton factory that pulls config from process.env.
  *
  * @see https://developers.cloudflare.com/api/resources/d1/subresources/database/methods/query
  */
@@ -128,36 +127,5 @@ export class D1Client {
     }
 
     throw new D1Error("D1 request failed after retries");
-  }
-}
-
-/** Known test database ID — must match pika-db-test in Cloudflare. */
-export const TEST_DATABASE_ID = "f52931ad-9c96-4d04-9d0a-3098a800ce5e";
-
-/**
- * Assert that the supplied D1 client points to the test database.
- * Implements 2-layer verification:
- *   1. databaseId arg must match TEST_DATABASE_ID
- *   2. _test_marker table must exist in the DB
- *
- * @throws Error if any check fails
- */
-export async function assertTestDatabase(
-  client: D1Client,
-  databaseId: string | undefined,
-): Promise<void> {
-  if (databaseId !== TEST_DATABASE_ID) {
-    throw new Error(
-      `D1 isolation FAILED: databaseId="${databaseId}" does not match test DB "${TEST_DATABASE_ID}"`,
-    );
-  }
-
-  const result = await client.query<{ name: string }>(
-    "SELECT name FROM sqlite_master WHERE type='table' AND name='_test_marker'",
-  );
-  if (result.results.length === 0) {
-    throw new Error(
-      "D1 isolation FAILED: _test_marker table not found — this may not be the test database",
-    );
   }
 }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { assertTestDatabase, D1Client, D1Error, TEST_DATABASE_ID } from "./d1";
+import { D1Client, D1Error } from "./d1";
 
 const mockFetch = vi.fn();
 const originalFetch = globalThis.fetch;
@@ -214,47 +214,5 @@ describe("D1Client.firstOrNull", () => {
     ]);
 
     expect(row).toBeNull();
-  });
-});
-
-describe("assertTestDatabase", () => {
-  it("throws when databaseId does not match test DB", async () => {
-    const client = new D1Client({ ...cfg, databaseId: TEST_DATABASE_ID });
-    await expect(
-      assertTestDatabase(client, "production-db-id"),
-    ).rejects.toThrow(/D1 isolation FAILED.*does not match test DB/);
-  });
-
-  it("throws when databaseId is undefined", async () => {
-    const client = new D1Client({ ...cfg, databaseId: TEST_DATABASE_ID });
-    await expect(assertTestDatabase(client, undefined)).rejects.toThrow(
-      /D1 isolation FAILED/,
-    );
-  });
-
-  it("throws when _test_marker table not found", async () => {
-    mockFetch.mockResolvedValue(okResponse([]));
-    const client = new D1Client({
-      accountId: "a",
-      databaseId: TEST_DATABASE_ID,
-      apiToken: "t",
-    });
-
-    await expect(assertTestDatabase(client, TEST_DATABASE_ID)).rejects.toThrow(
-      /D1 isolation FAILED.*_test_marker table not found/,
-    );
-  });
-
-  it("passes when DB ID matches and _test_marker exists", async () => {
-    mockFetch.mockResolvedValue(okResponse([{ name: "_test_marker" }]));
-    const client = new D1Client({
-      accountId: "a",
-      databaseId: TEST_DATABASE_ID,
-      apiToken: "t",
-    });
-
-    await expect(
-      assertTestDatabase(client, TEST_DATABASE_ID),
-    ).resolves.toBeUndefined();
   });
 });
