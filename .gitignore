@@ -27,6 +27,7 @@ Thumbs.db
 
 # Test
 coverage/
+coverage-tmp/
 
 # Bun
 bun.lockb
