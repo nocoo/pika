@@ -23,7 +23,7 @@ Full architecture: [docs/00-architecture.md](./docs/00-architecture.md).
 - **Auth**: Cloudflare Access SSO (browser) + `pk_*` API token (CLI)
 - **DB**: Cloudflare D1 (SQLite + FTS5) — native binding, no HTTP REST
 - **Storage**: Cloudflare R2 — canonical (mutable) + raw (content-addressed) gzip blobs
-- **Testing**: Vitest (90% coverage) + `bun test` for `bun:sqlite` migration tests
+- **Testing**: Vitest (90% coverage)
 - **CI/CD**: GitHub Actions (`nocoo/base-ci@v2026.1`) → `wrangler deploy`
 
 ## Quality Framework
@@ -43,8 +43,8 @@ L2/L3 (API E2E + Playwright) currently disabled (no `test:e2e` script post singl
 ```bash
 bun install                    # install + husky setup
 bun run dev:all                # vite :7022 + wrangler dev :8787
-bun test                       # bun native (incl. bun:sqlite migration tests)
-bunx vitest run --coverage     # node runner + coverage report
+vitest run                     # run tests
+vitest run --coverage          # tests + coverage report
 bun run build                  # SPA → packages/web-worker/dist
 bun run lint                   # tsc --noEmit (3 tsconfigs)
 bun run lint:biome             # biome lint + format check
@@ -80,7 +80,6 @@ CI auto-deploys on push to `main` (`.github/workflows/ci.yml` → `Deploy Worker
 Patterns that re-bit us; check before re-introducing.
 
 - **better-sqlite3 → bun:sqlite**: Bun 1.3.9 dropped `better-sqlite3`. Migration tests now use `bun:sqlite` (Bun built-in). API nearly identical (`prepare/all/run/exec/close`), but pragmas use `db.run("PRAGMA ...")` instead of `db.pragma("...")`. Excluded from vitest (Node can't resolve `bun:sqlite`).
-- **Dual test runners**: `bun test` (Bun native) vs `bunx vitest run` (Node) have different module resolution. Bun-specific imports (`bun:sqlite`) excluded from vitest config. Verify both pass.
 - **git add -A atomicity trap**: Stages everything when multiple logical changes coexist. Always stage selectively.
 - **Three independent tsconfigs**: root + `packages/web` + `packages/web-worker`. Each has its own `lib`/`types` (DOM vs Workers). Lint script must run all three.
 - **Bun built-in imports need variable indirection for tsc**: `import("bun:sqlite")` literal causes TS2307 without bun-types. Use `const modId = "bun:sqlite"; await import(modId)`.
