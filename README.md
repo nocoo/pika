@@ -116,7 +116,7 @@ pika/
 | 认证 | [Cloudflare Access](https://www.cloudflare.com/zero-trust/) (人) · `pk_*` API token (CLI) |
 | 数据库 | [Cloudflare D1](https://developers.cloudflare.com/d1/) (SQLite + FTS5) |
 | 存储 | [Cloudflare R2](https://developers.cloudflare.com/r2/) (gzip blobs，canonical + raw) |
-| 测试 | [Vitest](https://vitest.dev) + [Bun test](https://bun.sh/docs/cli/test) |
+| 测试 | [Vitest](https://vitest.dev) |
 | CI/CD | GitHub Actions ([nocoo/base-ci](https://github.com/nocoo/base-ci)) + `wrangler deploy` |
 
 ## 开发
