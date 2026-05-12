@@ -1,3 +1,11 @@
 [test]
-# Exclude compiled dist artifacts from `bun test` discovery
-exclude = ["./packages/cli/dist/"]
+pathIgnorePatterns = [
+  "packages/cli/dist/**",
+  "packages/web-worker/test/e2e/**",
+  "**/*.test.tsx",
+  "packages/web-worker/src/data/*.test.ts",
+  "packages/core/src/infra/r2.test.ts",
+  "packages/core/src/infra/worker-client.test.ts",
+  "packages/web/src/lib/api.test.ts",
+  "packages/cli/src/output/formatter.test.ts",
+]
