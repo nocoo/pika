@@ -1,3 +1,8 @@
 [[IgnoredVulns]]
 id = "GHSA-gh4j-gqv2-49f6"
 reason = "fast-xml-parser indirect dep, no direct XML parsing exposure"
+
+[[IgnoredVulns]]
+id = "GHSA-jxxr-4gwj-5jf2"
+reason = "Nested transitive dep (minimatch/brace-expansion@5.0.5) — bun resolver bug prevents dedup to 5.0.6; top-level is fixed"
+ignoreUntil = 2026-07-03T00:00:00Z
