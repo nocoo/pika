@@ -39,10 +39,13 @@
     "picomatch": ">=4.0.4",
     "fast-xml-parser": ">=5.7.0",
     "fast-xml-builder": ">=1.1.7",
-    "postcss": ">=8.5.10"
+    "postcss": ">=8.5.10",
+    "ws": ">=8.20.1"
   },
   "dependencies": {
-    "vite": "8.0.10"
+    "brace-expansion": "^5.0.6",
+    "vite": "8.0.10",
+    "ws": "^8.20.1"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json}": [

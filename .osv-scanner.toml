@@ -2,6 +2,11 @@
 # https://google.github.io/osv-scanner/configuration/
 
 [[IgnoredVulns]]
+id = "GHSA-jxxr-4gwj-5jf2"
+reason = "Nested transitive dep (minimatch/brace-expansion@5.0.5) — bun resolver bug prevents dedup to 5.0.6; top-level is fixed"
+ignoreUntil = 2026-07-03T00:00:00Z
+
+[[IgnoredVulns]]
 id = "GHSA-5f7q-jpqc-wp7h"
 reason = "Pika does not use PPR (experimental.ppr) - not affected by this DoS vulnerability"
 ignoreUntil = 2026-07-03T00:00:00Z  # Review in 3 months
