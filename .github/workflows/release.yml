@@ -41,11 +41,12 @@ jobs:
         run: bun run build
 
       - name: Deploy Worker
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: packages/web-worker
+          packageManager: bun
           command: deploy --env=""
 
       - name: Verify deployment
