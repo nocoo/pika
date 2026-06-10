@@ -4,12 +4,30 @@ import { R2Client } from "./r2";
 vi.mock("@aws-sdk/client-s3", () => {
   const sendFn = vi.fn();
   return {
-    S3Client: vi.fn().mockImplementation(() => ({ send: sendFn })),
-    GetObjectCommand: vi.fn().mockImplementation((input) => ({ input })),
-    PutObjectCommand: vi.fn().mockImplementation((input) => ({ input })),
-    HeadObjectCommand: vi
-      .fn()
-      .mockImplementation((input) => ({ _type: "HeadObject", input })),
+    S3Client: vi.fn().mockImplementation(function (this: {
+      send: typeof sendFn;
+    }) {
+      this.send = sendFn;
+    }),
+    GetObjectCommand: vi.fn().mockImplementation(function (
+      this: { input: unknown },
+      input: unknown,
+    ) {
+      this.input = input;
+    }),
+    PutObjectCommand: vi.fn().mockImplementation(function (
+      this: { input: unknown },
+      input: unknown,
+    ) {
+      this.input = input;
+    }),
+    HeadObjectCommand: vi.fn().mockImplementation(function (
+      this: { _type: string; input: unknown },
+      input: unknown,
+    ) {
+      this._type = "HeadObject";
+      this.input = input;
+    }),
     __mockSend: sendFn,
   };
 });

@@ -18,6 +18,9 @@ import {
 
 // ── Mock helpers ───────────────────────────────────────────────
 
+type MockFn = ReturnType<typeof vi.fn> &
+  ((...args: unknown[]) => Record<string, ReturnType<typeof vi.fn>>);
+
 function mockD1(opts?: {
   results?: unknown[];
   firstResult?: unknown;
@@ -106,7 +109,7 @@ describe("handleListSessions", () => {
     const db = mockD1({ results: sessions });
 
     // Mock for count query and main query
-    const prepare = db.prepare as ReturnType<typeof vi.fn>;
+    const prepare = db.prepare as unknown as MockFn;
     const stmt = prepare();
     stmt.all.mockResolvedValue({ results: sessions });
     stmt.first.mockResolvedValue({ count: 1 });
@@ -128,7 +131,7 @@ describe("handleListSessions", () => {
 
     await handleListSessions("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: MockFn };
     const sql = db.prepare.mock.calls[0][0];
     // Query should include LIMIT clause
     expect(sql).toContain("LIMIT");
@@ -140,7 +143,7 @@ describe("handleListSessions", () => {
 
     await handleListSessions("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: MockFn };
     const sql = db.prepare.mock.calls[0][0];
     expect(sql).toContain("s.source = ?");
   });
@@ -154,7 +157,7 @@ describe("handleListSessions", () => {
 
     await handleListSessions("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: MockFn };
     const sql = db.prepare.mock.calls[0][0];
     expect(sql).toContain("s.duration_seconds >= ?");
     expect(sql).toContain("s.duration_seconds <= ?");
@@ -169,7 +172,7 @@ describe("handleListSessions", () => {
 
     await handleListSessions("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: MockFn };
     const sql = db.prepare.mock.calls[0][0];
     expect(sql).toContain("s.total_input_tokens >= ?");
     expect(sql).toContain("s.total_input_tokens <= ?");
@@ -184,7 +187,7 @@ describe("handleListSessions", () => {
 
     await handleListSessions("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: MockFn };
     const sql = db.prepare.mock.calls[0][0];
     expect(sql).toContain("s.total_output_tokens >= ?");
     expect(sql).toContain("s.total_output_tokens <= ?");
@@ -200,7 +203,7 @@ describe("handleListSessions", () => {
     const res = await handleListSessions("user-1", params, env);
 
     expect(res.status).toBe(200);
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: MockFn };
     const stmt = db.prepare();
     // bind should have been called with cursor values
     expect(stmt.bind).toHaveBeenCalled();
@@ -212,7 +215,7 @@ describe("handleListSessions", () => {
 
     await handleListSessions("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: MockFn };
     const sql = db.prepare.mock.calls[0][0];
     expect(sql).toContain("s.model = ?");
   });
@@ -223,7 +226,7 @@ describe("handleListSessions", () => {
 
     await handleListSessions("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: MockFn };
     const sql = db.prepare.mock.calls[0][0];
     expect(sql).toContain("s.project_ref = ?");
   });
@@ -234,7 +237,7 @@ describe("handleListSessions", () => {
 
     await handleListSessions("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: MockFn };
     const sql = db.prepare.mock.calls[0][0];
     expect(sql).toContain("COALESCE(s.project_name, s.project_ref)");
   });
@@ -248,7 +251,7 @@ describe("handleListSessions", () => {
 
     await handleListSessions("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: MockFn };
     const sql = db.prepare.mock.calls[0][0];
     expect(sql).toContain("s.last_message_at >= ?");
     expect(sql).toContain("s.last_message_at <= ?");
@@ -260,7 +263,7 @@ describe("handleListSessions", () => {
 
     await handleListSessions("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: MockFn };
     const sql = db.prepare.mock.calls[0][0];
     expect(sql).toContain("s.is_starred");
   });
@@ -271,7 +274,7 @@ describe("handleListSessions", () => {
 
     await handleListSessions("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: MockFn };
     const sql = db.prepare.mock.calls[0][0];
     expect(sql).toContain("s.deleted_at IS NOT NULL");
   });
@@ -282,7 +285,7 @@ describe("handleListSessions", () => {
 
     await handleListSessions("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: MockFn };
     const sql = db.prepare.mock.calls[0][0];
     // When includeDeleted is true, there should be no deleted_at filter
     expect(sql).not.toContain("s.deleted_at IS NULL");
@@ -295,7 +298,7 @@ describe("handleListSessions", () => {
 
     await handleListSessions("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: MockFn };
     const sql = db.prepare.mock.calls[0][0];
     expect(sql).toContain("s.total_messages >= ?");
   });
@@ -306,7 +309,7 @@ describe("handleListSessions", () => {
 
     await handleListSessions("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: MockFn };
     const sql = db.prepare.mock.calls[0][0];
     expect(sql).toContain("s.total_messages <= ?");
   });
@@ -320,7 +323,7 @@ describe("handleListSessions", () => {
 
     await handleListSessions("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: MockFn };
     const sql = db.prepare.mock.calls[0][0];
     expect(sql).toContain(
       "(s.total_input_tokens + s.total_output_tokens) >= ?",
@@ -468,7 +471,7 @@ describe("handleGetSessionContent", () => {
 describe("handleUpdateSession", () => {
   it("updates title", async () => {
     const db = mockD1({ runMeta: { changes: 1 } });
-    const stmt = (db.prepare as ReturnType<typeof vi.fn>)();
+    const stmt = (db.prepare as unknown as MockFn)();
     stmt.first.mockResolvedValue({
       id: "sess-123",
       title: "New Title",
@@ -492,7 +495,7 @@ describe("handleUpdateSession", () => {
 
   it("updates description", async () => {
     const db = mockD1({ runMeta: { changes: 1 } });
-    const stmt = (db.prepare as ReturnType<typeof vi.fn>)();
+    const stmt = (db.prepare as unknown as MockFn)();
     stmt.first.mockResolvedValue({
       id: "sess-123",
       title: null,
@@ -516,7 +519,7 @@ describe("handleUpdateSession", () => {
 
   it("clears title with null", async () => {
     const db = mockD1({ runMeta: { changes: 1 } });
-    const stmt = (db.prepare as ReturnType<typeof vi.fn>)();
+    const stmt = (db.prepare as unknown as MockFn)();
     stmt.first.mockResolvedValue({
       id: "sess-123",
       title: null,
@@ -613,7 +616,7 @@ describe("handleFilters", () => {
   it("returns filter values", async () => {
     // handleFilters calls two queries: models and projects
     const db = mockD1();
-    const stmt = (db.prepare as ReturnType<typeof vi.fn>)();
+    const stmt = (db.prepare as unknown as MockFn)();
     stmt.all
       .mockResolvedValueOnce({ results: [{ model: "claude-sonnet" }] })
       .mockResolvedValueOnce({

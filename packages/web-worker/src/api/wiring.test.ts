@@ -487,7 +487,7 @@ describe("ingestApp wiring", () => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Content-Length": String(Buffer.byteLength(body)),
+        "Content-Length": String(new TextEncoder().encode(body).length),
       },
       body,
     });

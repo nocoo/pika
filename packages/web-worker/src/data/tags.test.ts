@@ -405,7 +405,9 @@ describe("handleGetSessionTags", () => {
     });
 
     // Mock needs to return session first, then tags
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as {
+      prepare: () => Record<string, ReturnType<typeof vi.fn>>;
+    };
     const firstPrepare = db.prepare();
     firstPrepare.first.mockResolvedValueOnce({ id: "sess-1" });
     firstPrepare.all.mockResolvedValueOnce({ results: tags });
