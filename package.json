@@ -39,6 +39,7 @@
     "cookie": ">=0.7.0",
     "picomatch": ">=4.0.4",
     "fast-xml-parser": ">=5.7.0",
+    "fast-xml-builder": ">=1.1.7",
     "postcss": ">=8.5.10"
   },
   "dependencies": {
