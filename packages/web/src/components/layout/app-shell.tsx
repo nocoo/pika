@@ -1,6 +1,7 @@
-import { Github, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { useEffect } from "react";
 import { useLocation } from "react-router";
+import { Github } from "@/components/icons/github";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { breadcrumbsFromPathname } from "@/lib/navigation";
 import { Breadcrumbs } from "./breadcrumbs";
