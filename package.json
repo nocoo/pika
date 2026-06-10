@@ -31,7 +31,7 @@
     "@biomejs/biome": "^2.4.16",
     "@vitest/coverage-v8": "^4.1.8",
     "husky": "^9.1.7",
-    "typescript": "^5.8.2",
+    "typescript": "^6.0.3",
     "vitest": "^4.1.8"
   },
   "overrides": {
