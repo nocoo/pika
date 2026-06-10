@@ -16,9 +16,9 @@
     "jose": "^6.2.3"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250620.0",
+    "@cloudflare/workers-types": "^4.20260610.1",
     "typescript": "^5.8.2",
     "vitest": "^3.1.1",
-    "wrangler": "^4.21.2"
+    "wrangler": "^4.99.0"
   }
 }
