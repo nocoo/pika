@@ -24,7 +24,7 @@
         "pika": "dist/bin.js",
       },
       "dependencies": {
-        "@nocoo/cli-base": "^0.2.0",
+        "@nocoo/cli-base": "^0.2.4",
       },
       "devDependencies": {
         "@pika/core": "workspace:*",
@@ -396,7 +396,7 @@
 
     "@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.1.4", "", { "dependencies": { "@tybys/wasm-util": "^0.10.1" }, "peerDependencies": { "@emnapi/core": "^1.7.1", "@emnapi/runtime": "^1.7.1" } }, "sha512-3NQNNgA1YSlJb/kMH1ildASP9HW7/7kYnRI2szWJaofaS1hWmbGI4H+d3+22aGzXXN9IJ+n+GiFVcGipJP18ow=="],
 
-    "@nocoo/cli-base": ["@nocoo/cli-base@0.2.3", "", { "dependencies": { "citty": "^0.2.2", "consola": "^3.4.2", "picocolors": "^1.1.1", "yocto-spinner": "^1.1.0" } }, "sha512-pbYsajM1ttpWwaGbr6JrP/cZa+BJaSbF453+/sYF1ttK5Cx3OCxyx020aLN8s6gUW+sm733KzgMqIpbRYhra1w=="],
+    "@nocoo/cli-base": ["@nocoo/cli-base@0.2.4", "", { "dependencies": { "citty": "^0.2.2", "consola": "^3.4.2", "picocolors": "^1.1.1", "yocto-spinner": "^1.1.0" } }, "sha512-SUqfYxPiEjbdBE8q9q+LOQ5l9p+BfeTLAWIftxX4ceCRRqxF3xeL6aIqGXYt2j8dKrL13GS8QEv2etmtCPIoiQ=="],
 
     "@nocoo/pika": ["@nocoo/pika@workspace:packages/cli"],
 
