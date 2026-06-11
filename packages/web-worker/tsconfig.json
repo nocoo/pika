@@ -7,7 +7,6 @@
     "noEmit": true,
     "outDir": "./dist-tsc",
     "rootDir": ".",
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     }
