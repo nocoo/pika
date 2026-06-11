@@ -12,10 +12,9 @@
     "sourceMap": true,
     "outDir": "dist",
     "rootDir": ".",
-    "baseUrl": ".",
     "paths": {
-      "@pika/core": ["packages/core/src"],
-      "@pika/core/*": ["packages/core/src/*"]
+      "@pika/core": ["./packages/core/src"],
+      "@pika/core/*": ["./packages/core/src/*"]
     }
   },
   "references": [
