@@ -2,6 +2,7 @@
  * Worker tags route handlers tests.
  */
 
+import type { Mock } from "vitest";
 import { describe, expect, it, vi } from "vitest";
 import type { Env } from "./ingest";
 import {
@@ -195,7 +196,7 @@ describe("handleUpdateTag", () => {
       created_at: "2026-01-01T00:00:00Z",
     };
     const db = mockD1({ runMeta: { changes: 1 } });
-    const prepare = db.prepare as ReturnType<typeof vi.fn>;
+    const prepare = db.prepare as Mock;
     let callCount = 0;
     prepare.mockImplementation(() => ({
       bind: vi.fn().mockReturnThis(),
@@ -230,7 +231,7 @@ describe("handleUpdateTag", () => {
       created_at: "2026-01-01T00:00:00Z",
     };
     const db = mockD1({ runMeta: { changes: 1 } });
-    const prepare = db.prepare as ReturnType<typeof vi.fn>;
+    const prepare = db.prepare as Mock;
     prepare.mockImplementation(() => ({
       bind: vi.fn().mockReturnThis(),
       first: vi.fn().mockResolvedValue(updatedTag), // fetch updated tag (no findTagByName for color-only update)
@@ -259,7 +260,7 @@ describe("handleUpdateTag", () => {
       created_at: "2026-01-01T00:00:00Z",
     };
     const db = mockD1({ runMeta: { changes: 1 } });
-    const prepare = db.prepare as ReturnType<typeof vi.fn>;
+    const prepare = db.prepare as Mock;
     prepare.mockImplementation(() => ({
       bind: vi.fn().mockReturnThis(),
       first: vi.fn().mockResolvedValue(updatedTag), // fetch updated tag
@@ -405,7 +406,7 @@ describe("handleGetSessionTags", () => {
     });
 
     // Mock needs to return session first, then tags
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: Mock };
     const firstPrepare = db.prepare();
     firstPrepare.first.mockResolvedValueOnce({ id: "sess-1" });
     firstPrepare.all.mockResolvedValueOnce({ results: tags });
@@ -436,7 +437,7 @@ describe("handleAddSessionTag", () => {
       firstResult: { id: "sess-1" },
     });
     // Override to return different results for session and tag lookups
-    const prepare = db.prepare as ReturnType<typeof vi.fn>;
+    const prepare = db.prepare as Mock;
     prepare.mockImplementation(() => ({
       bind: vi.fn().mockReturnThis(),
       first: vi
@@ -469,7 +470,7 @@ describe("handleAddSessionTag", () => {
       created_at: "2026-01-01T00:00:00Z",
     };
     const db = mockD1();
-    const prepare = db.prepare as ReturnType<typeof vi.fn>;
+    const prepare = db.prepare as Mock;
     const bindMock = vi.fn().mockReturnThis();
     const firstMock = vi
       .fn()
@@ -500,7 +501,7 @@ describe("handleAddSessionTag", () => {
 
   it("auto-creates tag when tagName not found", async () => {
     const db = mockD1();
-    const prepare = db.prepare as ReturnType<typeof vi.fn>;
+    const prepare = db.prepare as Mock;
     let _capturedTagId: string | undefined;
     prepare.mockImplementation(() => ({
       bind: vi.fn((...args: unknown[]) => {
@@ -578,7 +579,7 @@ describe("handleAddSessionTag", () => {
 
   it("returns 404 when tag not found by tagId", async () => {
     const db = mockD1();
-    const prepare = db.prepare as ReturnType<typeof vi.fn>;
+    const prepare = db.prepare as Mock;
     let callCount = 0;
     prepare.mockImplementation(() => {
       callCount++;

@@ -2,6 +2,7 @@
  * Worker search route handler tests.
  */
 
+import type { Mock } from "vitest";
 import { describe, expect, it, vi } from "vitest";
 import type { Env } from "./ingest";
 import { handleSearch, sanitizeSnippet } from "./search";
@@ -148,7 +149,7 @@ describe("handleSearch", () => {
     const params = new URLSearchParams({ q: "test", source: "claude-code" });
     await handleSearch("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: Mock };
     const sql = db.prepare.mock.calls[0][0];
     expect(sql).toContain("s.source = ?");
   });
@@ -159,7 +160,7 @@ describe("handleSearch", () => {
     const params = new URLSearchParams({ q: "test", source: "invalid" });
     await handleSearch("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: Mock };
     const sql = db.prepare.mock.calls[0][0];
     expect(sql).not.toContain("s.source = ?");
   });
@@ -174,7 +175,7 @@ describe("handleSearch", () => {
     });
     await handleSearch("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: Mock };
     const sql = db.prepare.mock.calls[0][0];
     expect(sql).toContain("s.last_message_at >=");
     expect(sql).toContain("s.last_message_at <=");
@@ -186,7 +187,7 @@ describe("handleSearch", () => {
     const params = new URLSearchParams({ q: "test", limit: "25" });
     await handleSearch("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: Mock };
     const bindArgs = db.prepare.mock.results[0].value.bind.mock.calls[0];
     expect(bindArgs).toContain(25);
   });
@@ -197,7 +198,7 @@ describe("handleSearch", () => {
     const params = new URLSearchParams({ q: "test", limit: "999" });
     await handleSearch("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: Mock };
     const bindArgs = db.prepare.mock.results[0].value.bind.mock.calls[0];
     expect(bindArgs).toContain(100);
   });
@@ -208,7 +209,7 @@ describe("handleSearch", () => {
     const params = new URLSearchParams({ q: "test" });
     await handleSearch("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: Mock };
     const bindArgs = db.prepare.mock.results[0].value.bind.mock.calls[0];
     expect(bindArgs).toContain(50);
   });
@@ -219,7 +220,7 @@ describe("handleSearch", () => {
     const params = new URLSearchParams({ q: "test" });
     await handleSearch("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: Mock };
     const sql = db.prepare.mock.calls[0][0] as string;
     expect(sql).toContain("s.content_key IS NOT NULL");
   });

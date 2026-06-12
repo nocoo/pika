@@ -1,4 +1,5 @@
 import { PIKA_VERSION } from "@pika/core";
+import type { Mock } from "vitest";
 import { describe, expect, it, vi } from "vitest";
 import {
   checkVersionConflicts,
@@ -838,7 +839,7 @@ describe("handleCanonicalUpload", () => {
 
     // R2 should have been called
     expect(env.BUCKET.put).toHaveBeenCalledTimes(1);
-    const putCall = (env.BUCKET.put as ReturnType<typeof vi.fn>).mock.calls[0];
+    const putCall = (env.BUCKET.put as Mock).mock.calls[0];
     expect(putCall[0]).toBe("user-1/claude:abc-123/canonical.json.gz");
   });
 
@@ -948,7 +949,7 @@ describe("handleCanonicalUpload", () => {
     expect(res.status).toBe(200);
 
     // Verify D1 batch was called — check that chunk INSERT includes tool_context
-    const batchCalls = (env.DB.batch as ReturnType<typeof vi.fn>).mock.calls;
+    const batchCalls = (env.DB.batch as Mock).mock.calls;
     expect(batchCalls.length).toBe(2);
     // Batch 1: 1 DELETE + 1 message INSERT + 1 chunk INSERT = 3 stmts
     // Batch 2: 1 UPDATE (content_key) — executed last
@@ -1100,7 +1101,7 @@ describe("handleCanonicalUpload", () => {
     expect(body.messages).toBe(260);
 
     // 521 stmts → ceil(521/500) = 2 insert batches + 1 final UPDATE batch = 3
-    const batchCalls = (env.DB.batch as ReturnType<typeof vi.fn>).mock.calls;
+    const batchCalls = (env.DB.batch as Mock).mock.calls;
     expect(batchCalls.length).toBeGreaterThanOrEqual(3);
 
     // Final batch should contain only the UPDATE statement (content_key)
@@ -1129,7 +1130,7 @@ describe("handleCanonicalUpload", () => {
 
     // Batch 1: DELETE + INSERT messages + INSERT chunks (all inserts)
     // Batch 2: UPDATE content_key (final)
-    const batchCalls = (env.DB.batch as ReturnType<typeof vi.fn>).mock.calls;
+    const batchCalls = (env.DB.batch as Mock).mock.calls;
     expect(batchCalls.length).toBe(2);
 
     // Final batch contains exactly 1 statement (the UPDATE)
@@ -1269,7 +1270,7 @@ describe("handleRawUpload", () => {
 
     // R2 should have been called with content-addressed path
     expect(env.BUCKET.put).toHaveBeenCalledTimes(1);
-    const putCall = (env.BUCKET.put as ReturnType<typeof vi.fn>).mock.calls[0];
+    const putCall = (env.BUCKET.put as Mock).mock.calls[0];
     expect(putCall[0]).toBe("user-1/claude:abc-123/raw/newrawhash456.json.gz");
   });
 
@@ -1296,9 +1297,7 @@ describe("handleRawUpload", () => {
   it("returns 500 when R2 put fails", async () => {
     const req = await makeRawRequest();
     const bucket = mockR2();
-    (bucket.put as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new Error("R2 write failed"),
-    );
+    (bucket.put as Mock).mockRejectedValue(new Error("R2 write failed"));
     const db = mockD1(undefined, {
       firstResult: {
         id: "session-id-1",

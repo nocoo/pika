@@ -8,6 +8,7 @@
  */
 
 import { Hono } from "hono";
+import type { Mock } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppEnv } from "../lib/env";
 
@@ -87,8 +88,8 @@ function withUserId<T extends Hono<AppEnv>>(
   };
 }
 
-function asMock(fn: unknown): ReturnType<typeof vi.fn> {
-  return fn as ReturnType<typeof vi.fn>;
+function asMock(fn: unknown): Mock {
+  return fn as Mock;
 }
 
 const ok = () => Response.json({ ok: true });
@@ -102,7 +103,7 @@ beforeEach(() => {
     statsMocks,
     ingestMocks,
   ]) {
-    for (const fn of Object.values(m) as ReturnType<typeof vi.fn>[]) {
+    for (const fn of Object.values(m) as Mock[]) {
       if (typeof fn?.mockReset === "function") {
         fn.mockReset();
         fn.mockImplementation(ok);
@@ -487,7 +488,7 @@ describe("ingestApp wiring", () => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Content-Length": String(Buffer.byteLength(body)),
+        "Content-Length": String(new TextEncoder().encode(body).byteLength),
       },
       body,
     });

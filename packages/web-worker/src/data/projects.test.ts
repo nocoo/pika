@@ -2,6 +2,7 @@
  * Worker projects route handlers tests.
  */
 
+import type { Mock } from "vitest";
 import { describe, expect, it, vi } from "vitest";
 import type { Env } from "./ingest";
 import { handleListProjects, handleProjectActivity } from "./projects";
@@ -184,7 +185,7 @@ describe("handleProjectActivity", () => {
     await handleProjectActivity("user-1", params, env);
 
     // Verify the SQL binding includes the days parameter
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: Mock };
     const bindArgs = db.prepare.mock.results[0].value.bind.mock.calls[0];
     expect(bindArgs).toContain("-30");
   });
@@ -195,7 +196,7 @@ describe("handleProjectActivity", () => {
     const params = new URLSearchParams({ projectKey: "pika", days: "999" });
     await handleProjectActivity("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: Mock };
     const bindArgs = db.prepare.mock.results[0].value.bind.mock.calls[0];
     expect(bindArgs).toContain("-365");
   });
@@ -206,7 +207,7 @@ describe("handleProjectActivity", () => {
     const params = new URLSearchParams({ projectKey: "pika", days: "invalid" });
     await handleProjectActivity("user-1", params, env);
 
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: Mock };
     const bindArgs = db.prepare.mock.results[0].value.bind.mock.calls[0];
     expect(bindArgs).toContain("-90");
   });
