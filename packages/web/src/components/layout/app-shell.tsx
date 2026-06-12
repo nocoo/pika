@@ -1,9 +1,10 @@
-import { Github, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { useEffect } from "react";
 import { useLocation } from "react-router";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { breadcrumbsFromPathname } from "@/lib/navigation";
 import { Breadcrumbs } from "./breadcrumbs";
+import { GithubIcon } from "./github-icon";
 import { Sidebar } from "./sidebar";
 import { SidebarProvider, useSidebar } from "./sidebar-context";
 import { ThemeToggle } from "./theme-toggle";
@@ -80,11 +81,7 @@ function AppShellInner({ children }: AppShellProps) {
               aria-label="GitHub repository"
               className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
             >
-              <Github
-                className="h-[18px] w-[18px]"
-                aria-hidden="true"
-                strokeWidth={1.5}
-              />
+              <GithubIcon className="h-[18px] w-[18px]" aria-hidden="true" />
             </a>
             <ThemeToggle />
           </div>
