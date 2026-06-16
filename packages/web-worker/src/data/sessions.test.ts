@@ -18,6 +18,11 @@ import {
 
 // ── Mock helpers ───────────────────────────────────────────────
 
+// vitest 4 types vi.fn() as a Mock<Procedure | Constructable> union that TS
+// refuses to call directly; this callable alias restores the call signature
+// for the mock-statement helpers below.
+type CallableMock = ReturnType<typeof vi.fn> & ((...args: unknown[]) => any);
+
 function mockD1(opts?: {
   results?: unknown[];
   firstResult?: unknown;
@@ -106,7 +111,7 @@ describe("handleListSessions", () => {
     const db = mockD1({ results: sessions });
 
     // Mock for count query and main query
-    const prepare = db.prepare as ReturnType<typeof vi.fn>;
+    const prepare = db.prepare as CallableMock;
     const stmt = prepare();
     stmt.all.mockResolvedValue({ results: sessions });
     stmt.first.mockResolvedValue({ count: 1 });
@@ -200,7 +205,7 @@ describe("handleListSessions", () => {
     const res = await handleListSessions("user-1", params, env);
 
     expect(res.status).toBe(200);
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: CallableMock };
     const stmt = db.prepare();
     // bind should have been called with cursor values
     expect(stmt.bind).toHaveBeenCalled();
@@ -468,7 +473,7 @@ describe("handleGetSessionContent", () => {
 describe("handleUpdateSession", () => {
   it("updates title", async () => {
     const db = mockD1({ runMeta: { changes: 1 } });
-    const stmt = (db.prepare as ReturnType<typeof vi.fn>)();
+    const stmt = (db.prepare as CallableMock)();
     stmt.first.mockResolvedValue({
       id: "sess-123",
       title: "New Title",
@@ -492,7 +497,7 @@ describe("handleUpdateSession", () => {
 
   it("updates description", async () => {
     const db = mockD1({ runMeta: { changes: 1 } });
-    const stmt = (db.prepare as ReturnType<typeof vi.fn>)();
+    const stmt = (db.prepare as CallableMock)();
     stmt.first.mockResolvedValue({
       id: "sess-123",
       title: null,
@@ -516,7 +521,7 @@ describe("handleUpdateSession", () => {
 
   it("clears title with null", async () => {
     const db = mockD1({ runMeta: { changes: 1 } });
-    const stmt = (db.prepare as ReturnType<typeof vi.fn>)();
+    const stmt = (db.prepare as CallableMock)();
     stmt.first.mockResolvedValue({
       id: "sess-123",
       title: null,
@@ -613,7 +618,7 @@ describe("handleFilters", () => {
   it("returns filter values", async () => {
     // handleFilters calls two queries: models and projects
     const db = mockD1();
-    const stmt = (db.prepare as ReturnType<typeof vi.fn>)();
+    const stmt = (db.prepare as CallableMock)();
     stmt.all
       .mockResolvedValueOnce({ results: [{ model: "claude-sonnet" }] })
       .mockResolvedValueOnce({

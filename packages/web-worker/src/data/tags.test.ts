@@ -16,6 +16,10 @@ import {
 
 // ── Mock helpers ───────────────────────────────────────────────
 
+// vitest 4 types vi.fn() as a Mock<Procedure | Constructable> union that TS
+// refuses to call directly; this callable alias restores the call signature.
+type CallableMock = ReturnType<typeof vi.fn> & ((...args: unknown[]) => any);
+
 function mockD1(opts?: {
   results?: unknown[];
   firstResult?: unknown;
@@ -405,7 +409,7 @@ describe("handleGetSessionTags", () => {
     });
 
     // Mock needs to return session first, then tags
-    const db = env.DB as unknown as { prepare: ReturnType<typeof vi.fn> };
+    const db = env.DB as unknown as { prepare: CallableMock };
     const firstPrepare = db.prepare();
     firstPrepare.first.mockResolvedValueOnce({ id: "sess-1" });
     firstPrepare.all.mockResolvedValueOnce({ results: tags });
