@@ -100,21 +100,46 @@ describe("accessAuth", () => {
     expect(body.authed).toBe(false);
   });
 
-  it("non-local without CF Access env vars passes through unauthenticated", async () => {
-    const app = makeApp();
-    const res = await app.fetch(new Request("https://pika.hexly.ai/api/me"));
-    const body = (await res.json()) as { authed: boolean };
-    expect(body.authed).toBe(false);
+  it("non-local CLI request with Bearer defers to apiKeyAuth (no 401 here)", async () => {
+    // CLI hits /api/ingest/* through the CF Access path-level bypass policy
+    // (docs/00-architecture.md §4). The bypass strips Cf-Access-Jwt-Assertion
+    // but the request still carries a Bearer pk_* — accessAuth must let it
+    // through unauthenticated so apiKeyAuth can verify the token.
+    const app = makeApp({
+      CF_ACCESS_TEAM_DOMAIN: "team.cloudflareaccess.com",
+      CF_ACCESS_AUD: "aud",
+    });
+    const res = await app.fetch(
+      new Request("https://pika.hexly.ai/api/ingest/sessions", {
+        headers: { Authorization: "Bearer pk_test" },
+      }),
+    );
+    // Falls through to the next middleware; our test app has no handler for
+    // /api/ingest, but the important thing is accessAuth did not 401/500.
+    expect(res.status).not.toBe(401);
+    expect(res.status).not.toBe(403);
+    expect(res.status).not.toBe(500);
+    expect(verifyMock).not.toHaveBeenCalled();
   });
 
-  it("non-local without JWT header passes through", async () => {
+  it("non-local without CF Access env vars → 500 (fail-closed)", async () => {
+    const app = makeApp();
+    const res = await app.fetch(new Request("https://pika.hexly.ai/api/me"));
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({
+      error:
+        "Access authentication not configured. Set CF_ACCESS_TEAM_DOMAIN and CF_ACCESS_AUD.",
+    });
+  });
+
+  it("non-local without JWT header → 401 (fail-closed)", async () => {
     const app = makeApp({
       CF_ACCESS_TEAM_DOMAIN: "team.cloudflareaccess.com",
       CF_ACCESS_AUD: "aud",
     });
     const res = await app.fetch(new Request("https://pika.hexly.ai/api/me"));
-    const body = (await res.json()) as { authed: boolean };
-    expect(body.authed).toBe(false);
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Missing Access JWT" });
     expect(verifyMock).not.toHaveBeenCalled();
   });
 
@@ -158,7 +183,7 @@ describe("accessAuth", () => {
     expect(createJWKSMock).toHaveBeenCalledTimes(1);
   });
 
-  it("invalid JWT falls through (no throw, no auth set)", async () => {
+  it("invalid JWT → 403 (fail-closed)", async () => {
     verifyMock.mockRejectedValueOnce(new Error("bad sig"));
     const app = makeApp({
       CF_ACCESS_TEAM_DOMAIN: "team.cloudflareaccess.com",
@@ -169,8 +194,8 @@ describe("accessAuth", () => {
         headers: { "Cf-Access-Jwt-Assertion": "bad.jwt" },
       }),
     );
-    const body = (await res.json()) as { authed: boolean };
-    expect(body.authed).toBe(false);
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Invalid Access JWT" });
   });
 
   it("payload without string email leaves accessEmail unset", async () => {

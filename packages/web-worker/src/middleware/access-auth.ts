@@ -27,16 +27,23 @@ export function __resetAccessAuthCacheForTests() {
 }
 
 /**
- * Cloudflare Access JWT verification.
+ * Cloudflare Access JWT verification — fail-CLOSED.
  *
- * Verified requests get `c.set("accessAuthenticated", true)` and
+ * Verified browser requests get `c.set("accessAuthenticated", true)` and
  * `c.set("accessEmail", payload.email)`.
  *
+ * Routing:
  * - `/api/live` is always public.
  * - On localhost without a Bearer header we set `accessAuthenticated` so
  *   the dev-email branch in `resolveUser` can run; with a Bearer we let
  *   `apiKeyAuth` handle it (so `accessEmail` reflects the token owner).
- * - JWT failure does NOT 401 here — fall through to `apiKeyAuth`.
+ * - On a real edge request carrying a Bearer token, we defer to
+ *   `apiKeyAuth`. CLI traffic hits `/api/ingest/*` through CF Access's
+ *   path-level bypass policy and therefore never carries a Cf-Access-Jwt-
+ *   Assertion header — rejecting it here would break the documented CLI
+ *   flow (docs/00-architecture.md §4).
+ * - For browser traffic (no Bearer): env misconfigured → 500, missing
+ *   JWT → 401, invalid JWT → 403. No silent pass-through.
  */
 export async function accessAuth(c: Context<AppEnv>, next: Next) {
   if (PUBLIC_PATHS.has(c.req.path)) return next();
@@ -57,12 +64,25 @@ export async function accessAuth(c: Context<AppEnv>, next: Next) {
     return next();
   }
 
+  // CLI path: CF Access bypass on `/api/ingest/*` strips the JWT but
+  // forwards the Bearer header. Let `apiKeyAuth` own validation.
+  const hasBearer = (c.req.header("Authorization") ?? "").startsWith("Bearer ");
+  if (hasBearer) return next();
+
   const teamDomain = c.env.CF_ACCESS_TEAM_DOMAIN;
   const aud = c.env.CF_ACCESS_AUD;
-  if (!(teamDomain && aud)) return next();
+  if (!(teamDomain && aud)) {
+    return c.json(
+      {
+        error:
+          "Access authentication not configured. Set CF_ACCESS_TEAM_DOMAIN and CF_ACCESS_AUD.",
+      },
+      500,
+    );
+  }
 
   const jwt = c.req.header("Cf-Access-Jwt-Assertion");
-  if (!jwt) return next();
+  if (!jwt) return c.json({ error: "Missing Access JWT" }, 401);
 
   try {
     const jwks = getJWKS(teamDomain);
@@ -74,7 +94,8 @@ export async function accessAuth(c: Context<AppEnv>, next: Next) {
     const email = (payload as JWTPayload & { email?: unknown }).email;
     if (typeof email === "string") c.set("accessEmail", email);
   } catch {
-    // fall through; api-key-auth or terminal 401 will handle it
+    return c.json({ error: "Invalid Access JWT" }, 403);
   }
+
   return next();
 }
