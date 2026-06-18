@@ -4,6 +4,7 @@ import type { AppEnv } from "../lib/env";
 import { isLocalhost } from "./is-localhost";
 
 const PUBLIC_PATHS = new Set<string>(["/api/live"]);
+const INGEST_BEARER_PATH_PREFIX = "/api/ingest/";
 
 let jwksCache: ReturnType<typeof createRemoteJWKSet> | null = null;
 let jwksCacheTeamDomain: string | null = null;
@@ -37,12 +38,16 @@ export function __resetAccessAuthCacheForTests() {
  * - On localhost without a Bearer header we set `accessAuthenticated` so
  *   the dev-email branch in `resolveUser` can run; with a Bearer we let
  *   `apiKeyAuth` handle it (so `accessEmail` reflects the token owner).
- * - On a real edge request carrying a Bearer token, we defer to
- *   `apiKeyAuth`. CLI traffic hits `/api/ingest/*` through CF Access's
- *   path-level bypass policy and therefore never carries a Cf-Access-Jwt-
- *   Assertion header — rejecting it here would break the documented CLI
- *   flow (docs/00-architecture.md §4).
- * - For browser traffic (no Bearer): env misconfigured → 500, missing
+ * - On a real edge request to `/api/ingest/*` carrying a Bearer token,
+ *   we defer to `apiKeyAuth`. CLI traffic hits `/api/ingest/*` through
+ *   CF Access's path-level bypass policy and therefore never carries a
+ *   Cf-Access-Jwt-Assertion header — rejecting it here would break the
+ *   documented CLI flow (docs/00-architecture.md §4). The Bearer escape
+ *   hatch is scoped to `/api/ingest/*` so a leaked `pk_*` cannot be used
+ *   to bypass CF Access on browser-only paths (`/api/me`,
+ *   `/api/auth/tokens`, `/api/sessions`, …) when a request reaches the
+ *   Worker directly (workers.dev / preview / custom domain misroute).
+ * - For all other browser traffic: env misconfigured → 500, missing
  *   JWT → 401, invalid JWT → 403. No silent pass-through.
  */
 export async function accessAuth(c: Context<AppEnv>, next: Next) {
@@ -65,9 +70,15 @@ export async function accessAuth(c: Context<AppEnv>, next: Next) {
   }
 
   // CLI path: CF Access bypass on `/api/ingest/*` strips the JWT but
-  // forwards the Bearer header. Let `apiKeyAuth` own validation.
-  const hasBearer = (c.req.header("Authorization") ?? "").startsWith("Bearer ");
-  if (hasBearer) return next();
+  // forwards the Bearer header. Let `apiKeyAuth` own validation. Scoped
+  // to `/api/ingest/*` so `pk_*` cannot stand in for CF Access on
+  // browser-only paths if a request reaches the Worker directly.
+  if (c.req.path.startsWith(INGEST_BEARER_PATH_PREFIX)) {
+    const hasBearer = (c.req.header("Authorization") ?? "").startsWith(
+      "Bearer ",
+    );
+    if (hasBearer) return next();
+  }
 
   const teamDomain = c.env.CF_ACCESS_TEAM_DOMAIN;
   const aud = c.env.CF_ACCESS_AUD;

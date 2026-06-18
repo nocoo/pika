@@ -25,6 +25,12 @@ function makeApp(env: Partial<AppEnv["Bindings"]> = {}) {
       email: c.get("accessEmail") ?? null,
     }),
   );
+  app.post("/api/ingest/sessions", (c) =>
+    c.json({
+      reached: true,
+      authed: c.get("accessAuthenticated") ?? false,
+    }),
+  );
   return {
     fetch: (req: Request) =>
       app.fetch(req, env as unknown as Record<string, unknown>),
@@ -100,7 +106,7 @@ describe("accessAuth", () => {
     expect(body.authed).toBe(false);
   });
 
-  it("non-local CLI request with Bearer defers to apiKeyAuth (no 401 here)", async () => {
+  it("non-local CLI request to /api/ingest/* with Bearer defers to apiKeyAuth", async () => {
     // CLI hits /api/ingest/* through the CF Access path-level bypass policy
     // (docs/00-architecture.md §4). The bypass strips Cf-Access-Jwt-Assertion
     // but the request still carries a Bearer pk_* — accessAuth must let it
@@ -111,15 +117,60 @@ describe("accessAuth", () => {
     });
     const res = await app.fetch(
       new Request("https://pika.hexly.ai/api/ingest/sessions", {
+        method: "POST",
         headers: { Authorization: "Bearer pk_test" },
       }),
     );
-    // Falls through to the next middleware; our test app has no handler for
-    // /api/ingest, but the important thing is accessAuth did not 401/500.
-    expect(res.status).not.toBe(401);
-    expect(res.status).not.toBe(403);
-    expect(res.status).not.toBe(500);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { reached: boolean; authed: boolean };
+    expect(body.reached).toBe(true);
+    expect(body.authed).toBe(false);
     expect(verifyMock).not.toHaveBeenCalled();
+  });
+
+  it("non-local /api/ingest/* without Bearer still hits CF Access (no implicit bypass)", async () => {
+    // The Bearer escape hatch requires both /api/ingest/* AND a Bearer header.
+    // A request to /api/ingest/* missing the Bearer must still be subject to
+    // CF Access checks — env-missing returns 500, JWT-missing returns 401.
+    const app = makeApp({
+      CF_ACCESS_TEAM_DOMAIN: "team.cloudflareaccess.com",
+      CF_ACCESS_AUD: "aud",
+    });
+    const res = await app.fetch(
+      new Request("https://pika.hexly.ai/api/ingest/sessions", {
+        method: "POST",
+      }),
+    );
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Missing Access JWT" });
+    expect(verifyMock).not.toHaveBeenCalled();
+  });
+
+  it("non-local browser path with Bearer but no JWT → 401 (Bearer escape is ingest-only)", async () => {
+    // A leaked pk_* must NOT bypass CF Access on /api/me, /api/auth/tokens,
+    // /api/sessions, etc. — the Bearer escape hatch is scoped to /api/ingest/*.
+    const app = makeApp({
+      CF_ACCESS_TEAM_DOMAIN: "team.cloudflareaccess.com",
+      CF_ACCESS_AUD: "aud",
+    });
+    const res = await app.fetch(
+      new Request("https://pika.hexly.ai/api/me", {
+        headers: { Authorization: "Bearer pk_test" },
+      }),
+    );
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Missing Access JWT" });
+    expect(verifyMock).not.toHaveBeenCalled();
+  });
+
+  it("non-local browser path with Bearer and env missing → 500 (fail-closed)", async () => {
+    const app = makeApp();
+    const res = await app.fetch(
+      new Request("https://pika.hexly.ai/api/me", {
+        headers: { Authorization: "Bearer pk_test" },
+      }),
+    );
+    expect(res.status).toBe(500);
   });
 
   it("non-local without CF Access env vars → 500 (fail-closed)", async () => {
