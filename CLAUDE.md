@@ -24,7 +24,7 @@ Full architecture: [docs/00-architecture.md](./docs/00-architecture.md).
 - **DB**: Cloudflare D1 (SQLite + FTS5) — native binding, no HTTP REST
 - **Storage**: Cloudflare R2 — canonical (mutable) + raw (content-addressed) gzip blobs
 - **Testing**: Vitest (90% coverage)
-- **CI/CD**: GitHub Actions (`nocoo/base-ci@v2026.1`) → `wrangler deploy`
+- **CI/CD**: GitHub Actions (`nocoo/base-ci@aec4adc` — v2026.5, SHA-pinned) → `wrangler deploy`
 
 ## Quality Framework
 

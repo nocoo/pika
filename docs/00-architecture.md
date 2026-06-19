@@ -174,8 +174,8 @@ Vite 开发服务器把 `/api/*` 反代到 `localhost:8787`。
 `.github/workflows/ci.yml`：
 
 ```yaml
-quality:    # base-ci v2026.1: build + L1(coverage≥90%) + tsc + biome + gitleaks + osv
-  uses: nocoo/base-ci/.github/workflows/bun-quality.yml@v2026.1
+quality:    # base-ci v2026.5 (SHA-pinned): build + L1(coverage≥90%) + tsc + biome + gitleaks + osv
+  uses: nocoo/base-ci/.github/workflows/bun-quality.yml@aec4adc1a817c56790d1698329ef9398a15a754a  # v2026.5
 
 deploy:     # 仅 push to main
   needs: quality
