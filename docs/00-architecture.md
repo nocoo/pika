@@ -97,7 +97,7 @@ src/
 accessAuth → apiKeyAuth → resolveUser → handler
 ```
 
-- `accessAuth`：验签 CF Access JWT；失败不 401，落到下一个。`/api/live` 公开。本地 dev 跳过。
+- `accessAuth`：验签 CF Access JWT — **fail-closed**：env 缺失 → 500，JWT 缺失 → 401，验签失败 → 403。`/api/live` 公开。本地 dev 跳过（保留 `DEV_USER_EMAIL` 注入）。例外：`/api/ingest/*` 带 `Authorization: Bearer ...` 时直接放行给 `apiKeyAuth`，因为 CF Access 在 `/api/ingest/*` 配的是 path-level **bypass policy**，CLI 请求不会带 JWT；Bearer 短路严格限定在 `/api/ingest/*`，防止泄露的 `pk_*` 在浏览器路径上替代 CF Access。
 - `apiKeyAuth`：识别 `Authorization: Bearer pk_*`，查 `api_tokens` 表，set `userId`。
 - `resolveUser`：如果 `userId` 已被 apiKeyAuth set 过则跳过；否则用 `accessEmail` 查 `users` 表 set `userId`。
 - 终端 401：handler 自己用 `requireAuth(c)` 判断。
@@ -174,8 +174,8 @@ Vite 开发服务器把 `/api/*` 反代到 `localhost:8787`。
 `.github/workflows/ci.yml`：
 
 ```yaml
-quality:    # base-ci v2026.1: build + L1(coverage≥90%) + tsc + biome + gitleaks + osv
-  uses: nocoo/base-ci/.github/workflows/bun-quality.yml@v2026.1
+quality:    # base-ci v2026.5 (SHA-pinned): build + L1(coverage≥90%) + tsc + biome + gitleaks + osv
+  uses: nocoo/base-ci/.github/workflows/bun-quality.yml@aec4adc1a817c56790d1698329ef9398a15a754a  # v2026.5
 
 deploy:     # 仅 push to main
   needs: quality

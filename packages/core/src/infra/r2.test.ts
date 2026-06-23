@@ -3,31 +3,39 @@ import { R2Client } from "./r2";
 
 vi.mock("@aws-sdk/client-s3", () => {
   const sendFn = vi.fn();
+  // vitest 4 requires mocks invoked with `new` to be a function or class;
+  // arrow-returning mockImplementation no longer constructs.
   return {
-    S3Client: vi.fn().mockImplementation(function (this: {
-      send: typeof sendFn;
-    }) {
-      this.send = sendFn;
-    }),
-    GetObjectCommand: vi.fn().mockImplementation(function (
-      this: { input: unknown },
-      input: unknown,
-    ) {
-      this.input = input;
-    }),
-    PutObjectCommand: vi.fn().mockImplementation(function (
-      this: { input: unknown },
-      input: unknown,
-    ) {
-      this.input = input;
-    }),
-    HeadObjectCommand: vi.fn().mockImplementation(function (
-      this: { _type: string; input: unknown },
-      input: unknown,
-    ) {
-      this._type = "HeadObject";
-      this.input = input;
-    }),
+    S3Client: vi.fn(
+      class {
+        send = sendFn;
+      },
+    ),
+    GetObjectCommand: vi.fn(
+      class {
+        input: unknown;
+        constructor(input: unknown) {
+          this.input = input;
+        }
+      },
+    ),
+    PutObjectCommand: vi.fn(
+      class {
+        input: unknown;
+        constructor(input: unknown) {
+          this.input = input;
+        }
+      },
+    ),
+    HeadObjectCommand: vi.fn(
+      class {
+        _type = "HeadObject";
+        input: unknown;
+        constructor(input: unknown) {
+          this.input = input;
+        }
+      },
+    ),
     __mockSend: sendFn,
   };
 });

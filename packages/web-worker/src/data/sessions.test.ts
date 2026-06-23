@@ -18,6 +18,9 @@ import {
 
 // ── Mock helpers ───────────────────────────────────────────────
 
+// vitest 4 types vi.fn() as a Mock<Procedure | Constructable> union that TS
+// refuses to call directly; this callable alias restores the call signature
+// for the mock-statement helpers below.
 type MockFn = ReturnType<typeof vi.fn> &
   ((...args: unknown[]) => Record<string, ReturnType<typeof vi.fn>>);
 
