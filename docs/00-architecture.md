@@ -215,7 +215,7 @@ CLOUDFLARE_ACCOUNT_ID=... bunx wrangler deploy --env=""     # prod (only env)
 
 | 症状 | 根因 | 处理 |
 |------|------|------|
-| 浏览器 login redirect 循环 | `CF_ACCESS_TEAM_DOMAIN` 配错 → JWT 验签静默失败 | wrangler.toml 顶层 + `[env.test]` 都得对 |
+| 浏览器 login redirect 循环 | `CF_ACCESS_TEAM_DOMAIN` 配错 → JWT 验签静默失败 | 改 `wrangler.toml` 顶层 `[vars]`（仅此一个环境） |
 | Token 管理页 HTTP 500 | prod D1 缺表 | `wrangler d1 execute … --file=scripts/migrations/00X.sql` |
 | `pika sync` JSON parse 崩 | `/api/ingest/*` 被 CF Access 拦了 → CLI 拿到 HTML | 加 CF Access bypass policy |
 | `Session not found: claude%3A...` | URL-encoded sessionKey 没 decode | `decodeURIComponent` 在路由层 |
