@@ -29,7 +29,8 @@ describe("ToolCall", () => {
   it("renders neutral styling when no result", () => {
     render(<ToolCall toolName="Read" toolInput='{"path":"/tmp"}' />);
     const card = screen.getByTestId("tool-call");
-    expect(card.className).toContain("border-transparent");
+    expect(card.className).toContain("bg-secondary");
+    expect(card.className).not.toContain("border-success");
   });
 
   it("trigger is disabled when no input or result", () => {

@@ -99,10 +99,8 @@ export function ToolCall({
     <Collapsible open={open} onOpenChange={setOpen}>
       <div
         className={cn(
-          "rounded-lg border text-sm overflow-hidden transition-colors",
-          hasResult
-            ? "border-success/20 bg-success/5"
-            : "border-transparent bg-secondary/50",
+          "rounded-card text-sm overflow-hidden transition-colors",
+          hasResult ? "border border-success/20 bg-success/5" : "bg-secondary",
           className,
         )}
         data-testid="tool-call"
