@@ -64,8 +64,15 @@ describe("MarkdownContent", () => {
     const md = "| a | b |\n|---|---|\n| 1 | 2 |";
     render(<MarkdownContent content={md} isUser={false} />);
     const root = screen.getByTestId("markdown-content");
-    expect(root.querySelectorAll("th").length).toBe(2);
+    const ths = root.querySelectorAll("th");
+    expect(ths.length).toBe(2);
     expect(root.querySelectorAll("td").length).toBe(2);
+    // Header must keep a bottom border so it is distinguishable when the
+    // surrounding bubble background is bg-secondary (L2) and the th itself
+    // is bg-background (L0). Without it the header blends into the body.
+    for (const th of ths) {
+      expect(th.className).toContain("border-b");
+    }
   });
 
   it("renders headings, lists, blockquote, hr, strong, img", () => {
