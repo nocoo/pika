@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.6] - 2026-06-25
+
+### Fixes
+
+- **L2 card hover reversal** — Commit 6735167 unified hover to `hover:bg-background/50`, but cards whose static background is `bg-secondary` (L2 = 12.2% in dark mode) ended up hovering toward `bg-background` (L0 = 7%) — "press to dim", visually reversed. Fixed across `project-card`, `search-result-card`, `session-card`, `recent-sessions` row, `top-projects` row, and the shared `<TableRow>` primitive; all now hover to `bg-accent/50` (L3, lighter than L2)
+- **Markdown table header invisible in assistant bubbles** — Commit 55a2bbc dropped both border and `bg-muted/50` from `<th>`, leaving it `bg-background` (L0) inside a `bg-secondary` (L2) message bubble — header was darker than the body AND borderless. Restored `border-b border-border` so the boundary survives regardless of background contrast
+
+### Chores
+
+- **Design-system guard test** — New `packages/web/src/design-system.test.ts` scans every className literal in the web package and fails if `bg-secondary` is paired with `hover:bg-background` on the same surface. Verified to catch a regression (stash one of the fixed files → test fails and names it)
+- **Markdown table test extended** — `markdown-content.test.tsx` now asserts every `<th>` contains `border-b`, pinning the header-visibility decision
+
 ## [0.8.5] - 2026-06-24
 
 ### Features

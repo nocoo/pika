@@ -1,6 +1,6 @@
 {
   "name": "@nocoo/pika",
-  "version": "0.8.5",
+  "version": "0.8.6",
   "description": "Replay and search coding agent sessions",
   "type": "module",
   "bin": {
