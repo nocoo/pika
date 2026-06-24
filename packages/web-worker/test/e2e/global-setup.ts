@@ -1,4 +1,8 @@
-import { type ChildProcess, execSync, spawn } from "node:child_process";
+import {
+  type ChildProcess,
+  execFileSync,
+  spawn,
+} from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -13,6 +17,8 @@ const PERSIST_DIR = resolve(__dirname, "../../.wrangler/e2e");
 const WORKER_ROOT = resolve(__dirname, "../..");
 const MIGRATIONS_DIR = resolve(WORKER_ROOT, "../../scripts/migrations");
 const DEV_VARS_PATH = resolve(WORKER_ROOT, ".dev.vars.e2e");
+const ASSETS_DIR = resolve(WORKER_ROOT, "dist");
+const ASSETS_PLACEHOLDER = resolve(ASSETS_DIR, ".e2e-placeholder");
 
 const TEST_USER_ID = "e2e-test-user-001";
 const TEST_USER_EMAIL = "e2e@test.local";
@@ -30,31 +36,61 @@ export async function setup() {
   }
   mkdirSync(PERSIST_DIR, { recursive: true });
 
-  // Apply migrations using --file (supports multi-statement SQL)
+  // wrangler.toml `[assets].directory = "./dist"` requires the directory to
+  // exist or wrangler refuses to start. CI/pre-push always builds first, but
+  // a developer running `bun run test:e2e` on a fresh checkout has no dist.
+  // E2E exercises only `/api/*`, so a placeholder file is enough to satisfy
+  // the binding. Leave a real build alone.
+  if (!existsSync(ASSETS_DIR)) {
+    mkdirSync(ASSETS_DIR, { recursive: true });
+    writeFileSync(ASSETS_PLACEHOLDER, "");
+  }
+
+  // Apply migrations using --file (supports multi-statement SQL).
+  // argv form so PERSIST_DIR / migration paths with spaces don't break.
+  const runWrangler = (...args: string[]) => {
+    execFileSync("npx", ["wrangler", ...args], {
+      cwd: WORKER_ROOT,
+      stdio: "pipe",
+    });
+  };
+
   const migrationFiles = readdirSync(MIGRATIONS_DIR)
     .filter((f) => /^\d{3}-.+\.sql$/.test(f))
     .sort();
 
   for (const file of migrationFiles) {
     const filePath = resolve(MIGRATIONS_DIR, file);
-    execSync(
-      `npx wrangler d1 execute pika-db --local --persist-to=${PERSIST_DIR} --file=${filePath}`,
-      { cwd: WORKER_ROOT, stdio: "pipe" },
+    runWrangler(
+      "d1",
+      "execute",
+      "pika-db",
+      "--local",
+      `--persist-to=${PERSIST_DIR}`,
+      `--file=${filePath}`,
     );
   }
 
   // Apply test marker
   const markerPath = resolve(__dirname, "fixtures/test_marker.sql");
-  execSync(
-    `npx wrangler d1 execute pika-db --local --persist-to=${PERSIST_DIR} --file=${markerPath}`,
-    { cwd: WORKER_ROOT, stdio: "pipe" },
+  runWrangler(
+    "d1",
+    "execute",
+    "pika-db",
+    "--local",
+    `--persist-to=${PERSIST_DIR}`,
+    `--file=${markerPath}`,
   );
 
   // Seed test user
   const seedSql = `INSERT OR REPLACE INTO users (id, email, name) VALUES ('${TEST_USER_ID}', '${TEST_USER_EMAIL}', 'E2E Test User');`;
-  execSync(
-    `npx wrangler d1 execute pika-db --local --persist-to=${PERSIST_DIR} --command="${seedSql}"`,
-    { cwd: WORKER_ROOT, stdio: "pipe" },
+  runWrangler(
+    "d1",
+    "execute",
+    "pika-db",
+    "--local",
+    `--persist-to=${PERSIST_DIR}`,
+    `--command=${seedSql}`,
   );
 
   // Write .dev.vars for local wrangler

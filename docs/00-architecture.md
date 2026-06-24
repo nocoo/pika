@@ -23,7 +23,7 @@
    └────────────────┬───────────────────┘
                     ▼
    ┌────────────────────────────────────┐
-   │  Worker `pika` (or `pika-test`)    │
+   │  Worker `pika`                     │
    │                                    │
    │   [assets]  ──► dist/index.html    │
    │   /api/*    ──► Hono               │
@@ -43,9 +43,8 @@
 | 环境 | Worker | 主域名 | 兼容域名 |
 |------|--------|--------|----------|
 | prod | `pika` | `pika.hexly.ai` | `pika-ingest.worker.hexly.ai`（老 CLI 二进制硬编码） |
-| test | `pika-test` | `pika-test.hexly.ai` | — |
 
-`wrangler.toml` 顶层是 prod；`[env.test]` 是 test。
+仅 prod 一个部署环境。L2 E2E 在本地 wrangler dev 上跑（`bun run test:e2e`），不再维护远端 test worker / D1 / R2。
 
 ---
 
@@ -137,7 +136,7 @@ accessAuth → apiKeyAuth → resolveUser → handler
 CLOUDFLARE_ACCOUNT_ID=... bunx wrangler d1 execute pika-db --remote --file=scripts/migrations/006-api-tokens.sql
 ```
 
-### R2 (`pika` / `pika-test`)
+### R2 (`pika`)
 
 ```
 {userId}/{sessionKey}/canonical.json.gz       规范化对话 JSON（可重写）
@@ -192,8 +191,7 @@ Repo secret 需要：`CLOUDFLARE_API_TOKEN`（API token，不是 global key；sc
 手动部署：
 ```bash
 cd packages/web-worker
-CLOUDFLARE_ACCOUNT_ID=... bunx wrangler deploy             # prod
-CLOUDFLARE_ACCOUNT_ID=... bunx wrangler deploy --env test  # test
+CLOUDFLARE_ACCOUNT_ID=... bunx wrangler deploy --env=""     # prod (only env)
 ```
 
 ---

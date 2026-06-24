@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-. "$(dirname "$0")/../scripts/ensure-tools.sh"
+. "$(dirname "$0")/../scripts/ensure-tools.sh" bun gitleaks osv-scanner npx
 
 # ── parallel stage helpers ──────────────────────────────────────
 STAGE_DIR=$(mktemp -d)

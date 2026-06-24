@@ -143,7 +143,8 @@ bun run dev:all     # vite :7022 + wrangler dev :8787
 | 环境 | Worker 名 | 域名 |
 |------|----------|------|
 | prod | `pika` | `pika.hexly.ai` · `pika-ingest.worker.hexly.ai`（旧 CLI 兼容） |
-| test | `pika-test` | `pika-test.hexly.ai` |
+
+L2 E2E 在本地 wrangler dev 上跑（`bun run test:e2e`），不再维护远端 test worker / D1 / R2。
 
 CI/CD（`.github/workflows/ci.yml`）在 push to `main` 时自动跑 quality gate（typecheck + L1 + biome + gitleaks + osv）然后 `wrangler deploy --env=""`。需要 repo secret `CLOUDFLARE_API_TOKEN`。
 
