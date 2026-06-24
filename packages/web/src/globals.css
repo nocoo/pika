@@ -9,7 +9,7 @@
  *
  * Color space: HSL (basalt design system).
  * Primary: Golden Yellow (from logo).
- * Luminance: 3-tier (L0 body > L1 card > L2 secondary).
+ * Luminance: 4-tier B05 — L0 background / L1 card / L2 secondary / L3 secondary + border.
  */
 @theme inline {
   --color-border: hsl(var(--border));
@@ -100,7 +100,7 @@
 
 /*
  * Design tokens — light (default) & dark mode
- * 3-tier luminance: L0 (background) > L1 (card) > L2 (secondary)
+ * 4-tier luminance (B05): L0 background / L1 card / L2 secondary / L3 secondary + border
  * Primary: Golden Yellow (from logo)
  */
 :root {
@@ -211,7 +211,7 @@
   --destructive-foreground: 0 65% 92%;
 
   --border: 0 0% 16%;
-  --input: 0 0% 12%;
+  --input: 0 0% 18%;
   --ring: 42 70% 38%;
 
   --sidebar-background: 0 0% 9%;
