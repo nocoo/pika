@@ -31,7 +31,7 @@ export function TopProjects({ projects, className }: TopProjectsProps) {
         <Link
           key={project.project_key}
           to={`/dashboard/sessions?projectKey=${encodeURIComponent(project.project_key)}`}
-          className="group flex items-center gap-3 rounded-lg px-1 py-1.5 transition-colors hover:bg-accent/50 -mx-1"
+          className="group flex items-center gap-3 rounded-lg px-1 py-1.5 transition-colors hover:bg-background/50 -mx-1"
         >
           <div className="flex-1 min-w-0 flex items-center gap-1.5">
             <p className="text-sm text-foreground truncate">

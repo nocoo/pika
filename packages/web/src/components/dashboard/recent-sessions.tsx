@@ -50,7 +50,7 @@ export function RecentSessions({ sessions, className }: RecentSessionsProps) {
         <Link
           key={session.id}
           to={`/dashboard/sessions/${session.id}`}
-          className="flex items-center gap-3 py-3 px-1 transition-colors hover:bg-accent/50 rounded-lg -mx-1"
+          className="flex items-center gap-3 py-3 px-1 transition-colors hover:bg-background/50 rounded-lg -mx-1"
           data-testid="session-row"
         >
           <div

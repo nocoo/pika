@@ -60,7 +60,7 @@ export function ProjectCard({
       data-testid={`project-card-${project.project_key}`}
       aria-pressed={selected}
       className={cn(
-        "flex items-start gap-3 rounded-[var(--radius-card)] bg-secondary p-4 text-left transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        "flex items-start gap-3 rounded-[var(--radius-card)] bg-secondary p-4 text-left transition-colors hover:bg-background/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         selected && "bg-accent/30 ring-2 ring-primary",
       )}
     >

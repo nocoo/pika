@@ -88,7 +88,7 @@ export function SearchResultCard({
   "data-result-index": dataResultIndex,
 }: SearchResultCardProps) {
   const cardClassName = cn(
-    "flex flex-col gap-2 rounded-[var(--radius-card)] bg-secondary p-4 transition-colors hover:bg-accent/50 text-left w-full",
+    "flex flex-col gap-2 rounded-[var(--radius-card)] bg-secondary p-4 transition-colors hover:bg-background/50 text-left w-full",
     selected && "ring-2 ring-primary bg-accent/30",
     className,
   );
