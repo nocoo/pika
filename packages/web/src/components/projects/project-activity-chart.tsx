@@ -130,12 +130,12 @@ function MetricButton({
       data-selected={selected}
       data-secondary={secondary}
       className={cn(
-        "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors",
+        "flex items-center gap-1.5 rounded-widget px-2 py-1 text-xs font-medium transition-colors",
         selected
           ? "bg-secondary text-foreground shadow-sm"
           : secondary
-            ? "bg-secondary/50 text-foreground"
-            : "text-muted-foreground hover:text-foreground hover:bg-secondary/30",
+            ? "bg-background text-foreground"
+            : "text-muted-foreground hover:text-foreground hover:bg-background/50",
       )}
     >
       <div
