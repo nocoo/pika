@@ -67,7 +67,11 @@ export async function setup() {
     ].join("\n"),
   );
 
-  // Start wrangler dev in local mode
+  // Start wrangler dev in local mode.
+  // detached:true puts wrangler in its own process group so teardown can
+  // signal the whole group — wrangler spawns workerd as a grandchild and
+  // a plain SIGTERM to wrangler doesn't reap it (next E2E run hits
+  // EADDRINUSE on 17022). See CLAUDE.md retrospective.
   wranglerProcess = spawn(
     "npx",
     [
@@ -85,6 +89,7 @@ export async function setup() {
       cwd: WORKER_ROOT,
       stdio: "pipe",
       env: { ...process.env, NODE_ENV: "test" },
+      detached: true,
     },
   );
 
@@ -92,8 +97,12 @@ export async function setup() {
 }
 
 export async function teardown() {
-  if (wranglerProcess) {
-    wranglerProcess.kill("SIGTERM");
+  if (wranglerProcess?.pid != null && !wranglerProcess.killed) {
+    try {
+      process.kill(-wranglerProcess.pid, "SIGTERM");
+    } catch {
+      wranglerProcess.kill("SIGTERM");
+    }
     wranglerProcess = null;
   }
   if (existsSync(DEV_VARS_PATH)) {

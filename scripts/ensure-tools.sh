@@ -11,3 +11,5 @@ require_tool() {
 
 require_tool bun "https://bun.sh"
 require_tool gitleaks "brew install gitleaks"
+require_tool osv-scanner "brew install osv-scanner"
+require_tool npx "ships with Node.js — https://nodejs.org"

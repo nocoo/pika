@@ -51,6 +51,32 @@ describe("accessAuth", () => {
     expect(verifyMock).not.toHaveBeenCalled();
   });
 
+  it("E2E_SKIP_AUTH bypasses outside production (with DEV_USER_EMAIL injection)", async () => {
+    const app = makeApp({
+      ENVIRONMENT: "test",
+      E2E_SKIP_AUTH: "true",
+      DEV_USER_EMAIL: "e2e@test.local",
+    });
+    const res = await app.fetch(new Request("https://pika.hexly.ai/api/me"));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { authed: boolean; email: string };
+    expect(body.authed).toBe(true);
+    expect(body.email).toBe("e2e@test.local");
+    expect(verifyMock).not.toHaveBeenCalled();
+  });
+
+  it("E2E_SKIP_AUTH does NOT bypass in production", async () => {
+    const app = makeApp({
+      ENVIRONMENT: "production",
+      E2E_SKIP_AUTH: "true",
+      CF_ACCESS_TEAM_DOMAIN: "team.cloudflareaccess.com",
+      CF_ACCESS_AUD: "aud",
+    });
+    const res = await app.fetch(new Request("https://pika.hexly.ai/api/me"));
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Missing Access JWT" });
+  });
+
   it("localhost without bearer marks accessAuthenticated", async () => {
     const app = makeApp();
     const res = await app.fetch(

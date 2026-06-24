@@ -53,6 +53,19 @@ export function __resetAccessAuthCacheForTests() {
 export async function accessAuth(c: Context<AppEnv>, next: Next) {
   if (PUBLIC_PATHS.has(c.req.path)) return next();
 
+  // E2E bypass: same double-gate as apiKeyAuth (must be opt-in via
+  // E2E_SKIP_AUTH AND not in production). Needed here too because
+  // `wrangler dev --local` populates `c.req.raw.cf`, which makes
+  // `isLocalhost` reject `localhost:<port>` requests as if they were
+  // on the CF edge — JWT verification would then 401 every E2E call.
+  // See CLAUDE.md retrospective.
+  if (c.env?.E2E_SKIP_AUTH === "true" && c.env?.ENVIRONMENT !== "production") {
+    c.set("accessAuthenticated", true);
+    const devEmail = c.env?.DEV_USER_EMAIL;
+    if (devEmail) c.set("accessEmail", devEmail);
+    return next();
+  }
+
   if (isLocalhost(c)) {
     const hasBearer = (c.req.header("Authorization") ?? "").startsWith(
       "Bearer ",
