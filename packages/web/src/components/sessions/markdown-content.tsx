@@ -188,7 +188,7 @@ function buildComponents(isUser: boolean): Components {
     th({ children, ...props }) {
       return (
         <th
-          className="border border-border bg-muted/50 px-3 py-1.5 text-left text-xs font-medium"
+          className="bg-background px-3 py-1.5 text-left text-xs font-medium"
           {...props}
         >
           {children}
