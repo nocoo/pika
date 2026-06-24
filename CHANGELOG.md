@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.5] - 2026-06-24
+
+### Features
+
+- **L2 Worker E2E suite** — New `bun run test:e2e` boots a local `wrangler dev --local` (port 17022), applies all migrations to an isolated SQLite, and runs end-to-end HTTP tests against `/api/live`, `/api/sessions`, `/api/ingest/sessions`; runs in parallel with G2 in pre-push and as its own CI job
+- **Parallel git hooks** — Rewrote pre-commit (L1 + G1) and pre-push (Build → L2 + G2) as bat-style parallel stages with per-stage log buffering; failures surface the specific stage that broke
+
+### Fixes
+
+- **`bun run dev:all` 401 loop** — `wrangler dev` resolves `[[routes]]` even in local mode and rewrites Host to the prod custom_domain (`pika.hexly.ai`), so `isLocalhost` rejected every browser dev request and `accessAuth` 401'd in an infinite SPA reload loop. `isLocalhost` now also accepts `DEV_USER_EMAIL` (only ever set in `.dev.vars`, never in prod `wrangler.toml`) as a dev signal
+- **Session detail 404 in dev** — R2 binding had no `remote = true` while D1 did, so dev saw real session metadata but `env.BUCKET.get(content_key)` hit an empty local bucket. R2 binding now mirrors D1's remote mode
+- **Fresh-checkout E2E** — `[assets].directory = "./dist"` requires `dist/` to exist before wrangler will start. E2E setup now creates a placeholder when no build output is present, so `bun run test:e2e` works on a fresh clone (vite's `emptyOutDir` cleans it on the next real build)
+- **E2E auth bypass** — `accessAuth` now honors `E2E_SKIP_AUTH` with the same prod-fenced double-gate as `apiKeyAuth`; without it, `wrangler dev --local`'s `cf` injection caused 401 on every non-`/api/live` endpoint
+- **E2E process group kill** — global-setup spawns wrangler with `detached: true` so teardown can `process.kill(-pid, "SIGTERM")` the workerd grandchild — fixes port 17022 leaking across repeated `bun run test:e2e` runs
+- **E2E shell-argv path safety** — Switched `execSync` with interpolated paths to `execFileSync("npx", [...argv])` so PERSIST_DIR / migration paths with spaces don't break
+- **EOVERRIDE in E2E setup** — Dropped duplicate root `dependencies.ws` (npm 9+ rejects a dep that's also in `overrides`, breaking `npx wrangler` invocations)
+
+### Security
+
+- **CVE patches via deps** — Bumped hono ^4.12.26, react-router 8.0.1, vitest 4.1.9, undici ^7.28.0; added overrides for `ws >=8.21`, `esbuild >=0.28.1`, `fast-xml-builder >=1.1.7`
+
+### Chores
+
+- **Major dep upgrades** — TypeScript 5 → 6.0.3 (dropped deprecated `baseUrl` across 3 tsconfigs), vitest 3 → 4.1.9 (mock-constructor migration, `MockFn` type alias), lucide-react 0.577 → 1.21 (extracted `Github` icon locally since v1 dropped brand icons), `@vitejs/plugin-react` 4 → 6, react-router 7 → 8
+- **Minor dep upgrades** — React 19.2, wrangler 4.103, `@cloudflare/workers-types` 4.20260621.1, `@aws-sdk/client-s3` 3.1074, radix-ui 1.6, tailwindcss 4.3, biome 2.5, jose, swr, shiki, jsdom
+- **Remote test env removed** — Deleted `[env.test]` wrangler config, `pika-test` worker/D1/R2 references, `deploy:test`, `scripts/setup-test-env.sh`, and `assertTestDatabase`/`assertTestBucket` helpers; L2 now runs entirely against local wrangler dev
+- **Per-hook tool gating** — `scripts/ensure-tools.sh` takes tool keywords as args; pre-commit asks for `bun gitleaks`, pre-push additionally for `osv-scanner npx` so a missing pre-push tool no longer blocks commits
+- **`ingest` E2E round-trip** — Test now `GET`s the session back to verify the upsert really hit D1, not just that the endpoint returned 200
+- **Doc cleanup** — Removed stale `pika-test` rows from README + `docs/00-architecture.md`, replaced `--env test` example with `--env=""`, fixed retrospective entry that still pointed at `[env.test.vars]`
+
 ## [0.8.4] - 2026-04-16
 
 ### Fixes
