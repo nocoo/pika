@@ -35,7 +35,7 @@ interface PeriodSelectorProps {
 
 export function PeriodSelector({ value, onChange }: PeriodSelectorProps) {
   return (
-    <div className="flex items-center gap-1 rounded-lg bg-secondary p-1">
+    <div className="flex items-center gap-1 rounded-widget bg-background p-1">
       {PERIOD_OPTIONS.map((opt) => (
         <button
           key={opt.value}
