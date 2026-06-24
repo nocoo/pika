@@ -39,9 +39,14 @@ database_id = "55bfb2fc-4085-4670-9611-da2f1eee4888"
 remote = true
 
 # R2 binding — canonical (mutable) + raw (content-addressed) session blobs.
+# remote=true mirrors the D1 binding above: local `wrangler dev` reads/writes
+# the prod bucket so dev sees real session content. Writes are
+# content-addressed under `{userId}/{sessionKey}/...`, so dev activity
+# can't clobber unrelated objects.
 [[r2_buckets]]
 binding = "BUCKET"
 bucket_name = "pika"
+remote = true
 
 [assets]
 directory = "./dist"
