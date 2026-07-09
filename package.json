@@ -28,10 +28,10 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p packages/web/tsconfig.json && tsc --noEmit -p packages/web-worker/tsconfig.json"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.2",
+    "@biomejs/biome": "^2.5.3",
     "@vitest/coverage-v8": "^4.1.10",
     "husky": "^9.1.7",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   },
   "overrides": {
