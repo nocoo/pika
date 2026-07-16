@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { consola, defineCommand } from "@nocoo/cli-base";
+import { consola, defineCommand } from "@nocoo/base-cli";
 import type { ParseError } from "@pika/core";
 import { CONFIG_DIR, PARSE_ERRORS_FILE } from "@pika/core";
 import { ConfigManager } from "../config/manager";

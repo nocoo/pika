@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type LoginDeps, performLogin } from "@nocoo/cli-base";
+import { type LoginDeps, performLogin } from "@nocoo/base-cli";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConfigManager } from "../config/manager";
 

@@ -1,7 +1,7 @@
 /**
  * Tests for pika update command.
  *
- * Since update.ts now just calls createUpdateCommand from cli-base,
+ * Since update.ts now just calls createUpdateCommand from base-cli,
  * we only need to verify it's configured correctly.
  */
 

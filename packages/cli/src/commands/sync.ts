@@ -1,5 +1,5 @@
 import { basename, join } from "node:path";
-import { consola, defineCommand } from "@nocoo/cli-base";
+import { consola, defineCommand } from "@nocoo/base-cli";
 import type { OpenCodeSqliteCursor } from "@pika/core";
 import { CONFIG_DIR, SOURCES } from "@pika/core";
 import { ConfigManager } from "../config/manager";

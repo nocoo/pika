@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { runMain } from "@nocoo/cli-base";
+import { runMain } from "@nocoo/base-cli";
 import { main } from "./cli";
 
 process.on("unhandledRejection", (err) => {

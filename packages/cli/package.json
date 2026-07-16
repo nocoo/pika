@@ -10,11 +10,11 @@
     "dist/bin.js"
   ],
   "scripts": {
-    "build": "bun build src/bin.ts --target=bun --outfile=dist/bin.js --external @nocoo/cli-base",
+    "build": "bun build src/bin.ts --target=bun --outfile=dist/bin.js --external @nocoo/base-cli",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@nocoo/cli-base": "^0.2.4"
+    "@nocoo/base-cli": "^0.3.0"
   },
   "devDependencies": {
     "@pika/core": "workspace:*"

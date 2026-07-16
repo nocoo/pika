@@ -5,7 +5,7 @@ import {
   defineCommand,
   openBrowser,
   performLogin,
-} from "@nocoo/cli-base";
+} from "@nocoo/base-cli";
 import { CONFIG_DIR, LOGIN_TIMEOUT_MS } from "@pika/core";
 import { ConfigManager } from "../config/manager";
 

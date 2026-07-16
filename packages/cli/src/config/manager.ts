@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { ConfigManager as BaseConfigManager } from "@nocoo/cli-base";
+import { ConfigManager as BaseConfigManager } from "@nocoo/base-cli";
 import { CONFIG_FILE, DEV_CONFIG_FILE } from "@pika/core";
 
 const PROD_API_URL = "https://pika.hexly.ai";
@@ -12,7 +12,7 @@ export interface PikaConfig {
 
 /**
  * Pika-specific configuration manager.
- * Extends cli-base ConfigManager with pika-specific helpers.
+ * Extends base-cli ConfigManager with pika-specific helpers.
  */
 export class ConfigManager extends BaseConfigManager<PikaConfig> {
   private readonly isDev: boolean;

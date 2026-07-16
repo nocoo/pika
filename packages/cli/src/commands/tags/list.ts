@@ -1,4 +1,4 @@
-import { defineCommand } from "@nocoo/cli-base";
+import { defineCommand } from "@nocoo/base-cli";
 import { type ApiClient, createPikaClient } from "../../api/client.js";
 import {
   ApiError,

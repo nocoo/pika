@@ -11,7 +11,7 @@ import type { AppEnv } from "../lib/env";
  * 302 the browser back with `?api_key=pk_*&email=<owner>&state=<echoed>`.
  *
  * The query param name `callback` and the `email` field in the response
- * are part of the CLI wire contract — see `@nocoo/cli-base` `performLogin`
+ * are part of the CLI wire contract — see `@nocoo/base-cli` `performLogin`
  * and `packages/cli/src/commands/login-flow.test.ts`.
  *
  * Anti-abuse:
