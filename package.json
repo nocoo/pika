@@ -40,13 +40,13 @@
     "picomatch": ">=4.0.4",
     "fast-xml-parser": ">=5.7.0",
     "fast-xml-builder": ">=1.1.7",
-    "postcss": ">=8.5.10",
+    "postcss": ">=8.5.18",
     "ws": ">=8.21.0",
     "esbuild": ">=0.28.1",
     "sharp": ">=0.35.0"
   },
   "dependencies": {
-    "brace-expansion": "^5.0.7",
+    "brace-expansion": "^5.0.8",
     "vite": "8.1.5"
   },
   "lint-staged": {
