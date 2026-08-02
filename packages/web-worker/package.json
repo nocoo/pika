@@ -12,13 +12,13 @@
   },
   "dependencies": {
     "@pika/core": "*",
-    "hono": "^4.12.32",
-    "jose": "^6.2.5"
+    "hono": "^4.12.33",
+    "jose": "^6.2.7"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "5.20260730.1",
+    "@cloudflare/workers-types": "5.20260801.1",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10",
-    "wrangler": "^4.116.0"
+    "wrangler": "^4.118.0"
   }
 }
