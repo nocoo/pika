@@ -1,8 +1,4 @@
-import {
-  type ColumnDef,
-  getCoreRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
+import { type ColumnDef, useTable } from "@tanstack/react-table";
 import {
   fireEvent,
   render,
@@ -11,6 +7,10 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  type DataTableFeatures,
+  dataTableFeatures,
+} from "@/components/ui/data-table-features";
 import type { SessionCardData } from "@/lib/sessions-types";
 import { ProjectDetailPanel } from "./project-detail-panel";
 
@@ -24,15 +24,15 @@ const project = {
   last_activity: "2026-01-01T00:00:00Z",
 };
 
-const columns: ColumnDef<SessionCardData, unknown>[] = [
+const columns: ColumnDef<DataTableFeatures, SessionCardData, unknown>[] = [
   { id: "id", header: "ID", accessorKey: "id" },
 ];
 
 function useTestTable() {
-  return useReactTable<SessionCardData>({
+  return useTable({
+    features: dataTableFeatures,
     data: [],
     columns,
-    getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.id,
   });
 }

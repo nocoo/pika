@@ -3,9 +3,11 @@
 import {
   type ColumnDef,
   flexRender,
+  type RowData,
   type Table as TanStackTable,
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import type { DataTableFeatures } from "@/components/ui/data-table-features";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -19,9 +21,9 @@ import { cn } from "@/lib/utils";
 
 // ── Types ──────────────────────────────────────────────────────
 
-interface DataTableProps<TData> {
-  table: TanStackTable<TData>;
-  columns: ColumnDef<TData, unknown>[];
+interface DataTableProps<TData extends RowData> {
+  table: TanStackTable<DataTableFeatures, TData>;
+  columns: ColumnDef<DataTableFeatures, TData, unknown>[];
   loading?: boolean;
   emptyMessage?: string;
   /** Number of skeleton rows to show when loading */
@@ -38,7 +40,7 @@ function SortIcon({ direction }: { direction: false | "asc" | "desc" }) {
 
 // ── DataTable ─────────────────────────────────────────────────
 
-export function DataTable<TData>({
+export function DataTable<TData extends RowData>({
   table,
   columns,
   loading = false,
