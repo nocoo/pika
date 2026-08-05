@@ -2,6 +2,7 @@ import type { ColumnDef, Table } from "@tanstack/react-table";
 import { FolderKanban, X } from "lucide-react";
 import { ProjectActivityChart } from "@/components/projects/project-activity-chart";
 import { DataTable } from "@/components/ui/data-table";
+import type { DataTableFeatures } from "@/components/ui/data-table-features";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { projectDisplayName } from "@/lib/format";
 import type { ProjectItem } from "@/lib/projects-types";
@@ -13,8 +14,8 @@ interface ProjectDetailPanelProps {
   selectedProject: ProjectItem | undefined;
   sessionsError: string | null;
   sessionsLoading: boolean;
-  table: Table<SessionCardData>;
-  columns: ColumnDef<SessionCardData, unknown>[];
+  table: Table<DataTableFeatures, SessionCardData>;
+  columns: ColumnDef<DataTableFeatures, SessionCardData, unknown>[];
   sessionsPage: number;
   sessionsPageSize: number;
   sessionsTotalCount: number;

@@ -1,8 +1,4 @@
-import {
-  getCoreRowModel,
-  type SortingState,
-  useReactTable,
-} from "@tanstack/react-table";
+import { type SortingState, useTable } from "@tanstack/react-table";
 import {
   ChevronRight,
   Coins,
@@ -26,6 +22,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { dataTableFeatures } from "@/components/ui/data-table-features";
 import { Skeleton } from "@/components/ui/skeleton";
 import { parseProjectDisplay } from "@/lib/format";
 import type {
@@ -334,10 +331,10 @@ export function ProjectsPage() {
     [sorting],
   );
 
-  const table = useReactTable({
+  const table = useTable({
+    features: dataTableFeatures,
     data: sessions,
     columns,
-    getCoreRowModel: getCoreRowModel(),
     manualSorting: true,
     state: { sorting },
     onSortingChange,

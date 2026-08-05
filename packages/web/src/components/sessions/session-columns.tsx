@@ -3,6 +3,7 @@ import { Star } from "lucide-react";
 import { Link } from "react-router";
 import { AgentBadge } from "@/components/ui/agent-badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import type { DataTableFeatures } from "@/components/ui/data-table-features";
 import { ModelBadge } from "@/components/ui/model-badge";
 import { formatDuration, relativeTime } from "@/lib/format";
 import type { SessionCardData } from "@/lib/sessions-types";
@@ -55,8 +56,8 @@ export function getSessionColumns(
   starredMap: Map<string, boolean>,
   onToggleStar: (sessionId: string, starred: boolean) => void,
   options?: { enableSelection?: boolean },
-): ColumnDef<SessionCardData, unknown>[] {
-  const cols: ColumnDef<SessionCardData, unknown>[] = [];
+): ColumnDef<DataTableFeatures, SessionCardData, unknown>[] {
+  const cols: ColumnDef<DataTableFeatures, SessionCardData, unknown>[] = [];
 
   if (options?.enableSelection) {
     cols.push({

@@ -1,9 +1,8 @@
 import type { Source } from "@pika/core";
 import {
-  getCoreRowModel,
   type RowSelectionState,
   type SortingState,
-  useReactTable,
+  useTable,
 } from "@tanstack/react-table";
 import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
@@ -19,6 +18,7 @@ import {
   DataTableBulkBar,
   SESSION_BULK_ACTIONS,
 } from "@/components/ui/data-table-bulk-bar";
+import { dataTableFeatures } from "@/components/ui/data-table-features";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { swrFetcher } from "@/lib/api";
 import type {
@@ -192,10 +192,10 @@ export function SessionsPage() {
 
   const selectedCount = Object.keys(rowSelection).length;
 
-  const table = useReactTable({
+  const table = useTable({
+    features: dataTableFeatures,
     data: sessions,
     columns,
-    getCoreRowModel: getCoreRowModel(),
     manualSorting: true,
     state: { sorting, rowSelection },
     onSortingChange,

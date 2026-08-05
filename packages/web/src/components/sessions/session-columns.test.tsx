@@ -1,13 +1,12 @@
 import type { Source } from "@pika/core";
-import {
-  type ColumnDef,
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
-import { render, screen } from "@testing-library/react";
+import { type ColumnDef, flexRender, useTable } from "@tanstack/react-table";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
+import {
+  type DataTableFeatures,
+  dataTableFeatures,
+} from "@/components/ui/data-table-features";
 import type { SessionCardData } from "@/lib/sessions-types";
 import { getSessionColumns } from "./session-columns";
 
@@ -40,12 +39,12 @@ function Harness({
   columns,
 }: {
   data: SessionCardData[];
-  columns: ColumnDef<SessionCardData, unknown>[];
+  columns: ColumnDef<DataTableFeatures, SessionCardData, unknown>[];
 }) {
-  const table = useReactTable({
+  const table = useTable({
+    features: dataTableFeatures,
     data,
     columns,
-    getCoreRowModel: getCoreRowModel(),
     getRowId: (r) => r.id,
   });
   return (
@@ -91,6 +90,28 @@ describe("getSessionColumns", () => {
     });
     expect(cols.length).toBe(9);
     expect(cols[0]?.id).toBe("select");
+  });
+
+  it("updates row and page selection state", () => {
+    const cols = getSessionColumns(new Map(), () => {}, {
+      enableSelection: true,
+    });
+    render(
+      <MemoryRouter>
+        <Harness data={[row({ id: "a" }), row({ id: "b" })]} columns={cols} />
+      </MemoryRouter>,
+    );
+
+    const selectAll = screen.getByLabelText("Select all");
+    const [firstRow, secondRow] = screen.getAllByLabelText("Select row");
+    fireEvent.click(firstRow!);
+    expect(firstRow?.getAttribute("data-state")).toBe("checked");
+    expect(selectAll.getAttribute("data-state")).toBe("indeterminate");
+
+    fireEvent.click(selectAll);
+    expect(firstRow?.getAttribute("data-state")).toBe("checked");
+    expect(secondRow?.getAttribute("data-state")).toBe("checked");
+    expect(selectAll.getAttribute("data-state")).toBe("checked");
   });
 
   it("renders title cell linking to session detail", () => {
