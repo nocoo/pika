@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@pika/core": "*",
-    "hono": "4.13.1",
+    "hono": "4.13.2",
     "jose": "6.2.8"
   },
   "devDependencies": {
