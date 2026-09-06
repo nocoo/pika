@@ -13,7 +13,7 @@
   "dependencies": {
     "@pika/core": "*",
     "hono": "4.13.7",
-    "jose": "6.2.11"
+    "jose": "6.2.12"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20260904.1",
