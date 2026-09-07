@@ -1,0 +1,49 @@
+{
+	"study": "pika/2026-09-07-01",
+	"finishing": "01",
+	"method": "retained-original",
+	"generationCalls": 0,
+	"nativeDimensions": [
+		2048,
+		2048
+	],
+	"sourceRevisionBefore": "07922584933bcab9b03833645fbb431d8585a9e8",
+	"previous": {
+		"kind": "original",
+		"original": "/logos/originals/pika.png",
+		"sourcePath": "logo.png",
+		"sourceUrl": "https://github.com/nocoo/pika/blob/d9b12caf26a4715aca440d8a6fe1ed929adcadb3/logo.png",
+		"modified": false,
+		"width": 2048,
+		"height": 2048,
+		"bytes": 2575312,
+		"sha256": "2dc5121317e88001e8459d007419d5b9ca998a95f91bee4992b70bba96aacd2b",
+		"thumbnail": "/logos/display/pika-160.webp",
+		"display": "/logos/display/pika-1024.webp"
+	},
+	"masters": {
+		"logo.png": {
+			"sha256": "2dc5121317e88001e8459d007419d5b9ca998a95f91bee4992b70bba96aacd2b",
+			"width": 2048,
+			"height": 2048
+		},
+		"assets/brand/icon.png": {
+			"sha256": "9859f7c9894ee64cfab064497ac24d3ab7a1ca21e614b7381d8ae2b37fc6f5a9",
+			"width": 2048,
+			"height": 2048
+		},
+		"assets/brand/icon-rounded.png": {
+			"sha256": "715d50b1ad7aee3efa80bed4305cdbfb54720ca5b955e06bd7c6b3d642ede70d",
+			"width": 2048,
+			"height": 2048
+		}
+	},
+	"roundedClearancePx": 26.5,
+	"acceptance": {
+		"decisionSource": "owner-retained original",
+		"ownerReviewedExactBytes": true,
+		"scope": "Named ten-project batch"
+	},
+	"review": "https://hexly.ai/logos/pika",
+	"archive": "https://github.com/nocoo/hexly.ai/tree/main/artwork/logo-family/pika/2026-09-07-01"
+}
