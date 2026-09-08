@@ -1,163 +1,108 @@
 <p align="center">
-  <img src="assets/brand/icon-rounded.png" alt="Pika" width="128" height="128" />
+  <img src="assets/brand/icon-rounded.png" width="128" alt="Pika logo" />
 </p>
-
 <h1 align="center">Pika</h1>
-
-<p align="center"><strong>回放与搜索 AI 编程助手对话记录的 SaaS 平台</strong><br>多源解析 · 全文搜索 · 会话回放 · 增量同步</p>
-
+<p align="center">收集 AI 编程工具的会话，在浏览器中查找、阅读和整理。</p>
 <p align="center">
-  <img src="https://img.shields.io/badge/runtime-Bun-f9f1e1?logo=bun" alt="Bun"/>
-  <img src="https://img.shields.io/badge/language-TypeScript-3178c6?logo=typescript" alt="TypeScript"/>
-  <img src="https://img.shields.io/badge/web-Vite%20+%20React-646cff?logo=vite" alt="Vite + React"/>
-  <img src="https://img.shields.io/badge/edge-Cloudflare%20Workers-f38020?logo=cloudflare" alt="Cloudflare Workers"/>
-  <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License"/>
+  <a href="https://pika.hexly.ai">站点</a> ·
+  <a href="docs/README.en.md">English</a>
 </p>
-
----
 
 ## 这是什么
 
-Pika 是一套自托管 SaaS，用于收集、搜索和回放你与 AI 编程助手的对话记录。CLI 工具自动解析本地 5 种 AI 工具的会话文件，增量同步到云端；Web 仪表盘提供全文搜索（FTS5）和逐条消息回放。
+Pika 为使用多种 AI 编程工具的人集中保存对话记录。Bun CLI 读取本机会话文件，增量同步到服务端；Web 界面用于搜索消息、阅读代码和工具调用、按项目整理会话。
 
-```
-┌──────────┐     ┌────────────────────────────────┐
-│  CLI     │────▶│  pika.hexly.ai                 │
-│  pika    │     │  ┌─────────────┐  ┌─────────┐  │
-└──────────┘     │  │  Web SPA    │  │ /api/*  │  │
-                 │  │  (assets)   │  │  Hono   │  │
-                 │  └─────────────┘  └────┬────┘  │
-                 │   Cloudflare Worker    │       │
-                 └────────────────────────┼───────┘
-                                          ▼
-                                ┌──────────────────┐
-                                │  D1 + R2         │
-                                │  metadata + FTS5 │
-                                │  + gzip blobs    │
-                                └──────────────────┘
-```
-
-整个站点是 **一个 Cloudflare Worker**：静态 SPA 资源 + `/api/*` Hono 子应用同进程同源。鉴权前置 Cloudflare Access（人）+ `pk_*` API token（CLI）。
+站点由一个 Cloudflare Worker 提供 React 页面和 Hono API，D1 保存元数据与全文索引，R2 保存压缩后的标准化消息及原始内容。浏览器通过 Cloudflare Access 登录，CLI 的同步接口使用独立 API token。使用现有站点需要获得 Access 访问权限；自行托管需要配置自己的 Cloudflare 资源与认证。
 
 ## 功能
 
-### CLI (`@nocoo/pika`)
+- 解析 Claude Code、Codex、Gemini CLI、OpenCode 和 VS Code Copilot 的本地会话；OpenCode 支持 JSON 文件与只读 SQLite 数据库。
+- 按文件变化增量同步，批量发送元数据、压缩上传消息内容；内容上传失败时回退相关本地文件游标，供后续重试。
+- 搜索对话全文，按来源、项目和标签筛选，在详情页查看消息、代码块与工具调用。
+- 编辑会话标题和描述，添加星标与标签，查看项目和使用统计。
+- 在设置中创建、命名和撤销 CLI token。会话支持软删除与恢复 API，独立回收站页面仍是占位页面。
 
-- **增量同步** — 基于文件指纹（inode/mtime/size）跟踪变更，仅解析和上传新增内容
-- **5 种数据源** — Claude Code、Codex CLI、Gemini CLI、OpenCode（JSON + SQLite）、VSCode Copilot（CRDT JSONL）
-- **浏览器认证** — 通过 dashboard `/dashboard/settings/cli` 创建 `pk_*` token，写入 `~/.config/pika/`
-- **并行上传** — metadata 批量 POST + content gzip PUT（presign 直传 R2 或 worker proxy 兜底），并发控制 + 失败回滚
+同步会上传会话元数据、标准化消息和解析器保留的原始内容。当前默认路径主要按 macOS 布局查找，尤其是 VS Code / Insiders；CLI 没有自定义数据源路径参数。支持的来源 ID 与目录见[开发与使用说明](docs/01-development.md#会话来源)。
 
-### Web 仪表盘
+## 使用
 
-- **全文搜索** — D1 FTS5 索引，结果高亮（`<mark>`，XSS 安全），`⌘K` 全局搜索
-- **会话回放** — 逐条浏览完整对话，包含代码块、工具调用等结构化内容
-- **收藏与标签** — 为重要会话加星标或自定义标签分类
-- **软删除回收站** — 误删可恢复
-- **Token 管理** — 创建、命名、撤销 CLI API token
-
-### 安全
-
-- **Cloudflare Access JWT** — 浏览器端通过 `nocoo.cloudflareaccess.com` SSO，worker `accessAuth` 中间件验签
-- **API token 哈希存储** — SHA-256；`pk_*` 明文仅创建时显示一次
-- **Gzip 解压上限** — Worker 端流式追踪解压大小，超过 256 MB 自动截断
-- **Ingest 体积限制** — 内容上传 50 MB，metadata 2 MB，无 Content-Length 直接拒绝（411）
-- **本地配置权限** — `~/.config/pika/` 文件权限 0600
-
-## 安装
+在安装了 [Bun](https://bun.sh) 的电脑上安装已发布的 CLI：
 
 ```bash
 bun install -g @nocoo/pika
-pika login          # 打开 dashboard 创建 token，粘贴回 CLI
-pika sync           # 解析本地会话并上传
+pika login
+pika sync --source claude-code,codex
 ```
 
-## 命令一览
+`login` 打开浏览器完成 Access 登录，通过本机回调自动保存 token。随后 `sync` 上传所选来源的会话；省略 `--source` 会扫描所有支持的来源。打开[站点](https://pika.hexly.ai)查看同步结果。
 
-| 命令 | 说明 |
-|------|------|
-| `pika login` | 打开浏览器到 token 管理页，引导粘贴 `pk_*` |
-| `pika sync` | 解析本地会话并上传到云端 |
-| `pika sync --source claude-code,codex` | 仅同步指定来源 |
-| `pika sync --no-upload` | 仅本地解析，不上传 |
-| `pika status` | 查看同步状态和各来源文件数 |
+| 命令 | 用途 |
+| --- | --- |
+| `pika sync` | 同步所有可发现的来源 |
+| `pika sync --source claude-code,codex` | 只同步指定来源 |
+| `pika status` | 查看本地同步状态与来源文件信息 |
+| `pika login --force` | 重新进行浏览器登录 |
 
-## 项目结构
+`sync --no-upload` 会解析文件并保存同步游标，之后的正常同步可能跳过未变化的文件；不要把它作为首次上传前的无副作用预览。
 
-```
-pika/
-├── packages/
-│   ├── core/                # 共享类型、常量、校验器
-│   ├── cli/                 # @nocoo/pika
-│   ├── web/                 # Vite + React SPA（构建到 ../web-worker/dist）
-│   └── web-worker/          # 单 Worker：[assets] SPA + /api/* Hono
-│       └── src/
-│           ├── api/         #   sessions / projects / tags / search / stats / ingest
-│           ├── routes/      #   me / auth-cli / auth-tokens
-│           ├── middleware/  #   accessAuth → apiKeyAuth → resolveUser
-│           └── lib/         #   env、resolve-user、R2Client
-├── scripts/
-│   ├── migrations/          # D1 schema migrations (001–006)
-│   └── dev-all.ts           # 并发启动 web (vite :7022) + worker (wrangler :8787)
-├── docs/
-│   └── 00-architecture.md   # 当前架构与部署
-└── .github/workflows/
-    └── ci.yml               # quality (base-ci) + CD (wrangler deploy)
-```
-
-## 技术栈
-
-| 层 | 技术 |
-|----|------|
-| 运行时 | [Bun](https://bun.sh) |
-| 语言 | [TypeScript](https://www.typescriptlang.org) (strict) |
-| CLI | [citty](https://github.com/unjs/citty) + [consola](https://github.com/unjs/consola) |
-| Web | [Vite](https://vite.dev) + [React 19](https://react.dev) + [React Router](https://reactrouter.com) |
-| UI | [Tailwind CSS v4](https://tailwindcss.com) + [shadcn/ui](https://ui.shadcn.com) + [Recharts](https://recharts.org) |
-| 边缘 | [Cloudflare Workers](https://workers.cloudflare.com) + [Hono](https://hono.dev) |
-| 认证 | [Cloudflare Access](https://www.cloudflare.com/zero-trust/) (人) · `pk_*` API token (CLI) |
-| 数据库 | [Cloudflare D1](https://developers.cloudflare.com/d1/) (SQLite + FTS5) |
-| 存储 | [Cloudflare R2](https://developers.cloudflare.com/r2/) (gzip blobs，canonical + raw) |
-| 测试 | [Vitest](https://vitest.dev) |
-| CI/CD | GitHub Actions ([nocoo/base-ci](https://github.com/nocoo/base-ci)) + `wrangler deploy` |
+当前源码中的 `sessions`、`projects`、`search`、`tags` CLI 管理命令访问受 Access 保护的 API，仅有 `pika login` 得到的 Bearer token 还不足以在生产使用这些命令。会话管理可通过 Web 界面完成。CLI 的生产和 `--dev` 地址写在源码中，`--dev` 指向 `https://pika.dev.hexly.ai`；自行托管的 CLI 需要调整地址并重新构建。
 
 ## 开发
+
+需要 Bun，以及用于 Vite、Vitest 和 Wrangler 的 Node.js 22.12+。
 
 ```bash
 git clone https://github.com/nocoo/pika.git
 cd pika
-bun install
-bun run dev:all     # vite :7022 + wrangler dev :8787
+bun install --frozen-lockfile
+bun run build
 ```
 
-| 命令 | 说明 |
-|------|------|
-| `bun install` | 安装依赖（自动配 husky） |
-| `bun run dev:all` | 启动 web (Vite :7022) + web-worker (wrangler :8787) |
-| `bun run build` | 构建 SPA 到 `packages/web-worker/dist` |
-| `bun run lint` | tsc --noEmit (root + web + web-worker) |
-| `bunx vitest run --coverage` | 测试 + 覆盖率 |
+`build` 构建共享包、CLI 和 SPA，网页产物写入 `packages/web-worker/dist/`。`packages/cli/` 包含解析和同步逻辑，`packages/web/` 是 React 界面，`packages/web-worker/` 是 API 和 Worker 配置。
 
-## 部署
+普通开发配置中的 D1 / R2 均为 `remote = true`，直接启动会访问配置里的远程资源。先按[开发与部署说明](docs/01-development.md#交互开发与配置)准备自己的数据库、存储桶、Access 配置和开发网关，再运行：
 
-单 Worker 拓扑：构建产物即部署产物。`bun run build` 把 SPA 打到 `packages/web-worker/dist/`，`wrangler deploy` 上传 worker + assets。
+```bash
+bun run dev:all
+```
 
-| 环境 | Worker 名 | 域名 |
-|------|----------|------|
-| prod | `pika` | `pika.hexly.ai` · `pika-ingest.worker.hexly.ai`（旧 CLI 兼容） |
+此命令启动 Vite 7022 和 Worker 8787。本地 API 验证可直接使用下节的隔离测试；仅设置 `DEV_USER_EMAIL` 不能保证普通本地请求通过认证。生产 Release 工作流在 main CI 成功后部署 Worker，D1 迁移需另行应用。
 
-L2 E2E 在本地 wrangler dev 上跑（`bun run test:e2e`），不再维护远端 test worker / D1 / R2。
+## 测试
 
-CI/CD（`.github/workflows/ci.yml`）在 push to `main` 时自动跑 quality gate（typecheck + L1 + biome + gitleaks + osv）然后 `wrangler deploy --env=""`。需要 repo secret `CLOUDFLARE_API_TOKEN`。
+先完成依赖安装，并确保 Bun、Node.js 和 `npx` 在 PATH 中。
 
-详细见 [docs/00-architecture.md](./docs/00-architecture.md)。
+```bash
+bun run test
+bun run --cwd packages/web test
+bun test packages/core/test/migration.test.ts
+bun run test:e2e
+```
+
+根 Vitest 命令覆盖共享包、CLI 和 Worker 的 TypeScript 单元测试；React / TSX 测试由 web 包单独运行。迁移测试使用 Bun 的内存 SQLite。
+
+API E2E 自动应用迁移、写入合成测试用户并启动本地 Worker，无需生产凭据。保持 17022 端口空闲，并将 `packages/web-worker` 内的 `.wrangler/e2e` 与 `.dev.vars.e2e` 留给 runner；前者每次重建，后者由 runner 写入并在结束时移除。当前没有浏览器 E2E 命令。
+
+## 技术栈
+
+| 技术 | 用途 |
+| --- | --- |
+| TypeScript / Bun workspaces | 共享类型、CLI、依赖管理与脚本 |
+| `@nocoo/base-cli` | CLI 命令、输出和浏览器登录 |
+| Vite / React / React Router | SPA 构建、界面和路由 |
+| Tailwind CSS / Radix UI / Recharts | 样式、界面组件和统计图表 |
+| Hono / Cloudflare Workers | 同源 API 与静态资源 |
+| Cloudflare Access | 浏览器身份认证 |
+| Cloudflare D1 / SQLite FTS5 | 元数据、用户、token 哈希与全文搜索 |
+| Cloudflare R2 | gzip 压缩的标准化消息及原始内容 |
+| Vitest / Testing Library / Bun SQLite | 单元测试、React 测试与迁移测试 |
 
 ## 文档
 
-| # | 文档 | 说明 |
-|---|------|------|
-| 00 | [Architecture](./docs/00-architecture.md) | 拓扑、鉴权链路、数据模型、部署、运维 |
+- [文档索引](docs/README.md)
+- [开发、同步行为与部署](docs/01-development.md)：配置、来源目录、认证和迁移前置条件。
+- [架构说明](docs/00-architecture.md)：单 Worker 拓扑与数据模型；启动和发布步骤以开发说明为准。
 
-## License
+## 许可证
 
-[MIT](LICENSE) © 2026 Zheng Li
+[MIT](LICENSE)
