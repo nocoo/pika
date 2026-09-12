@@ -33,7 +33,7 @@ jobs:
       build-command: "bun run build"
       wrangler-version: "4.129.1"
       wrangler-working-directory: "packages/web-worker"
-      deploy-command: deploy --env=""
+      deploy-command: deploy --env=
       environment: production
       concurrency-group: deploy-pika-production
       timeout-minutes: 15
