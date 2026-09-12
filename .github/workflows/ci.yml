@@ -18,7 +18,6 @@ jobs:
       test-command: "bun run test:coverage"
       typecheck-command: "bun run lint:typecheck"
       lint-command: "bun run lint:biome"
-    secrets: inherit
 
   l2-e2e:
     name: "L2 Worker E2E"
