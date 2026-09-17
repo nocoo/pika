@@ -31,7 +31,7 @@ jobs:
       runtime-version: "1.3.11"
       install-policy: "blocked"
       build-command: "bun run build"
-      wrangler-version: "4.129.1"
+      wrangler-version: "4.131.2"
       wrangler-working-directory: "packages/web-worker"
       deploy-command: deploy --env=
       environment: production
