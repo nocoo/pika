@@ -1,101 +1,93 @@
-# CLAUDE.md
+# Pika
 
-## Project Overview
+Coding-agent session collector and searchable web reader, served by one Cloudflare Worker.
+Profile: ts-worker-web plus cli-library.
+Direction: [architecture](docs/00-architecture.md), [development guide](docs/01-development.md).
 
-**Pika** is a SaaS for replaying and searching coding agent sessions. Single Cloudflare Worker serves SPA + `/api/*`. 4-package Bun monorepo:
+## Sources of Truth
 
-| Package | Purpose |
-|---------|---------|
-| `packages/core` | Shared types, constants, validators |
-| `packages/cli` | `@nocoo/pika` — parses + uploads sessions |
-| `packages/web` | Vite + React 19 SPA (builds to `../web-worker/dist`) |
-| `packages/web-worker` | Cloudflare Worker — `[assets]` SPA + Hono `/api/*` |
+This handbook is the contract; hooks, CI and config enforce it. Raise weaker gates to match. Frameworks must not replace this file.
 
-Full architecture: [docs/00-architecture.md](./docs/00-architecture.md).
+| Fact | Where |
+| --- | --- |
+| Human docs | [README.md](README.md), [docs/README.md](docs/README.md) |
+| Version | Root/CLI package versions and `scripts/sync-versions.ts`; other packages may differ |
+| Enforcement | `.husky/`, CI, root/package Vitest configs, `scripts/ensure-tools.sh` |
+| Environment | Worker config; runner-owned ignored `.dev.vars.e2e` |
+| Accidents | [Retrospective.md](Retrospective.md) |
 
-## Tech Stack
+## Project Invariants
 
-- **Runtime**: Bun
-- **Language**: TypeScript (strict)
-- **CLI**: citty + consola
-- **Web**: Vite + React 19 + React Router, Tailwind v4, shadcn/ui, Recharts
-- **Edge**: Cloudflare Workers + Hono
-- **Auth**: Cloudflare Access SSO (browser) + `pk_*` API token (CLI)
-- **DB**: Cloudflare D1 (SQLite + FTS5) — native binding, no HTTP REST
-- **Storage**: Cloudflare R2 — canonical (mutable) + raw (content-addressed) gzip blobs
-- **Testing**: Vitest (90% coverage)
-- **CI/CD**: GitHub Actions (`nocoo/base-ci@aec4adc1a817c56790d1698329ef9398a15a754a` — v2026.5, SHA-pinned) → `wrangler deploy`
+- One Worker serves SPA and Hono `/api/*`; preserve `run_worker_first` and SPA fallback. Native D1 stores metadata/FTS/token hashes; R2 stores mutable canonical and content-addressed raw gzip blobs.
+- Browser uses verified Cloudflare Access, CLI ingest uses `pk_*` API tokens with path-specific Access bypass. Exact issuer/team/AUD matter; bearer alone does not bypass Access on browser management APIs.
+- Read source logs/SQLite without modification. Sync uploads metadata, canonical messages and raw content; failed content writes rewind related cursors. `sync --no-upload` still changes cursors and is not a side-effect-free preview.
+- Upserts compare content/raw hashes, parser revision and schema version, not only snapshot time. Preserve timestamp normalization, decoded session-key URL segments and SQLite-compatible query syntax.
+- Supported sources remain Claude Code, Codex, Gemini, OpenCode JSON/SQLite and VS Code Copilot; current default paths are mostly macOS. Do not invent configurable source flags or completed recycle-bin UI.
+- Preserve CLI domain/cookie scope and legacy `pika-ingest.worker.hexly.ai` uploads. Use local Caddy `https://pika.dev.hexly.ai` for interactive dev; ordinary Worker config has production remote bindings.
+- Keep MVVM, three strict type configs, published package/barrel exports and background/card/secondary luminance order. Do not use React reserved property names as chart fields.
 
-## Quality Framework
+## Stack / Layout
 
-| Dim | What | When | Threshold |
-|-----|------|------|-----------|
-| L1: UT | Business logic, parsers, validators | pre-commit | 90% coverage |
-| L2: E2E | Worker API endpoints via local wrangler dev | pre-push / CI | All pass |
-| G1: Static | tsc --noEmit (root + web + web-worker) + lint-staged (Biome) + gitleaks staged | pre-commit | Zero errors |
-| G2: Security | gitleaks + osv-scanner | pre-push | Zero findings |
-| Build | `bun run build` (vite SPA → web-worker dist) | pre-push | Success |
-| CD | `wrangler deploy` + `/api/live` smoke | push to main | 200 or 401 |
+| Component | Choice |
+| --- | --- |
+| Workspaces | `packages/core`, `packages/cli`, `packages/web`, `packages/web-worker` |
+| Web/API | Vite/React 19, Router/Tailwind/Radix/Recharts, Hono/Worker |
+| Data | D1 SQLite/FTS5 and R2; `scripts/migrations/` |
+| Tooling | Bun, Node 22.12+, TypeScript 7 strict, Biome, Vitest/Bun SQLite |
 
-## Key Commands
+## Commands
 
-```bash
-bun install                    # install + husky setup
-bun run dev:all                # vite :7022 + wrangler dev :8787
-bun test                       # bun native (incl. bun:sqlite migration tests)
-bunx vitest run --coverage     # node runner + coverage report
-bun run test:e2e               # L2 worker E2E (local wrangler :17022)
-bun run build                  # SPA → packages/web-worker/dist
-bun run lint                   # tsc --noEmit (3 tsconfigs)
-bun run lint:biome             # biome lint + format check
-bun run lint:secrets           # gitleaks
-bun run lint:deps              # osv-scanner
+Run from root; CI pins Bun 1.4.2. Build compiles core/CLI and writes Web assets into the Worker package.
+
+```sh
+bun install --frozen-lockfile
+bun run build
+bun run typecheck
+bun run lint:biome
+bun run test:coverage
+bun run --cwd packages/web test
+bun test packages/core/test/migration.test.ts
+bun run test:e2e
+bun run lint:secrets
+bun run lint:deps
 ```
 
-## Deploy
+The API runner owns Worker port 17022, fixed `.wrangler/e2e` and `.dev.vars.e2e`. It invokes Wrangler `--local`, seeds synthetic users and a marker, and needs `npx` in PATH. The pinned Wrangler 4.133.0 maps `--local` to remote bindings disabled; keep that behavior and ensure no other run owns those files. Do not start `dev:all` as a test: it connects the configured remote D1/R2.
 
-```bash
-cd packages/web-worker
-CLOUDFLARE_ACCOUNT_ID=d51a8fde361e4be31db17d8c56737c1f bunx wrangler deploy
-```
+## Verification
 
-CI auto-deploys on push to `main` (`.github/workflows/ci.yml` → `Deploy Worker (production)`). Repo secret: `CLOUDFLARE_API_TOKEN`.
+6DQ = L1/L2/L3 + G1/G2 + D1. Status: `enforced`, `planned`, `manual`, `N/A`. No `.skip`/`.only`; statements/branches/functions/lines each ≥95% required.
 
-| Env | Worker | Domain |
-|-----|--------|--------|
-| prod | `pika` | `pika.hexly.ai` + `pika-ingest.worker.hexly.ai` (legacy CLI) |
+| Piece | Requirement and current reality | Status | Evidence |
+| --- | --- | --- | --- |
+| L1 | Four-metric ≥95% across core/CLI/Web/Worker logic | planned | Root gate 95/90/95/95, excludes core/commands/TSX; Web/migration lanes run separately |
+| L2 | Real HTTP, every API endpoint/method with real SQLite | planned | Worker HTTP runner enforced by pre-push/CI; full surface/guard proof missing |
+| L3 | Browser reading/search and real CLI login/sync workflows | planned | No browser system entrypoint; process workflow gate incomplete |
+| G1 | All three type configs and zero-warning/error check-only lint | planned | Types enforced; Biome command lacks warning failure and lint-staged may write |
+| G2 | Required OSV + gitleaks, missing scanners fail | enforced | `ensure-tools.sh`, pre-push and shared CI; secret scan currently working-tree rather than pushed refs |
+| D1 | Per-run local state with guards/marker before reset/seed | planned | Fixed persistence reset occurs before marker validation; normal config includes remote bindings |
+| Build | All shipped packages and SPA assets | enforced | Pre-push/CI build |
+| Docs | Auth/source/version/migration reality kept current | manual | Numbered guide review |
 
-## Supported Sources
+Current pre-commit runs worktree coverage/types with lint-staged and staged secret scan; pre-push builds then runs HTTP/security in parallel. Target: check-only index L1/G1 <30s and stdin pushed-ref L2/G2 <3min. No hook bypass, skip flags or weaker thresholds.
 
-- Claude Code (`~/.claude/projects/**/*.jsonl`)
-- Codex CLI (`~/.codex/sessions/**/*.jsonl`)
-- Gemini CLI (`~/.gemini/tmp/*/chats/*.json`)
-- OpenCode (`~/.local/share/opencode/` — JSON + SQLite)
-- VSCode Copilot (`~/Library/Application Support/Code/User/` — CRDT JSONL)
+## Resources / Isolation
+
+| Purpose | Ports / state | Policy |
+| --- | --- | --- |
+| Interactive dev | Vite 7022 / Worker 8787, inspector 9229 | Remote D1/R2 in normal config; real data |
+| API tests | Worker 17022; package `.wrangler/e2e` | Fixed local harness; per-run guards still required |
+| Production | `pika.hexly.ai`, legacy ingest domain | Worker `pika`, D1 `pika-db`, R2 `pika` |
+
+Required test design uses local Wrangler/Miniflare with fresh SQLite/R2, rejects remote bindings and credential fallback, validates test runtime and `_test_marker` before destructive operations. Never deploy remote `-test` resources or use production/daily-dev data. Preserve process-group teardown so Wrangler grandchildren cannot leak ports.
+
+## Operations / Release
+
+Authorized Worker publishing uses `bun run deploy:web-worker`; the release workflow follows successful main CI. Apply production migrations separately before dependent code, with SQL files rather than mangled multi-statement command strings. Confirm `/api/live`, Access behavior and legacy CLI domain. CLI publishing/version synchronization is separate; follow [development guide](docs/01-development.md).
 
 ## Retrospective
 
-Patterns that re-bit us; check before re-introducing.
+Narratives live in [Retrospective.md](Retrospective.md). Keep recurring project rules brief; global lessons belong in nmem/rules and deterministic checks in tests/hooks.
 
-- **better-sqlite3 → bun:sqlite**: Bun 1.3.9 dropped `better-sqlite3`. Migration tests now use `bun:sqlite` (Bun built-in). API nearly identical (`prepare/all/run/exec/close`), but pragmas use `db.run("PRAGMA ...")` instead of `db.pragma("...")`. Excluded from vitest (Node can't resolve `bun:sqlite`).
-- **git add -A atomicity trap**: Stages everything when multiple logical changes coexist. Always stage selectively.
-- **Three independent tsconfigs**: root + `packages/web` + `packages/web-worker`. Each has its own `lib`/`types` (DOM vs Workers). Lint script must run all three.
-- **Bun built-in imports need variable indirection for tsc**: `import("bun:sqlite")` literal causes TS2307 without bun-types. Use `const modId = "bun:sqlite"; await import(modId)`.
-- **vi.stubEnv is vitest-only**: Doesn't exist in Bun's runner. For dual-runner compatibility, use direct `process.env` assignment with manual save/restore. Cast via `(process.env as Record<string, string>)[key]` for `NODE_ENV`.
-- **Worker upsert WHERE must check all version fields**: `content_hash`, `raw_hash`, `parser_revision`, `schema_version` — not just `snapshot_at`. Otherwise stale parser output can overwrite newer canonical data.
-- **VSCode Copilot completedAt can be numeric epoch**: CRDT `modelState.completedAt` is sometimes ms epoch, not ISO string. Always normalize external timestamps.
-- **Barrel export omissions cause silent `undefined`**: Add a constant to `packages/core/src/constants.ts` but forget to re-export from `index.ts` → import resolves to `undefined` at runtime, no TS error. Default param `concurrency = CONST_NAME` becomes `undefined` → `Array.from({ length: NaN })` → empty work. Verify barrel exports.
-- **SQLite UPDATE does not support table aliases**: `UPDATE sessions s SET …` is PG/MySQL syntax; SQLite errors `near "s"`. When `buildWhereClause` generates `s.column` conditions, wrap in subquery: `UPDATE sessions SET … WHERE id IN (SELECT s.id FROM sessions s WHERE …)`. SELECT supports aliases.
-- **Recharts spreads data props onto React elements**: `<Cell>` receives every data prop. Using `ref`/`key`/`children` as data field name collides with React reserved props → `Expected ref to be a function`. Avoid reserved names in chart data.
-- **3-layer luminance: bg < card < secondary**: Dark mode 7% < 10.6% < 12.2%. Content island = L1 `bg-card`; inner panels = L2 `bg-secondary` (brightest). Inverting destroys contrast — panels blend into container.
-- **Pre-push must mirror CI**: CI runs `bun run build` to catch issues `tsc --noEmit` misses. Pre-push hook does Build → parallel L2 (E2E) + G2 (gitleaks + osv).
-- **CF Access bypass is path-level, not bearer-aware**: `/api/ingest/*` MUST have a CF Access bypass policy or CLI gets 302 HTML and `response.json()` crashes. Bearer token in header doesn't make CF Access let traffic through.
-- **CF_ACCESS_TEAM_DOMAIN must be exact**: jose's `jwtVerify` silently catches errors in `accessAuth` middleware → falls through to `apiKeyAuth` → terminal 401 → SPA reloads → infinite redirect loop. Wrong team domain = wrong issuer claim. Set in `wrangler.toml` top-level `[vars]` (only env after the remote test env was removed; E2E reads from `.dev.vars.e2e`).
-- **URL-encode the colon in sessionKey**: CLI builds `claude:abc → claude%3Aabc` for the upload URL. Worker route `PUT /content/*` must `decodeURIComponent` each segment before hitting D1, otherwise lookup is `claude%3Aabc` → 404.
-- **wrangler `--env=""`**: Without it, scoped CF API tokens missing `Memberships:Read` fail when wrangler calls `/memberships` to auto-pick an account. `--env=""` explicitly targets the top-level config.
-- **Killing wrangler dev needs process group**: workerd is a grandchild; SIGTERM to wrangler doesn't reap it before timeout → next `dev:all` hits EADDRINUSE on 8787 + inspector. `dev-all.ts` uses `detached: true` + `process.kill(-pid, signal)`.
-- **D1 prod migrations are manual**: `wrangler d1 execute pika-db --remote --file=scripts/migrations/00X.sql`. New table = silent 500 in prod until applied. The `api_tokens` HTTP 500 incident burned us once.
-- **`run_worker_first` for `[assets]`**: `wrangler.toml` `[assets]` needs `run_worker_first = ["/api/*"]` so Hono handlers preempt the static file matcher; `not_found_handling = "single-page-application"` makes deep links resolve to `index.html`.
-- **CLI domain must match cookie scope**: Browser CF Access cookie is bound to `pika.hexly.ai`. CLI must hit `https://pika.hexly.ai`, not `localhost:7022` (in dev: real `https://pika.dev.hexly.ai` via reverse proxy + mkcert TLS).
-- **wrangler dev --local still sets `cf` on requests**: `isLocalhost()` checks `c.req.raw.cf` — present in local mode, making it think requests are on CF edge. E2E bypass must not rely on localhost detection; `apiKeyAuth` E2E_SKIP_AUTH path injects `accessEmail` directly from `DEV_USER_EMAIL`.
-- **wrangler d1 --command fails on multi-statement SQL**: Comments and semicolons get mangled. Always use `--file` for migration scripts.
+- Use Bun's SQLite runner for migration tests; Vitest/Node cannot load `bun:sqlite`.
+- Preserve process-group teardown and select task paths explicitly when staging.
