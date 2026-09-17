@@ -1,7 +1,7 @@
-import { HeaderTooltip } from "./header-links";
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useCallback, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
+import { HeaderTooltip } from "./header-links";
 
 type Theme = "light" | "dark" | "system";
 

@@ -1,10 +1,10 @@
-import { HeaderTooltip, HexlyLink } from "./header-links";
 import { Menu } from "lucide-react";
 import { useEffect } from "react";
 import { useLocation } from "react-router";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { breadcrumbsFromPathname } from "@/lib/navigation";
 import { Breadcrumbs } from "./breadcrumbs";
+import { HeaderTooltip, HexlyLink } from "./header-links";
 import { Sidebar } from "./sidebar";
 import { SidebarProvider, useSidebar } from "./sidebar-context";
 import { ThemeToggle } from "./theme-toggle";
