@@ -1,3 +1,4 @@
+import { HeaderTooltip } from "./header-links";
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useCallback, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
@@ -71,15 +72,17 @@ export function ThemeToggle() {
   }, [theme]);
 
   return (
-    <Button variant="ghost" size="icon" onClick={cycleTheme}>
-      {theme === "system" ? (
-        <Monitor {...ICON_PROPS} />
-      ) : theme === "dark" ? (
-        <Moon {...ICON_PROPS} />
-      ) : (
-        <Sun {...ICON_PROPS} />
-      )}
-      <span className="sr-only">Toggle theme</span>
-    </Button>
+    <HeaderTooltip label={`Theme: ${theme}`}>
+      <Button variant="ghost" size="icon" onClick={cycleTheme}>
+        {theme === "system" ? (
+          <Monitor {...ICON_PROPS} />
+        ) : theme === "dark" ? (
+          <Moon {...ICON_PROPS} />
+        ) : (
+          <Sun {...ICON_PROPS} />
+        )}
+        <span className="sr-only">Toggle theme</span>
+      </Button>
+    </HeaderTooltip>
   );
 }
