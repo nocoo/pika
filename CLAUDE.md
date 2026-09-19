@@ -52,7 +52,7 @@ bun run lint:secrets
 bun run lint:deps
 ```
 
-The API runner owns Worker port 17022, fixed `.wrangler/e2e` and `.dev.vars.e2e`. It invokes Wrangler `--local`, seeds synthetic users and a marker, and needs `npx` in PATH. The pinned Wrangler 4.133.0 maps `--local` to remote bindings disabled; keep that behavior and ensure no other run owns those files. Do not start `dev:all` as a test: it connects the configured remote D1/R2.
+The API runner owns Worker port 17022, fixed `.wrangler/e2e` and `.dev.vars.e2e`. It invokes Wrangler `--local`, seeds synthetic users and a marker, and needs `npx` in PATH. The pinned Wrangler 4.135.0 maps `--local` to remote bindings disabled; keep that behavior and ensure no other run owns those files. Do not start `dev:all` as a test: it connects the configured remote D1/R2.
 
 ## Verification
 
