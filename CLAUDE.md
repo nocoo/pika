@@ -52,7 +52,7 @@ bun run lint:secrets
 bun run lint:deps
 ```
 
-The API runner owns Worker port 17022, fixed `.wrangler/e2e` and `.dev.vars.e2e`. It invokes Wrangler `--local`, seeds synthetic users and a marker, and needs `npx` in PATH. The pinned Wrangler 4.133.0 maps `--local` to remote bindings disabled; keep that behavior and ensure no other run owns those files. Do not start `dev:all` as a test: it connects the configured remote D1/R2.
+The API runner owns Worker port 17022, fixed `.wrangler/e2e` and `.dev.vars.e2e`. It invokes Wrangler `--local`, seeds synthetic users and a marker, and needs `npx` in PATH. The pinned Wrangler 4.135.0 maps `--local` to remote bindings disabled; keep that behavior and ensure no other run owns those files. Do not start `dev:all` as a test: it connects the configured remote D1/R2.
 
 ## Verification
 
@@ -60,10 +60,10 @@ The API runner owns Worker port 17022, fixed `.wrangler/e2e` and `.dev.vars.e2e`
 
 | Piece | Requirement and current reality | Status | Evidence |
 | --- | --- | --- | --- |
-| L1 | Four-metric ≥95% across core/CLI/Web/Worker logic | planned | Root gate 95/90/95/95, excludes core/commands/TSX; Web/migration lanes run separately |
+| L1 | Four-metric ≥95% across core/CLI/Web/Worker logic | planned | Root gate 95/95/95/95, excludes core/commands/TSX; Web/migration lanes run separately |
 | L2 | Real HTTP, every API endpoint/method with real SQLite | planned | Worker HTTP runner enforced by pre-push/CI; full surface/guard proof missing |
 | L3 | Browser reading/search and real CLI login/sync workflows | planned | No browser system entrypoint; process workflow gate incomplete |
-| G1 | All three type configs and zero-warning/error check-only lint | planned | Types enforced; Biome command lacks warning failure and lint-staged may write |
+| G1 | All three type configs and zero-warning/error check-only lint | planned | Types and check-only zero-warning Biome enforced; index-snapshot checking remains planned |
 | G2 | Required OSV + gitleaks, missing scanners fail | enforced | `ensure-tools.sh`, pre-push and shared CI; secret scan currently working-tree rather than pushed refs |
 | D1 | Per-run local state with guards/marker before reset/seed | planned | Fixed persistence reset occurs before marker validation; normal config includes remote bindings |
 | Build | All shipped packages and SPA assets | enforced | Pre-push/CI build |

@@ -19,7 +19,7 @@
     "test:e2e": "bun run --cwd packages/web-worker test:e2e",
     "lint": "tsc --noEmit && tsc --noEmit -p packages/web/tsconfig.json && tsc --noEmit -p packages/web-worker/tsconfig.json",
     "lint:typecheck": "tsc --noEmit && tsc --noEmit -p packages/web/tsconfig.json && tsc --noEmit -p packages/web-worker/tsconfig.json",
-    "lint:biome": "bunx biome check packages/",
+    "lint:biome": "bunx biome check --error-on-warnings packages/",
     "lint:secrets": "gitleaks detect --source . --no-git --config .gitleaks.toml",
     "lint:deps": "osv-scanner scan --lockfile=bun.lock --config .osv-scanner.toml",
     "lint:all": "bun run lint && bunx biome check packages/ && bun run lint:secrets && bun run lint:deps",
