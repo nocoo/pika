@@ -377,6 +377,38 @@ describe("liveApp wiring", () => {
 // ── ingest ────────────────────────────────────────────────────
 
 describe("ingestApp wiring", () => {
+  it.each([null, { userId: "forged-user" }])(
+    "keeps context ownership for metadata without a sessions array: %j",
+    async (value) => {
+      const body = JSON.stringify(value);
+      const response = await withUserId(ingestApp).fetch("/sessions", {
+        method: "POST",
+        headers: { "Content-Length": String(Buffer.byteLength(body)) },
+        body,
+      });
+      expect(response.status).toBe(200);
+      expect(ingestMocks.handleSessionIngest).toHaveBeenCalledWith(
+        { userId: "user-1", sessions: [] },
+        stubEnv,
+      );
+    },
+  );
+
+  it("returns a controlled response for a non-Error signing rejection", async () => {
+    const presignPut = vi.fn().mockRejectedValue("signing unavailable");
+    const response = await withUserId(createIngestApp({ presignPut })).fetch(
+      "/presign",
+      {
+        method: "POST",
+        body: JSON.stringify({ sessionKey: "s", rawHash: "1234abcd" }),
+      },
+    );
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: "Failed to generate presigned URL: signing unavailable",
+    });
+  });
+
   it("POST /presign with valid body → presignPut + json", async () => {
     const presignPut = vi.fn().mockResolvedValue("https://r2/upload");
     const app = withUserId(createIngestApp({ presignPut }));
