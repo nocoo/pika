@@ -8,6 +8,8 @@
 # No service binding to packages/api; no WORKER_SECRET.
 
 name = "pika"
+workers_dev = false
+preview_urls = false
 main = "src/index.ts"
 compatibility_date = "2026-04-01"
 compatibility_flags = ["nodejs_compat"]
