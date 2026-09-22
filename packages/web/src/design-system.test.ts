@@ -57,7 +57,7 @@ describe("design-system: hover token on L2 containers", () => {
       offenders,
       `L2-on-darker-hover regression in: ${offenders.join(", ")}\n` +
         "Use hover:bg-accent/50 instead — bg-accent is L3 (lighter than L2),\n" +
-        "matching the 4-tier luminance scale defined in CLAUDE.md retrospective.",
+        "matching the 4-tier luminance scale defined in AGENTS.md/Retrospective.md.",
     ).toEqual([]);
   });
 });

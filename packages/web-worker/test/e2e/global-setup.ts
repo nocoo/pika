@@ -107,7 +107,7 @@ export async function setup() {
   // detached:true puts wrangler in its own process group so teardown can
   // signal the whole group — wrangler spawns workerd as a grandchild and
   // a plain SIGTERM to wrangler doesn't reap it (next E2E run hits
-  // EADDRINUSE on 17022). See CLAUDE.md retrospective.
+  // EADDRINUSE on 17022). See Retrospective.md.
   wranglerProcess = spawn(
     "npx",
     [
