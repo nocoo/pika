@@ -38,3 +38,8 @@ preset: recommended setting from the installed schema and the required array
 format without changing exclusions, rule severities or warning rejection. The
 failed hook output is retained; the normal hook must pass before this upgrade
 is committed. No check used autofix or a hook bypass.
+
+The upgraded Vite runner reported a future native-config-loader incompatibility
+in the HTTP suite's config: __dirname was provided by the legacy loader. Use
+import.meta.dirname for the same directory instead. Keep all HTTP cases, fixture
+paths, timeouts and process isolation unchanged; do not suppress the warning.
